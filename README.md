@@ -13,11 +13,14 @@
 
 #### 1.2 获取 Access Token
 1. 在 Account 页面找到 "Access tokens" 部分
-2. 创建新的 Public token（用于地图显示）
-3. 创建新的 Secret token（用于 Dataset API）
-4. 记录下这两个 token
+2. 创建新的密钥
+![Mapbox Access Tokens](READMEIMG/mapbox1.png)
+![Mapbox Access Tokens](READMEIMG/mapbox2.png)
+全部勾选，点击Create token按钮
+3. 编辑 `src/lib/config.ts` 文件：
+![Mapbox Access Tokens](READMEIMG/mapbox5.png)
 
-#### 1.3 创建 Dataset
+#### 1.3 创建 Dataset（可选）
 1. 访问 [Mapbox Datasets](https://studio.mapbox.com/datasets/)
 2. 点击 "New dataset"
 3. 选择 "Empty dataset"
@@ -37,72 +40,16 @@
 3. 附加 `AmazonS3FullAccess` 策略
 4. 创建 Access Key 和 Secret Key
 
-### 3. 编辑配置文件
-
-#### 3.1 更新 config.ts
-编辑 `src/lib/config.ts` 文件：
+#### 2.3 编辑 `next.config.js` 文件：
+将domains修改为自己的 S3 域名
 
 ```typescript
-export const config = {
-    mapbox: {
-        accessToken: 'pk.YOUR_PUBLIC_ACCESS_TOKEN', // 替换为您的 Public Token
-        style: 'mapbox://styles/mapbox/satellite-streets-v12',
-        dataset: {
-            username: 'YOUR_MAPBOX_USERNAME', // 替换为您的 Mapbox 用户名
-            secretAccessToken: 'sk.YOUR_SECRET_ACCESS_TOKEN', // 替换为您的 Secret Token
-            datasetId: 'YOUR_DATASET_ID', // 替换为您的 Dataset ID
-        },
-    },
-    aws: {
-        s3: {
-            accessKeyId: 'YOUR_AWS_ACCESS_KEY_ID',
-            secretAccessKey: 'YOUR_AWS_SECRET_ACCESS_KEY',
-            region: 'ap-northeast-1',
-            bucket: 'mapannai', // 您的 S3 存储桶名称
-        },
-    },
-    app: {
-        name: 'マップ案内 - 交互式地图编辑器',
-        version: '1.0.0',
-        defaultCenter: {
-            latitude: 35.452,
-            longitude: 139.638,
-        },
-        defaultZoom: 14.09,
-    },
-    // 城市快速跳转配置
-    cities: {
-        kyoto: {
-            name: '京都',
-            coordinates: { longitude: 135.7681, latitude: 35.0116 },
-            zoom: 14
-        },
-        osaka: {
-            name: '大阪',
-            coordinates: { longitude: 135.5022, latitude: 34.6937 },
-            zoom: 14
-        },
-        yokohama: {
-            name: '横滨',
-            coordinates: { longitude: 139.6380, latitude: 35.452 },
-            zoom: 14
-        },
-        // 您可以在这里添加更多城市
-        tokyo: {
-            name: '东京',
-            coordinates: { longitude: 139.6917, latitude: 35.6895 },
-            zoom: 11
-        },
-        nagoya: {
-            name: '名古屋',
-            coordinates: { longitude: 136.9066, latitude: 35.1815 },
-            zoom: 11
-        },
-    },
-} as const
+images: {
+    domains: ['mapannai.s3.ap-northeast-1.amazonaws.com'],
+},
 ```
 
-#### 3.2 添加城市配置
+#### 3. 添加城市配置
 在 `cities` 配置中添加您需要的城市：
 
 ```typescript
@@ -119,10 +66,12 @@ cities: {
 ## 🚀 部署到 AWS Amplify
 
 #### 创建 Amplify 应用
-1. 登录 [AWS Amplify Console](https://console.aws.amazon.com/amplify/)
-2. 点击 "New app" → "Host web app"
-3. 选择 "GitHub" 或其他代码仓库
-4. 连接您的代码仓库
+登录 [AWS Amplify Console](https://console.aws.amazon.com/amplify/)
+![Mapbox Access Tokens](READMEIMG/amplify1.png)
+![Mapbox Access Tokens](READMEIMG/amplify2.png)
+![Mapbox Access Tokens](READMEIMG/amplify3.png)
+![Mapbox Access Tokens](READMEIMG/amplify4.png)
+![Mapbox Access Tokens](READMEIMG/amplify5.png)
 
 
 ### 基本功能
