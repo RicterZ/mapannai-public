@@ -118,58 +118,12 @@ cities: {
 
 ## 🚀 部署到 AWS Amplify
 
-### 1. 准备部署
-
-#### 1.1 构建项目
-```bash
-npm run build
-# 或
-yarn build
-```
-
-#### 1.2 检查构建结果
-确保 `out` 目录生成成功。
-
-### 2. AWS Amplify 部署
-
-#### 2.1 创建 Amplify 应用
+#### 创建 Amplify 应用
 1. 登录 [AWS Amplify Console](https://console.aws.amazon.com/amplify/)
 2. 点击 "New app" → "Host web app"
 3. 选择 "GitHub" 或其他代码仓库
 4. 连接您的代码仓库
 
-#### 2.2 配置构建设置
-在 Amplify 控制台中配置构建设置：
-
-```yaml
-version: 1
-frontend:
-  phases:
-    preBuild:
-      commands:
-        - npm ci
-    build:
-      commands:
-        - npm run build
-  artifacts:
-    baseDirectory: .next
-    files:
-      - '**/*'
-  cache:
-    paths:
-      - node_modules/**/*
-```
-
-#### 2.3 环境变量设置
-在 Amplify 控制台中设置环境变量（如果需要）：
-- `NEXT_PUBLIC_MAPBOX_TOKEN`: 您的 Mapbox Public Token
-
-#### 2.4 部署
-1. 点击 "Save and deploy"
-2. 等待构建完成
-3. 访问生成的 URL
-
-## 📖 使用说明
 
 ### 基本功能
 
@@ -227,7 +181,7 @@ frontend:
 - 显示标记的详细内容
 - 支持滚动查看长内容
 
-### 高级功能
+### 功能详情
 
 #### 1. 标记分类
 - **活动** 🎯：活动和娱乐场所
@@ -245,67 +199,6 @@ frontend:
 - 图片自动上传到 AWS S3
 - 支持多人协作编辑
 
-## 🔧 故障排除
-
-### 常见问题
-
-#### 1. 地图不显示
-- 检查 Mapbox Access Token 是否正确
-- 确认网络连接正常
-- 检查浏览器控制台错误信息
-
-#### 2. 标记无法保存
-- 检查 Mapbox Secret Token 权限
-- 确认 Dataset ID 正确
-- 检查网络连接
-
-#### 3. 图片上传失败
-- 检查 AWS S3 配置
-- 确认存储桶权限设置
-- 检查 Access Key 权限
-
-#### 4. 部署失败
-- 检查构建日志
-- 确认环境变量设置
-- 检查代码仓库连接
-
-### 调试技巧
-
-#### 1. 浏览器开发者工具
-- 打开 F12 开发者工具
-- 查看 Console 错误信息
-- 检查 Network 请求状态
-
-#### 2. 本地调试
-```bash
-# 启用详细日志
-DEBUG=* npm run dev
-```
-
-#### 3. 环境检查
-```bash
-# 检查 Node.js 版本
-node --version
-
-# 检查 npm 版本
-npm --version
-
-# 检查依赖
-npm list
-```
-
-## 📝 更新日志
-
-### v1.0.0
-- ✅ 基础地图功能
-- ✅ 标记添加/编辑/删除
-- ✅ 富文本编辑器
-- ✅ 坐标跳转功能
-- ✅ 城市快速跳转
-- ✅ 标记搜索功能
-- ✅ 右侧边栏详情显示
-- ✅ AWS S3 图片上传
-- ✅ Mapbox Dataset 数据同步
 
 ## 🤝 贡献指南
 
@@ -314,10 +207,6 @@ npm list
 3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 打开 Pull Request
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
 ## 📞 支持
 
