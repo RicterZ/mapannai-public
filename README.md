@@ -76,6 +76,11 @@ cities: {
 
 ### 功能详情
 
+![Mapbox Access Tokens](READMEIMG/编辑模式1.png)
+![Mapbox Access Tokens](READMEIMG/编辑模式2.png)
+![Mapbox Access Tokens](READMEIMG/浏览模式.png)
+![Mapbox Access Tokens](READMEIMG/浏览模式2.png)
+
 #### 1. 标记分类
 - **活动** 🎯：活动和娱乐场所
 - **位置** 📍：一般地点标记
