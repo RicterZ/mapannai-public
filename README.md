@@ -2,6 +2,10 @@
 
 一个基于Next.js和Mapbox的交互式地图标记编辑平台，支持富文本内容编辑、坐标跳转、标记分类等功能。
 
+![](READMEIMG/1.png)
+![](READMEIMG/2.png)
+![](READMEIMG/3.png)
+
 ## 🚀 部署
 
 ### 环境变量配置
