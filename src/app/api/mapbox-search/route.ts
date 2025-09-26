@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { config } from '@/lib/config'
 
+export const dynamic = 'force-dynamic';
 /**
  * GET - 使用Mapbox Search API搜索地点
  */
 export async function GET(request: NextRequest) {
     try {
-        const { searchParams } = new URL(request.url)
+        const searchParams = request.nextUrl.searchParams;
         const query = searchParams.get('q')
         const limit = searchParams.get('limit') || '5'
 

@@ -1,20 +1,30 @@
 // Configuration file for the application
 export const config = {
     mapbox: {
-        accessToken: 'pk.YOUR_PUBLIC_ACCESS_TOKEN', // 替换为您的 Public Token
-        style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        accessToken: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '',
+        style: process.env.NEXT_PUBLIC_MAPBOX_STYLE || 'mapbox://styles/mapbox/streets-zh-v1',
         dataset: {
-            username: 'YOUR_MAPBOX_USERNAME', // 替换为您的 Mapbox 用户名
-            secretAccessToken: 'sk.YOUR_SECRET_ACCESS_TOKEN', // 替换为您的 Secret Token
-            datasetId: 'YOUR_DATASET_ID', // 替换为您的 Dataset ID
+            username: process.env.MAPBOX_USERNAME || '',
+            secretAccessToken: process.env.MAPBOX_SECRET_ACCESS_TOKEN || '',
+            datasetId: process.env.MAPBOX_DATASET_ID || '',
         },
     },
+    // AWS S3 配置（已弃用）
     aws: {
         s3: {
-            accessKeyId: 'YOUR_AWS_ACCESS_KEY_ID',
-            secretAccessKey: 'YOUR_AWS_SECRET_ACCESS_KEY',
-            region: 'ap-northeast-1',
-            bucket: 'mapannai', // 您的 S3 存储桶名称
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+            region: process.env.AWS_REGION || 'ap-northeast-1',
+            bucket: process.env.AWS_S3_BUCKET || '',
+        },
+    },
+    // 腾讯云COS配置
+    tencent: {
+        cos: {
+            secretId: process.env.TENCENT_COS_SECRET_ID || '',
+            secretKey: process.env.TENCENT_COS_SECRET_KEY || '',
+            region: process.env.TENCENT_COS_REGION || 'ap-chongqing',
+            bucket: process.env.TENCENT_COS_BUCKET || '',
         },
     },
     app: {
@@ -43,12 +53,11 @@ export const config = {
             coordinates: { longitude: 139.6380, latitude: 35.452 },
             zoom: 14
         },
-        // 您可以在这里添加更多城市
-        // tokyo: {
-        //     name: '东京',
-        //     coordinates: { longitude: 139.6917, latitude: 35.6895 },
-        //     zoom: 11
-        // },
+        tokyo: {
+            name: '东京',
+            coordinates: { longitude: 139.6917, latitude: 35.6895 },
+            zoom: 11
+        },
         // nagoya: {
         //     name: '名古屋',
         //     coordinates: { longitude: 136.9066, latitude: 35.1815 },

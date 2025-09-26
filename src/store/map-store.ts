@@ -34,20 +34,18 @@ interface MapStore {
     }
 
     // Actions
-    addMarker: (coordinates: MarkerCoordinates, content?: OutputData) => string
+    addMarker: (coordinates: MarkerCoordinates, content?: string) => string
     createMarkerFromModal: (data: {
         coordinates: MarkerCoordinates
         name: string
         iconType: MarkerIconType
-        headerImage?: string
-        editorData?: OutputData
     }) => Promise<string>
     updateMarker: (markerId: string, updates: Partial<Marker>) => void
     updateMarkerFromModal: (data: {
         markerId: string
         title?: string
         headerImage?: string
-        editorData: OutputData
+        markdownContent: string
     }) => void
     deleteMarker: (markerId: string) => void
     selectMarker: (markerId: string | null) => void
@@ -78,7 +76,7 @@ interface MapStore {
     closeSidebar: () => void
 
     // Editor actions
-    updateMarkerContent: (markerId: string, content: OutputData) => void
+    updateMarkerContent: (markerId: string, content: { title?: string; headerImage?: string; markdownContent: string }) => void
 
     // Dataset actions
     saveMarkerToDataset: (markerId: string) => Promise<void>
@@ -92,7 +90,7 @@ interface MapStore {
 // 保存标记到 Mapbox Dataset
 const saveMarkerToDataset = async (marker: Marker) => {
     const properties = {
-        editorData: marker.content.editorData,
+        markdownContent: marker.content.markdownContent,
         headerImage: marker.content.headerImage || null,
         iconType: marker.content.iconType || 'location', // 添加iconType支持
         metadata: {
@@ -105,7 +103,7 @@ const saveMarkerToDataset = async (marker: Marker) => {
         },
     }
 
-    const response = await fetch('/api/mapbox-dataset', {
+    const response = await fetch(`/api/mapbox-dataset?t=${Date.now()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -171,7 +169,7 @@ export const useMapStore = create<MapStore>()(
                     coordinates,
                     content: {
                         id: uuidv4(),
-                        editorData: content || { blocks: [], version: '2.28.2', time: now.getTime() },
+                        markdownContent: content || '',
                         createdAt: now,
                         updatedAt: now,
                     },
@@ -207,9 +205,8 @@ export const useMapStore = create<MapStore>()(
                     content: {
                         id: uuidv4(),
                         title: data.name,
-                        headerImage: data.headerImage,
-                        iconType: data.iconType, // 添加iconType
-                        editorData: data.editorData || { blocks: [], version: '2.28.2', time: now.getTime() },
+                        iconType: data.iconType,
+                        markdownContent: '',
                         createdAt: now,
                         updatedAt: now,
                     },
@@ -273,7 +270,7 @@ export const useMapStore = create<MapStore>()(
                                     ...marker.content,
                                     title: data.title,
                                     headerImage: data.headerImage,
-                                    editorData: data.editorData,
+                                    markdownContent: data.markdownContent,
                                     updatedAt: now,
                                 },
                             }
@@ -456,7 +453,7 @@ export const useMapStore = create<MapStore>()(
                 }), false, 'closeSidebar')
             },
 
-            updateMarkerContent: (markerId, editorData) => {
+            updateMarkerContent: (markerId, content) => {
                 set(state => ({
                     markers: state.markers.map(marker =>
                         marker.id === markerId
@@ -464,7 +461,9 @@ export const useMapStore = create<MapStore>()(
                                 ...marker,
                                 content: {
                                     ...marker.content,
-                                    editorData,
+                                    title: content.title,
+                                    headerImage: content.headerImage,
+                                    markdownContent: content.markdownContent,
                                     updatedAt: new Date(),
                                 },
                             }
@@ -500,7 +499,7 @@ export const useMapStore = create<MapStore>()(
             loadMarkersFromDataset: async () => {
                 set({ isLoading: true, error: null })
                 try {
-                    const response = await fetch('/api/mapbox-dataset')
+                    const response = await fetch(`/api/mapbox-dataset?t=${Date.now()}`)
 
                     if (!response.ok) {
                         // 根据状态码设置不同的错误信息
@@ -550,7 +549,7 @@ export const useMapStore = create<MapStore>()(
                                             title: metadata.title,
                                             headerImage: properties.headerImage,
                                             iconType: properties.iconType, // 添加iconType
-                                            editorData: properties.editorData || { blocks: [], version: '2.28.2', time: Date.now() },
+                                            markdownContent: properties.markdownContent || '',
                                             createdAt: metadata.createdAt ? new Date(metadata.createdAt) : new Date(),
                                             updatedAt: metadata.updatedAt ? new Date(metadata.updatedAt) : new Date(),
                                         },

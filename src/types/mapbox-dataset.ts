@@ -1,4 +1,3 @@
-import { OutputData } from '@editorjs/editorjs'
 
 // Mapbox Dataset 配置
 export interface MapboxDatasetConfig {
@@ -9,8 +8,8 @@ export interface MapboxDatasetConfig {
 
 // 存储在 GeoJSON Feature properties 中的数据结构
 export interface MapboxFeatureProperties {
-    // Editor.js 内容
-    editorData: OutputData
+    // Markdown 内容
+    markdownContent: string
 
     // 头图信息
     headerImage?: {

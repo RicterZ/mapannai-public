@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { Marker } from '@/types/marker'
 import { uploadFileToS3 } from '@/lib/s3-direct-upload'
-import EditorJSWrapper from '@/components/editor/editor-js-wrapper'
-import { OutputData } from '@editorjs/editorjs'
+import MDEditor from '@uiw/react-md-editor'
+import { commands } from '@uiw/react-md-editor'
 
 interface EditMarkerModalProps {
     marker: Marker | null
@@ -14,16 +14,28 @@ interface EditMarkerModalProps {
         markerId: string
         title?: string
         headerImage?: string
-        editorData: OutputData
+        markdownContent: string
     }) => void
 }
 
 export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerModalProps) => {
     const [title, setTitle] = useState('')
     const [headerImage, setHeaderImage] = useState('')
-    const [editorData, setEditorData] = useState<OutputData>({ blocks: [], version: '2.28.2', time: Date.now() })
+    const [markdownContent, setMarkdownContent] = useState('')
     const [isUploading, setIsUploading] = useState(false)
-    const [isEditorReady, setIsEditorReady] = useState(false)
+    const [isDesktop, setIsDesktop] = useState(false)
+
+    // 检测屏幕尺寸
+    useEffect(() => {
+        const checkScreenSize = () => {
+            setIsDesktop(window.innerWidth >= 1024)
+        }
+        
+        checkScreenSize()
+        window.addEventListener('resize', checkScreenSize)
+        
+        return () => window.removeEventListener('resize', checkScreenSize)
+    }, [])
 
     // 当marker变化时更新表单数据
     useEffect(() => {
@@ -31,20 +43,11 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
             console.log('EditMarkerModal: 初始化数据', marker)
             setTitle(marker.content.title || '')
             setHeaderImage(marker.content.headerImage || '')
-
-            // 设置编辑器数据
-            const initialEditorData = marker.content.editorData || { blocks: [], version: '2.28.2', time: Date.now() }
-            console.log('EditMarkerModal: 设置编辑器数据', initialEditorData)
-            setEditorData(initialEditorData)
-
-            // 延迟2秒后设置编辑器为就绪状态，确保Editor.js能够正常加载
-            setIsEditorReady(false)
-            const timer = setTimeout(() => {
-                console.log('EditMarkerModal: 编辑器延迟加载完成')
-                setIsEditorReady(true)
-            }, 2000)
-
-            return () => clearTimeout(timer)
+            
+            // 设置Markdown内容
+            const initialMarkdown = marker.content.markdownContent || ''
+            console.log('EditMarkerModal: 设置Markdown内容', initialMarkdown)
+            setMarkdownContent(initialMarkdown)
         }
     }, [marker, isOpen])
 
@@ -75,17 +78,16 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
 
         try {
             console.log('开始保存编辑标记:', marker.id)
-            console.log('当前editorData状态:', editorData)
+            console.log('当前Markdown内容:', markdownContent)
 
             const saveData = {
                 markerId: marker.id,
                 title: title.trim() || undefined,
                 headerImage: headerImage || undefined,
-                editorData: editorData
+                markdownContent: markdownContent
             }
 
             console.log('最终保存数据:', saveData)
-            console.log('编辑器数据blocks:', editorData?.blocks?.length || 0)
 
             onSave(saveData)
             onClose()
@@ -100,52 +102,65 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
         if (marker) {
             setTitle(marker.content.title || '')
             setHeaderImage(marker.content.headerImage || '')
-            setEditorData(marker.content.editorData || { blocks: [], version: '2.28.2', time: Date.now() })
+            setMarkdownContent(marker.content.markdownContent || '')
         }
         onClose()
     }
 
-    const handleEditorChange = (data: OutputData) => {
-        console.log('编辑器数据变化:', data)
-        setEditorData(data)
-    }
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden">
-                <div className="flex items-center justify-between p-4 border-b">
-                    <h2 className="text-lg font-semibold text-gray-900">编辑标记</h2>
-                    <button
-                        onClick={handleCancel}
-                        className="text-gray-400 hover:text-gray-600 text-xl"
-                    >
-                        ×
-                    </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center lg:p-4">
+            {/* 背景遮罩 */}
+            <div className="absolute inset-0" onClick={handleCancel} />
+            
+            {/* 内容区域 - PC端居中显示，移动端全屏 */}
+            <div className="relative w-full h-full lg:w-[800px] lg:h-[600px] lg:max-w-4xl bg-white flex flex-col animate-slide-in-bottom lg:animate-fade-in lg:rounded-xl lg:shadow-2xl">
+                {/* 顶部标题栏 */}
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-blue-50 flex-shrink-0">
+                    <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                        </div>
+                        <h2 className="text-xl font-semibold text-gray-900">编辑标记</h2>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                        <button
+                            onClick={handleSave}
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
+                        >
+                            保存
+                        </button>
+                        <button
+                            onClick={handleCancel}
+                            className="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors duration-200"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
-                <div className="flex flex-col h-[calc(90vh-140px)]">
-                    {/* 基本信息区域 */}
-                    <div className="p-4 border-b space-y-4 flex-shrink-0">
-                        {/* 标题 */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                标题
-                            </label>
-                            <input
-                                type="text"
-                                value={title}
-                                onChange={(e) => setTitle(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="请输入标题"
-                            />
-                        </div>
-
-                        {/* 首图 */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                首图
-                            </label>
-                            <div className="flex items-center space-x-3">
+                {/* 主要内容区域 */}
+                <div className="flex-1 flex flex-col overflow-hidden">
+                    {/* 基本信息区域 - 上下布局 */}
+                    <div className="p-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+                        <div className="max-w-4xl mx-auto space-y-4">
+                            {/* 标题输入框 */}
+                            <div>
+                                <input
+                                    type="text"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-sm"
+                                    placeholder="标记标题"
+                                />
+                            </div>
+                            
+                            {/* 首图上传 - 全宽显示，限制高度 */}
+                            <div className="w-full">
                                 <input
                                     type="file"
                                     accept="image/*"
@@ -154,72 +169,158 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
                                     id="edit-header-image"
                                     disabled={isUploading}
                                 />
-                                <label
-                                    htmlFor="edit-header-image"
-                                    className="px-3 py-2 text-sm bg-gray-100 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-200"
-                                >
-                                    {isUploading ? '上传中...' : '更换图片'}
-                                </label>
-                                {headerImage && (
-                                    <button
-                                        onClick={() => setHeaderImage('')}
-                                        className="px-3 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50"
+                                {!headerImage ? (
+                                    <label
+                                        htmlFor="edit-header-image"
+                                        className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors duration-200"
                                     >
-                                        删除图片
-                                    </button>
+                                        {isUploading ? (
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                        ) : (
+                                            <div className="text-center">
+                                                <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                                </svg>
+                                                <p className="text-sm text-gray-500">点击上传首图</p>
+                                            </div>
+                                        )}
+                                    </label>
+                                ) : (
+                                    <div className="relative group w-full h-32">
+                                        <img
+                                            src={headerImage}
+                                            alt="Header"
+                                            className="w-full h-full object-cover rounded-lg"
+                                        />
+                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-lg flex items-center justify-center">
+                                            <label
+                                                htmlFor="edit-header-image"
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                                            >
+                                                <div className="p-2 bg-white rounded-full shadow-lg">
+                                                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    </svg>
+                                                </div>
+                                            </label>
+                                        </div>
+                                        <button
+                                            onClick={() => setHeaderImage('')}
+                                            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors duration-200"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                 )}
                             </div>
-                            {headerImage && (
-                                <img
-                                    src={headerImage}
-                                    alt="预览"
-                                    className="mt-2 max-w-full h-20 object-cover rounded-md"
-                                />
-                            )}
                         </div>
                     </div>
 
                     {/* 编辑器区域 */}
-                    <div className="flex-1 p-4 overflow-hidden">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            详细内容
-                        </label>
-                        <div className="h-full overflow-y-auto border border-gray-200 rounded-lg custom-scrollbar">
-                            {!isEditorReady ? (
-                                // 加载状态显示
-                                <div className="flex items-center justify-center h-full">
-                                    <div className="text-center">
-                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                                        <p className="text-sm text-gray-500">编辑器加载中...</p>
+                    <div className="flex-1 overflow-hidden relative">
+                        {/* 上传进度指示器 */}
+                        {isUploading && (
+                            <div className="absolute top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
+                                <div className="p-3">
+                                    <div className="flex items-center justify-center space-x-2">
+                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                                        <span className="text-sm font-medium text-gray-700">上传图片中...</span>
                                     </div>
                                 </div>
-                            ) : (
-                                // 编辑器组件
-                                <EditorJSWrapper
-                                    data={editorData}
-                                    onChange={handleEditorChange}
-                                    placeholder="请输入详细内容..."
+                            </div>
+                        )}
+                        <div className="h-full">
+                            <div className={`markdown-editor-container h-full ${isUploading ? 'pt-16' : ''}`}>
+                                <style jsx>{`
+                                    .markdown-editor-container {
+                                        height: 100% !important;
+                                    }
+                                    .markdown-editor-container :global(.w-md-editor) {
+                                        height: 100% !important;
+                                    }
+                                    .markdown-editor-container :global(.w-md-editor-text-container) {
+                                        padding-top: ${isUploading ? '16px' : '0'} !important;
+                                    }
+                                    .markdown-editor-container :global(.w-md-editor-toolbar) {
+                                        padding: ${isDesktop ? '8px' : '12px'} 8px;
+                                    }
+                                    .markdown-editor-container :global(.w-md-editor-toolbar button) {
+                                        width: ${isDesktop ? '28px' : '36px'} !important;
+                                        height: ${isDesktop ? '28px' : '36px'} !important;
+                                        font-size: ${isDesktop ? '14px' : '16px'} !important;
+                                        position: relative;
+                                    }
+                                    .markdown-editor-container :global(.w-md-editor-toolbar button svg) {
+                                        width: ${isDesktop ? '14px' : '18px'} !important;
+                                        height: ${isDesktop ? '14px' : '18px'} !important;
+                                    }
+                                    .markdown-editor-container :global(.w-md-editor-toolbar button:disabled) {
+                                        opacity: 0.6;
+                                        cursor: not-allowed;
+                                    }
+                                `}</style>
+                                <MDEditor
+                                    value={markdownContent}
+                                    onChange={(val) => setMarkdownContent(val || '')}
+                                    data-color-mode="light"
+                                    height={isDesktop ? 350 : '100%'}
+                                    visibleDragbar={false}
+                                    preview="edit"
+                                    hideToolbar={false}
+                                    textareaProps={{
+                                        placeholder: '添加标记的详细描述...',
+                                        style: {
+                                            fontSize: 14,
+                                            lineHeight: 1.5,
+                                        }
+                                    }}
+                                    toolbarHeight={isDesktop ? 50 : 60}
+                                commands={[
+                                    // 自定义图片上传功能
+                                    {
+                                        ...commands.image,
+                                        execute: (state, api) => {
+                                            if (isUploading) return // 如果正在上传，不执行
+                                            
+                                            // 创建文件输入元素
+                                            const input = document.createElement('input')
+                                            input.type = 'file'
+                                            input.accept = 'image/*'
+                                            input.onchange = async (e) => {
+                                                const file = (e.target as HTMLInputElement).files?.[0]
+                                                if (file) {
+                                                    try {
+                                                        setIsUploading(true)
+                                                        const result = await uploadFileToS3(file)
+                                                        
+                                                        if (result.success && result.url) {
+                                                            // 插入markdown图片语法
+                                                            const imageMarkdown = `![${file.name}](${result.url})`
+                                                            const newValue = markdownContent + imageMarkdown
+                                                            setMarkdownContent(newValue)
+                                                        } else {
+                                                            throw new Error(result.error || '上传失败')
+                                                        }
+                                                    } catch (error) {
+                                                        console.error('图片上传失败:', error)
+                                                        alert('图片上传失败，请重试')
+                                                    } finally {
+                                                        setIsUploading(false)
+                                                    }
+                                                }
+                                            }
+                                            input.click()
+                                        }
+                                    }
+                                ]}
                                 />
-                            )}
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* 底部按钮 */}
-                <div className="flex justify-end space-x-3 p-4 border-t bg-gray-50">
-                    <button
-                        onClick={handleCancel}
-                        className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                    >
-                        取消
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                    >
-                        保存更改
-                    </button>
-                </div>
             </div>
         </div>
     )
