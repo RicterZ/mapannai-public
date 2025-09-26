@@ -47,49 +47,39 @@ cities: {
 
 ## 🚀 部署
 
-### Docker 部署
-```bash
-# 构建并运行
-docker-compose up -d mapannai
-
-# 访问应用
-# http://localhost:3000
-```
-
-### 云平台部署
-支持部署到 AWS Amplify、Vercel 等云平台。
-
-**详细的部署指南请参考：[DEPLOYMENT.md](DEPLOYMENT.md)**
-
-#### AWS Amplify 部署示例
-![Amplify 部署步骤](READMEIMG/amplify1.png)
-![Amplify 部署步骤](READMEIMG/amplify2.png)
-![Amplify 部署步骤](READMEIMG/amplify3.png)
-![Amplify 部署步骤](READMEIMG/amplify4.png)
-![Amplify 部署步骤](READMEIMG/amplify5.png)
+**详细的部署指南请参考：**
+- [DEPLOYMENT.md](DEPLOYMENT.md) - 当前版本的部署指南
+- [原版本部署指南](https://github.com/OikuraAmatsume/mapannai-public) - 包含 AWS Amplify 等云平台部署的详细步骤
 
 
 ## 🎯 功能详情
 
-![Mapbox Access Tokens](READMEIMG/编辑模式1.png)
-![Mapbox Access Tokens](READMEIMG/编辑模式2.png)
-![Mapbox Access Tokens](READMEIMG/浏览模式.png)
-![Mapbox Access Tokens](READMEIMG/浏览模式2.png)
-
 #### 1. 标记分类
+优化了标记按照类型分组显示，优化部分交互逻辑。
+
 - **活动** 🎯：活动和娱乐场所
 - **位置** 📍：一般地点标记
 - **酒店** 🏨：住宿和酒店
 - **购物** 🛍️：购物中心和商店
+- **美食** 🍜：美食和小吃
+- **地标** 🌆：地标性建筑和知名地点
+- **游乐场** 🎡：公园和游乐场
+- **自然景观** 🗻：自然景观
+- **人文景观** ⛩️：人文景观
 
-#### 2. 富文本编辑
-- 支持标题、段落、列表
-- 支持引用、图片
-- 支持链接和格式化
+#### 2. Markdown 编辑
+修改了原版的 UI 和编辑器。
+
+- 支持 Markdown 格式的富文本编辑
+- 支持标题、段落、列表、引用
+- 支持代码块、链接和图片
+- 实时预览编辑效果
 
 #### 3. 数据同步
+切换到了腾讯云 COS。
+
 - 标记数据自动保存到 Mapbox Dataset
-- 图片自动上传到 AWS S3
+- 图片自动上传到腾讯云 COS
 - 支持多人协作编辑
 
 
