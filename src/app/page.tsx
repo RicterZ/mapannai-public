@@ -24,19 +24,13 @@ export default function HomePage() {
     const [mapLoaded, setMapLoaded] = useState(false) // This state is not currently used
 
     return (
-        <main className="relative w-full h-screen overflow-hidden">
+        <main className="relative w-full h-screen full-height overflow-hidden">
             {/* Full-screen map */}
             <InteractiveMap />
 
             {/* Floating sidebar */}
             <Sidebar />
 
-            {/* App title overlay - 移动到右上角 */}
-            <div className="absolute top-4 right-20 z-20 pointer-events-none">
-                <h1 className="text-white text-lg font-semibold bg-black bg-opacity-50 px-3 py-2 rounded-md backdrop-blur-sm">
-                    マップ案内
-                </h1>
-            </div>
         </main>
     )
 } 

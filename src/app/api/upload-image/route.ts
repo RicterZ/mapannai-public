@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import AWS from 'aws-sdk'
-import { config } from '@/lib/config'
+import { cosService } from '@/lib/cos-client'
 import { v4 as uuidv4 } from 'uuid'
-
-// Configure AWS SDK
-const s3 = new AWS.S3({
-    accessKeyId: config.aws.s3.accessKeyId,
-    secretAccessKey: config.aws.s3.secretAccessKey,
-    region: config.aws.s3.region,
-})
 
 export async function POST(request: NextRequest) {
     try {
@@ -41,28 +33,24 @@ export async function POST(request: NextRequest) {
 
         // Generate unique filename
         const fileExtension = file.name.split('.').pop()
-        const filename = `markers/${uuidv4()}.${fileExtension}`
+        const filename = `${uuidv4()}.${fileExtension}`
 
         // Convert file to buffer
         const bytes = await file.arrayBuffer()
         const buffer = Buffer.from(bytes)
 
-        // Upload to S3 (移除 ACL 设置)
-        const uploadParams: AWS.S3.PutObjectRequest = {
-            Bucket: config.aws.s3.bucket,
-            Key: filename,
-            Body: buffer,
-            ContentType: file.type,
-            // 移除 ACL: 'public-read' 以避免 AccessControlListNotSupported 错误
-        }
-
-        const uploadResult = await s3.upload(uploadParams).promise()
+        // Upload to COS
+        const uploadResult = await cosService.uploadImage({
+            file: buffer,
+            filename,
+            contentType: file.type,
+        })
 
         // Return Editor.js compatible response
         return NextResponse.json({
             success: 1,
             file: {
-                url: uploadResult.Location,
+                url: uploadResult.url,
                 name: file.name,
                 size: file.size,
             },

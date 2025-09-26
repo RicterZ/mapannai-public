@@ -28,12 +28,35 @@ const EditorJSWrapper = ({ data, onChange, onReady, readOnly = false, placeholde
     const editorInstance = useRef<EditorJS | null>(null)
     const editorContainerRef = useRef<HTMLDivElement | null>(null)
     const [isReady, setIsReady] = useState(false)
+    const [uploadProgress, setUploadProgress] = useState(0)
+    const [isUploading, setIsUploading] = useState(false)
 
     // 自定义图片上传处理
     const customImageUpload = useCallback(async (file: File) => {
         try {
+            setIsUploading(true)
+            setUploadProgress(0)
+            
+            // 模拟进度更新
+            const progressInterval = setInterval(() => {
+                setUploadProgress(prev => {
+                    if (prev >= 90) return prev
+                    return prev + Math.random() * 20
+                })
+            }, 200)
+            
             const result = await uploadFileToS3(file)
+            
+            clearInterval(progressInterval)
+            setUploadProgress(100)
+            
             if (result.success && result.url) {
+                // 延迟一下让用户看到100%进度
+                setTimeout(() => {
+                    setIsUploading(false)
+                    setUploadProgress(0)
+                }, 500)
+                
                 return {
                     success: 1,
                     file: {
@@ -45,12 +68,60 @@ const EditorJSWrapper = ({ data, onChange, onReady, readOnly = false, placeholde
             }
         } catch (error) {
             console.error('Image upload failed:', error)
+            setIsUploading(false)
+            setUploadProgress(0)
             return {
                 success: 0,
                 error: '图片上传失败'
             }
         }
     }, [])
+
+    // 自定义图片工具配置
+    const customImageTool = useCallback(() => {
+        return {
+            // @ts-ignore
+            class: ImageTool,
+            config: {
+                uploader: {
+                    uploadByFile: customImageUpload,
+                    uploadByUrl: async (url: string) => {
+                        // URL上传的处理
+                        try {
+                            const response = await fetch(`/api/upload-image-by-url?t=${Date.now()}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ url })
+                            })
+                            const result = await response.json()
+                            
+                            if (result.success) {
+                                return {
+                                    success: 1,
+                                    file: {
+                                        url: result.file.url
+                                    }
+                                }
+                            } else {
+                                throw new Error(result.message || 'URL上传失败')
+                            }
+                        } catch (error) {
+                            console.error('URL upload failed:', error)
+                            return {
+                                success: 0,
+                                error: 'URL上传失败'
+                            }
+                        }
+                    }
+                },
+                captionPlaceholder: '添加图片说明',
+                field: 'image',
+                types: 'image/*',
+                additionalRequestData: {},
+                additionalRequestHeaders: {}
+            }
+        }
+    }, [customImageUpload])
 
     // 初始化编辑器
     useEffect(() => {
@@ -102,16 +173,7 @@ const EditorJSWrapper = ({ data, onChange, onReady, readOnly = false, placeholde
                         // @ts-ignore
                         delimiter: Delimiter,
                         // @ts-ignore
-                        image: {
-                            // @ts-ignore
-                            class: ImageTool,
-                            config: {
-                                uploader: {
-                                    uploadByFile: customImageUpload
-                                },
-                                captionPlaceholder: '添加图片说明'
-                            }
-                        }
+                        image: customImageTool()
                     },
                     data: data || { blocks: [] },
                     readOnly,
@@ -200,6 +262,37 @@ const EditorJSWrapper = ({ data, onChange, onReady, readOnly = false, placeholde
             .codex-editor::-webkit-scrollbar-thumb:hover {
                 background: #a8a8a8;
             }
+            /* 图片上传loading样式 */
+            .image-tool__image-preloader {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                justify-content: center !important;
+                padding: 20px !important;
+                background: #f8f9fa !important;
+                border: 2px dashed #dee2e6 !important;
+                border-radius: 8px !important;
+                position: relative !important;
+            }
+            .image-tool__image-preloader::before {
+                content: "" !important;
+                width: 24px !important;
+                height: 24px !important;
+                border: 2px solid #e3e3e3 !important;
+                border-top: 2px solid #3b82f6 !important;
+                border-radius: 50% !important;
+                animation: spin 1s linear infinite !important;
+                margin-bottom: 8px !important;
+            }
+            .image-tool__image-preloader::after {
+                content: "上传中..." !important;
+                font-size: 14px !important;
+                color: #6c757d !important;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
         `
         document.head.appendChild(style)
 
@@ -209,10 +302,28 @@ const EditorJSWrapper = ({ data, onChange, onReady, readOnly = false, placeholde
     }, [isReady])
 
     return (
-        <div className="w-full min-h-[300px] border border-gray-200 rounded-lg overflow-hidden">
+        <div className="w-full min-h-[300px] border border-gray-200 rounded-lg overflow-hidden relative">
+            {/* 上传进度条 */}
+            {isUploading && (
+                <div className="absolute top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
+                    <div className="p-3">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-700">上传图片中...</span>
+                            <span className="text-sm text-gray-500">{Math.round(uploadProgress)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                                className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                                style={{ width: `${uploadProgress}%` }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+            
             <div
                 ref={editorContainerRef}
-                className="p-4 min-h-[300px] max-h-full overflow-y-auto"
+                className={`p-4 min-h-[300px] max-h-full overflow-y-auto ${isUploading ? 'pt-16' : ''}`}
             />
         </div>
     )

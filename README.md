@@ -4,6 +4,43 @@
 
 ## 🚀 快速开始
 
+### 0. 环境变量配置
+
+#### 0.1 复制环境变量文件
+```bash
+cp .env.example .env
+```
+
+#### 0.2 编辑 .env 文件
+根据您的实际配置修改 `.env` 文件中的值：
+
+```bash
+# 应用配置
+NEXT_PUBLIC_APP_NAME=マップ案内 - 交互式地图编辑器
+NEXT_PUBLIC_APP_VERSION=1.0.0
+
+# 地图默认配置
+NEXT_PUBLIC_DEFAULT_LATITUDE=35.452
+NEXT_PUBLIC_DEFAULT_LONGITUDE=139.638
+NEXT_PUBLIC_DEFAULT_ZOOM=14.09
+
+# Mapbox 配置
+NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.your_mapbox_public_token_here
+MAPBOX_SECRET_ACCESS_TOKEN=sk.your_mapbox_secret_token_here
+MAPBOX_USERNAME=your_mapbox_username
+MAPBOX_DATASET_ID=your_dataset_id_here
+NEXT_PUBLIC_MAPBOX_STYLE=mapbox://styles/mapbox/streets-zh-v1
+
+# 腾讯云 COS 配置
+TENCENT_COS_SECRET_ID=your_tencent_secret_id
+TENCENT_COS_SECRET_KEY=your_tencent_secret_key
+TENCENT_COS_REGION=ap-chongqing
+TENCENT_COS_BUCKET=your_bucket_name
+
+# Next.js 图片域名配置
+NEXT_PUBLIC_IMAGE_DOMAINS=your-bucket.cos.ap-chongqing.myqcloud.com
+```
+
 ### 1. Mapbox 配置申请
 
 #### 1.1 创建 Mapbox 账户
@@ -17,8 +54,11 @@
 ![Mapbox Access Tokens](READMEIMG/mapbox1.png)
 ![Mapbox Access Tokens](READMEIMG/mapbox2.png)
 全部勾选，点击Create token按钮
-3. 编辑 `src/lib/config.ts` 文件：
-![Mapbox Access Tokens](READMEIMG/mapbox5.png)
+3. 将获取的 token 添加到 `.env` 文件中：
+```bash
+NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.your_token_here
+MAPBOX_SECRET_ACCESS_TOKEN=sk.your_secret_token_here
+```
 
 #### 1.3 创建 Dataset（可选）
 1. 访问 [Mapbox Datasets](https://studio.mapbox.com/datasets/)
@@ -26,27 +66,27 @@
 3. 选择 "Empty dataset"
 4. 记录下 Dataset ID
 
-### 2. AWS S3 配置
+### 2. 腾讯云 COS 配置
 
-#### 2.1 创建 S3 存储桶
-1. 登录 [AWS Console](https://console.aws.amazon.com/)
-2. 进入 S3 服务
-3. 创建新的存储桶，名称如：`mapannai`
+#### 2.1 创建 COS 存储桶
+1. 登录 [腾讯云控制台](https://console.cloud.tencent.com/)
+2. 进入对象存储 COS 服务
+3. 创建新的存储桶，名称如：`mapannai-1253047877`
 4. 配置存储桶权限（允许公共读取）
 
-#### 2.2 创建 IAM 用户
-1. 进入 IAM 服务
-2. 创建新用户，如：`mapannai-s3-user`
-3. 附加 `AmazonS3FullAccess` 策略
-4. 创建 Access Key 和 Secret Key
+#### 2.2 创建 API 密钥
+1. 进入 [访问管理 CAM](https://console.cloud.tencent.com/cam/capi)
+2. 创建新的密钥
+3. 记录 SecretId 和 SecretKey
 
-#### 2.3 编辑 `next.config.js` 文件：
-将domains修改为自己的 S3 域名
-
-```typescript
-images: {
-    domains: ['mapannai.s3.ap-northeast-1.amazonaws.com'],
-},
+#### 2.3 配置环境变量
+将获取的密钥添加到 `.env` 文件中：
+```bash
+TENCENT_COS_SECRET_ID=your_secret_id
+TENCENT_COS_SECRET_KEY=your_secret_key
+TENCENT_COS_REGION=ap-chongqing
+TENCENT_COS_BUCKET=your_bucket_name
+NEXT_PUBLIC_IMAGE_DOMAINS=your-bucket.cos.ap-chongqing.myqcloud.com
 ```
 
 ### 3. 添加城市配置

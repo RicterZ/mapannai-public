@@ -76,7 +76,7 @@ export const MapPopup = ({
             <div
                 ref={popupRef}
                 className={cn(
-                    'bg-white rounded-lg shadow-lg border border-gray-200',
+                    'bg-white rounded-2xl',
                     'min-w-[200px] animate-scale-in overflow-hidden'
                 )}
             >
@@ -184,15 +184,26 @@ export const MapPopup = ({
                 <button
                     onClick={onClose}
                     className={cn(
-                        'absolute -top-2 -right-2 w-6 h-6 rounded-full',
+                        'absolute -top-2 -right-2 w-5 h-5 rounded-full',
                         'bg-gray-600 text-white hover:bg-gray-700',
-                        'flex items-center justify-center text-xs',
+                        'flex items-center justify-center text-xs leading-none p-0',
                         'transition-colors duration-200',
-                        'focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2'
                     )}
                     aria-label="关闭弹窗"
                 >
-                    ×
+                    <svg
+                        className="w-3.5 h-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                    >
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
                 </button>
             </div>
         </Popup>

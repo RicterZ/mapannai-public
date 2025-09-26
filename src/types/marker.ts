@@ -1,4 +1,3 @@
-import { OutputData } from '@editorjs/editorjs'
 
 export interface MarkerCoordinates {
     latitude: number
@@ -11,13 +10,23 @@ export type MarkerIconType =
     | 'location'      // 📍 位置
     | 'hotel'         // 🏨 酒店
     | 'shopping'      // 🛍️ 购物
+    | 'food'          // 🍚 美食
+    | 'landmark'      // 🌆 地标建筑
+    | 'park'          // 🎡 游乐场
+    | 'natural'       // 🗻 自然景观
+    | 'culture'       // ⛩️ 人文景观
 
 // 图标配置
-export const MARKER_ICONS: Record<MarkerIconType, { name: string; emoji: string; description: string }> = {
-    activity: { name: '活动', emoji: '🎯', description: '活动和娱乐场所' },
-    location: { name: '位置', emoji: '📍', description: '一般地点标记' },
-    hotel: { name: '酒店', emoji: '🏨', description: '住宿和酒店' },
-    shopping: { name: '购物', emoji: '🛍️', description: '购物中心和商店' },
+export const MARKER_ICONS: Record<MarkerIconType, { name: string; emoji: string; description: string; bgClass: string; hoverBgClass: string }> = {
+    activity: { name: '活动', emoji: '🎯', description: '活动和娱乐场所', bgClass: 'bg-orange-500/75', hoverBgClass: 'hover:bg-orange-500' },
+    location: { name: '位置', emoji: '📍', description: '一般地点标记', bgClass: 'bg-pink-500/75', hoverBgClass: 'hover:bg-pink-500' },
+    hotel: { name: '酒店', emoji: '🏨', description: '住宿和酒店', bgClass: 'bg-green-500/75', hoverBgClass: 'hover:bg-green-500' },
+    shopping: { name: '购物', emoji: '🛍️', description: '购物中心和商店', bgClass: 'bg-purple-500/75', hoverBgClass: 'hover:bg-purple-500' },
+    food: { name: '美食', emoji: '🍜', description: '美食和小吃', bgClass: 'bg-zinc-500/75', hoverBgClass: 'hover:bg-zinc-500' },
+    landmark: { name: '地标', emoji: '🌆', description: '地标性建筑和知名地点', bgClass: 'bg-purple-500/75', hoverBgClass: 'hover:bg-purple-500' },
+    park: { name: '游乐场', emoji: '🎡', description: '公园和游乐场', bgClass: 'bg-slate-500/75', hoverBgClass: 'hover:bg-slate-500' },
+    natural: { name: '自然景观', emoji: '🗻', description: '自然景观', bgClass: 'bg-fuchsia-500/75', hoverBgClass: 'hover:bg-fuchsia-500' },
+    culture: { name: '人文景观', emoji: '⛩️', description: '人文景观', bgClass: 'bg-gray-500/75', hoverBgClass: 'hover:bg-gray-500' },
 }
 
 export interface MarkerContent {
@@ -25,7 +34,7 @@ export interface MarkerContent {
     title?: string // 地点名称
     headerImage?: string // 首图URL
     iconType?: MarkerIconType // 图标类型
-    editorData: OutputData
+    markdownContent: string // Markdown内容
     createdAt: Date
     updatedAt: Date
 }

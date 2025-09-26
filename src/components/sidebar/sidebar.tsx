@@ -1,17 +1,48 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useRef, useCallback } from 'react'
 import { useMapStore } from '@/store/map-store'
 import { cn } from '@/utils/cn'
+import { marked } from 'marked'
 
-export const Sidebar = () => {
+interface SidebarProps {
+    onClose?: () => void
+}
+
+export const Sidebar = ({ onClose }: SidebarProps) => {
     const sidebarRef = useRef<HTMLDivElement>(null)
 
     const {
         markers,
         interactionState,
         closeSidebar,
+        editMarkerModal,
+        openEditMarkerModal,
+        deleteMarker,
     } = useMapStore()
+
+    // 自定义关闭函数，在移动端关闭时跳转到正中间
+    const handleClose = useCallback(() => {
+        const { selectedMarkerId } = interactionState
+        
+        closeSidebar()
+        
+        // 在移动端关闭标记详情时，跳转到正中间（修复之前的偏移）
+        if (window.innerWidth < 1024 && selectedMarkerId) {
+            const marker = markers.find(m => m.id === selectedMarkerId)
+            if (marker) {
+                // 立即执行跳转
+                const event = new CustomEvent('jumpToCenter', {
+                    detail: {
+                        coordinates: marker.coordinates,
+                        zoom: 15
+                    }
+                })
+                window.dispatchEvent(event)
+                console.log('Dispatched jumpToCenter event:', marker.coordinates)
+            }
+        }
+    }, [closeSidebar, interactionState.selectedMarkerId, markers])
 
     const { isSidebarOpen, selectedMarkerId, displayedMarkerId } = interactionState
 
@@ -19,30 +50,11 @@ export const Sidebar = () => {
         ? markers.find(m => m.id === displayedMarkerId)
         : null
 
-    // Close sidebar when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
-                // Check if click is not on map elements that should keep sidebar open
-                const target = event.target as HTMLElement
-                if (!target.closest('.map-marker') && !target.closest('.map-popup')) {
-                    // Don't close if clicking on map area while viewing
-                    if (!target.closest('.mapboxgl-canvas-container')) {
-                        closeSidebar()
-                    }
-                }
-            }
-        }
+    // 移除“点击外部关闭”监听，避免误触导致关闭
 
-        if (isSidebarOpen) {
-            document.addEventListener('mousedown', handleClickOutside)
-            return () => document.removeEventListener('mousedown', handleClickOutside)
-        }
-    }, [isSidebarOpen, closeSidebar])
-
-    // 渲染Editor.js内容的只读版本
-    const renderReadOnlyContent = (editorData: any) => {
-        if (!editorData || !editorData.blocks || editorData.blocks.length === 0) {
+    // 渲染Markdown内容的只读版本
+    const renderReadOnlyContent = (markdownContent: string) => {
+        if (!markdownContent || markdownContent.trim() === '') {
             return (
                 <div className="text-gray-500 text-center py-8">
                     <div className="text-4xl mb-2">📝</div>
@@ -53,93 +65,8 @@ export const Sidebar = () => {
         }
 
         return (
-            <div className="space-y-4">
-                {editorData.blocks.map((block: any, index: number) => {
-                    switch (block.type) {
-                        case 'header':
-                            const level = block.data.level || 2
-                            const HeaderTag = `h${level}` as keyof JSX.IntrinsicElements
-                            return (
-                                <HeaderTag
-                                    key={index}
-                                    className={cn(
-                                        'font-bold text-gray-900',
-                                        level === 1 && 'text-2xl',
-                                        level === 2 && 'text-xl',
-                                        level === 3 && 'text-lg',
-                                        level >= 4 && 'text-base'
-                                    )}
-                                >
-                                    {block.data.text || ''}
-                                </HeaderTag>
-                            )
-
-                        case 'paragraph':
-                            return (
-                                <p key={index} className="text-gray-700 leading-relaxed">
-                                    {block.data.text || ''}
-                                </p>
-                            )
-
-                        case 'list':
-                            const ListTag = block.data.style === 'ordered' ? 'ol' : 'ul'
-                            return (
-                                <ListTag
-                                    key={index}
-                                    className={cn(
-                                        'text-gray-700 space-y-1',
-                                        block.data.style === 'ordered' ? 'list-decimal list-inside' : 'list-disc list-inside'
-                                    )}
-                                >
-                                    {(block.data.items || []).map((item: string, itemIndex: number) => (
-                                        <li key={itemIndex}>{item}</li>
-                                    ))}
-                                </ListTag>
-                            )
-
-                        case 'quote':
-                            return (
-                                <blockquote key={index} className="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r">
-                                    <p className="text-gray-700 italic">{block.data.text || ''}</p>
-                                    {block.data.caption && (
-                                        <cite className="text-sm text-gray-500 mt-2 block">— {block.data.caption}</cite>
-                                    )}
-                                </blockquote>
-                            )
-
-                        case 'image':
-                            return (
-                                <div key={index} className="text-center">
-                                    <img
-                                        src={block.data.file?.url || block.data.url}
-                                        alt={block.data.caption || '图片'}
-                                        className="max-w-full h-auto rounded-lg shadow-sm mx-auto"
-                                    />
-                                    {block.data.caption && (
-                                        <p className="text-sm text-gray-500 mt-2">{block.data.caption}</p>
-                                    )}
-                                </div>
-                            )
-
-                        case 'delimiter':
-                            return (
-                                <div key={index} className="text-center py-4">
-                                    <div className="inline-flex items-center space-x-2 text-gray-400">
-                                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                                    </div>
-                                </div>
-                            )
-
-                        default:
-                            return (
-                                <div key={index} className="text-gray-500 italic">
-                                    [未支持的内容类型: {block.type}]
-                                </div>
-                            )
-                    }
-                })}
+            <div className="prose prose-sm max-w-none">
+                <div dangerouslySetInnerHTML={{ __html: marked(markdownContent) }} />
             </div>
         )
     }
@@ -153,20 +80,29 @@ export const Sidebar = () => {
             {/* Backdrop */}
             <div
                 className="fixed inset-0 bg-black bg-opacity-25 z-40 lg:hidden"
-                onClick={closeSidebar}
+                onClick={onClose || closeSidebar}
             />
 
             {/* Sidebar */}
             <div
                 ref={sidebarRef}
                 className={cn(
-                    'fixed right-0 top-0 bottom-0 z-50',
+                    'fixed z-50',
                     'w-full max-w-md lg:max-w-lg xl:max-w-xl',
                     'bg-white shadow-2xl',
                     'transform transition-transform duration-300 ease-in-out',
-                    'animate-slide-in-right',
-                    'flex flex-col'
+                    'animate-slide-in-bottom lg:animate-slide-in-right',
+                    'flex flex-col',
+                    // iPad特定样式
+                    'sidebar-ipad-portrait sidebar-ipad-landscape',
+                    // 移动端：全屏显示
+                    'right-0 bottom-0 h-full',
+                    // PC端：正常右侧显示
+                    'lg:right-0 lg:top-0 lg:bottom-0 lg:h-auto'
                 )}
+                style={{ 
+                    paddingBottom: 'env(safe-area-inset-bottom, 0px)'
+                }}
             >
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
@@ -181,8 +117,35 @@ export const Sidebar = () => {
                         )}
                     </div>
 
+                    {selectedMarker && (
+                        <div className="flex items-center gap-2 mr-2">
+                            <button
+                                onClick={() => openEditMarkerModal(selectedMarker.id)}
+                                className={cn(
+                                    'px-3 py-1.5 text-xs font-medium rounded-md',
+                                    'bg-blue-600 text-white hover:bg-blue-700',
+                                    'transition-colors duration-200',
+                                    'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                                )}
+                            >
+                                编辑
+                            </button>
+                            <button
+                                onClick={() => deleteMarker(selectedMarker.id)}
+                                className={cn(
+                                    'px-3 py-1.5 text-xs font-medium rounded-md',
+                                    'bg-red-600 text-white hover:bg-red-700',
+                                    'transition-colors duration-200',
+                                    'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2'
+                                )}
+                            >
+                                删除
+                            </button>
+                        </div>
+                    )}
+
                     <button
-                        onClick={closeSidebar}
+                        onClick={handleClose}
                         className={cn(
                             'ml-4 p-2 rounded-md text-gray-400 hover:text-gray-600',
                             'hover:bg-gray-100 transition-colors duration-200',
@@ -199,10 +162,10 @@ export const Sidebar = () => {
                 {/* Content */}
                 <div className="flex-1 overflow-hidden flex flex-col min-h-0">
                     {selectedMarker ? (
-                        <div className="flex-1 flex flex-col min-h-0">
+                        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                             {/* 首图显示 */}
                             {selectedMarker.content.headerImage && (
-                                <div className="flex-shrink-0">
+                                <div className="w-full">
                                     <img
                                         src={selectedMarker.content.headerImage}
                                         alt={selectedMarker.content.title || '标记首图'}
@@ -212,13 +175,9 @@ export const Sidebar = () => {
                             )}
 
                             {/* 只读内容显示 */}
-                            <div className="flex-1 min-h-0 overflow-y-auto p-4 custom-scrollbar">
-                                <div className="prose prose-sm max-w-none">
-                                    {renderReadOnlyContent(selectedMarker.content.editorData)}
-                                </div>
+                            <div className="p-4">
+                                {renderReadOnlyContent(selectedMarker.content.markdownContent)}
                             </div>
-
-
                         </div>
                     ) : (
                         // 无选中标记时的提示

@@ -1,5 +1,5 @@
 /**
- * 客户端直传 S3 工具函数
+ * 客户端直传 COS 工具函数
  */
 
 export interface S3UploadResult {
@@ -9,12 +9,12 @@ export interface S3UploadResult {
 }
 
 /**
- * 直接上传文件到 S3（客户端）
+ * 直接上传文件到 COS（客户端）
  */
 export async function uploadFileToS3(file: File): Promise<S3UploadResult> {
     try {
         // 1. 获取预签名 URL
-        const presignedResponse = await fetch('/api/s3-presigned-url', {
+        const presignedResponse = await fetch(`/api/s3-presigned-url?t=${Date.now()}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -35,7 +35,7 @@ export async function uploadFileToS3(file: File): Promise<S3UploadResult> {
             throw new Error(presignedData.message || 'Failed to get presigned URL')
         }
 
-        // 2. 直接上传到 S3
+        // 2. 直接上传到 COS
         const uploadResponse = await fetch(presignedData.presignedUrl, {
             method: 'PUT',
             headers: {
@@ -54,7 +54,7 @@ export async function uploadFileToS3(file: File): Promise<S3UploadResult> {
             url: presignedData.publicUrl,
         }
     } catch (error) {
-        console.error('S3 direct upload error:', error)
+        console.error('COS direct upload error:', error)
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Upload failed',
@@ -63,7 +63,7 @@ export async function uploadFileToS3(file: File): Promise<S3UploadResult> {
 }
 
 /**
- * 通过 URL 上传图片到 S3
+ * 通过 URL 上传图片到 COS
  */
 export async function uploadImageByUrlToS3(imageUrl: string): Promise<S3UploadResult> {
     try {
@@ -83,7 +83,7 @@ export async function uploadImageByUrlToS3(imageUrl: string): Promise<S3UploadRe
         // 3. 使用直传函数上传
         return await uploadFileToS3(file)
     } catch (error) {
-        console.error('S3 URL upload error:', error)
+        console.error('COS URL upload error:', error)
         return {
             success: false,
             error: error instanceof Error ? error.message : 'URL upload failed',

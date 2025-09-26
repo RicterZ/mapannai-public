@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { MarkerIconType, MARKER_ICONS } from '@/types/marker'
 import { cn } from '@/utils/cn'
 
@@ -12,16 +13,30 @@ interface IconSelectorProps {
 
 export const IconSelector = ({ selectedIcon = 'location', onSelect, className }: IconSelectorProps) => {
     const [isOpen, setIsOpen] = useState(false)
+    const [position, setPosition] = useState({ top: 0, left: 0, width: 0 })
+    const buttonRef = useRef<HTMLButtonElement>(null)
 
     const handleSelect = (iconType: MarkerIconType) => {
         onSelect(iconType)
         setIsOpen(false)
     }
 
+    useEffect(() => {
+        if (isOpen && buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect()
+            setPosition({
+                top: rect.bottom + window.scrollY,
+                left: rect.left + window.scrollX,
+                width: rect.width
+            })
+        }
+    }, [isOpen])
+
     return (
         <div className={cn('relative', className)}>
             {/* 选择器按钮 */}
             <button
+                ref={buttonRef}
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -40,17 +55,25 @@ export const IconSelector = ({ selectedIcon = 'location', onSelect, className }:
                 </svg>
             </button>
 
-            {/* 下拉菜单 */}
-            {isOpen && (
+            {/* 下拉菜单 - 使用Portal渲染到body */}
+            {isOpen && createPortal(
                 <>
                     {/* 背景遮罩 */}
                     <div
-                        className="fixed inset-0 z-10"
+                        className="fixed inset-0 z-[110]"
                         onClick={() => setIsOpen(false)}
                     />
 
                     {/* 选项列表 */}
-                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    <div 
+                        className="fixed z-[120] bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                        style={{
+                            top: position.top,
+                            left: position.left,
+                            width: position.width,
+                            minWidth: '200px'
+                        }}
+                    >
                         <div className="py-1">
                             {Object.entries(MARKER_ICONS).map(([iconType, config]) => (
                                 <button
@@ -76,7 +99,8 @@ export const IconSelector = ({ selectedIcon = 'location', onSelect, className }:
                             ))}
                         </div>
                     </div>
-                </>
+                </>,
+                document.body
             )}
         </div>
     )
