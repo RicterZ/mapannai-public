@@ -2,7 +2,7 @@
 
 一个基于Next.js和Mapbox的交互式地图标记编辑平台，支持富文本内容编辑、坐标跳转、标记分类等功能。
 
-## 🚀 快速开始
+## 🚀 部署
 
 ### 环境变量配置
 ```bash
@@ -14,24 +14,11 @@ cp env.example .env
 详细的配置说明请参考：[环境变量配置指南](DEPLOYMENT.md#1-环境变量配置)
 
 ### 服务配置
+**详细配置步骤请参考：**
+- [DEPLOYMENT.md](DEPLOYMENT.md) - 当前版本的配置指南
+- [原版本配置指南](https://github.com/OikuraAmatsume/mapannai-public) - 包含 Mapbox 和 AWS S3 的详细配置步骤
 
-#### Mapbox 配置
-1. 访问 [Mapbox官网](https://www.mapbox.com/) 注册账户
-2. 获取 Access Token
-![Mapbox Access Tokens](READMEIMG/mapbox1.png)
-![Mapbox Access Tokens](READMEIMG/mapbox2.png)
-3. 创建 Dataset（可选）
-4. 将配置添加到 `.env` 文件
-
-#### 腾讯云 COS 配置
-1. 登录 [腾讯云控制台](https://console.cloud.tencent.com/)
-2. 创建 COS 存储桶
-3. 创建 API 密钥
-4. 将配置添加到 `.env` 文件
-
-**详细配置步骤请参考：[DEPLOYMENT.md](DEPLOYMENT.md)**
-
-### 3. 添加城市配置
+### 城市配置
 在 `cities` 配置中添加您需要的城市：
 
 ```typescript
@@ -44,12 +31,6 @@ cities: {
     },
 }
 ```
-
-## 🚀 部署
-
-**详细的部署指南请参考：**
-- [DEPLOYMENT.md](DEPLOYMENT.md) - 当前版本的部署指南
-- [原版本部署指南](https://github.com/OikuraAmatsume/mapannai-public) - 包含 AWS Amplify 等云平台部署的详细步骤
 
 
 ## 🎯 功能详情
