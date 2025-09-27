@@ -67,7 +67,7 @@ export interface MapProvider {
 }
 
 // 地图提供者类型
-export type MapProviderType = 'mapbox' | 'amap' | 'baidu' | 'google'
+export type MapProviderType = 'mapbox' | 'baidu' | 'google'
 
 // 地图提供者工厂接口
 export interface MapProviderFactory {

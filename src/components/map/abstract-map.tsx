@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useRef, useEffect, useState } from 'react'
+
 import { MapProvider, MapCoordinates, MapViewState, MapProviderConfig } from '@/types/map-provider'
 import { mapProviderFactory } from '@/lib/map-providers'
 import { config } from '@/lib/config'
@@ -15,7 +16,7 @@ import { LeftSidebar } from '@/components/sidebar/left-sidebar'
 import { Sidebar } from '@/components/sidebar/sidebar'
 import { cn } from '@/utils/cn'
 import { MarkerIconType } from '@/types/marker'
-import Map, { Marker as MapboxMarker, MapRef, ViewState } from 'react-map-gl'
+import Map, { Marker as MapboxMarker, MapRef, ViewState, MapProvider as ReactMapProvider } from 'react-map-gl'
 
 // 导入当前提供者的样式
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -28,11 +29,16 @@ export const AbstractMap = () => {
     const [dataLoaded, setDataLoaded] = useState(false)
     
     // 获取当前地图提供者
+    console.log('当前地图提供者:', config.map.provider)
+    console.log('Mapbox配置:', config.map.mapbox)
+    
     const mapProvider = mapProviderFactory.createProvider(config.map.provider)
     const mapConfig: MapProviderConfig = {
         accessToken: config.map[config.map.provider].accessToken,
         style: config.map[config.map.provider].style,
     }
+    
+    console.log('地图配置:', mapConfig)
     
     // 从localStorage恢复上次的坐标，如果没有则使用默认坐标
     const getInitialViewState = (): ViewState => {
@@ -657,8 +663,7 @@ export const AbstractMap = () => {
             {/* 右侧详情栏 */}
             <Sidebar />
 
-            {/* 这里需要根据不同的地图提供者渲染不同的地图组件 */}
-            {/* 目前先保持mapbox的实现，后续可以扩展 */}
+            {/* 渲染Mapbox地图组件 */}
             <MapboxMapComponent
                 ref={mapRef}
                 viewState={viewState}
@@ -855,8 +860,8 @@ export const AbstractMap = () => {
     )
 }
 
-// 临时的Mapbox组件包装器，后续可以替换为其他地图提供者
 
+// Mapbox组件包装器
 interface MapboxMapComponentProps {
     ref: React.Ref<MapRef>
     viewState: ViewState
@@ -877,11 +882,13 @@ interface MapboxMapComponentProps {
 const MapboxMapComponent = React.forwardRef<MapRef, MapboxMapComponentProps>((props, ref) => {
     const { viewState, ...restProps } = props
     return (
-        <Map
-            ref={ref}
-            {...restProps}
-            initialViewState={viewState}
-        />
+        <ReactMapProvider>
+            <Map
+                ref={ref}
+                {...restProps}
+                initialViewState={viewState}
+            />
+        </ReactMapProvider>
     )
 })
 

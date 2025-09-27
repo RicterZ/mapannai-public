@@ -41,8 +41,6 @@ export class MapDatasetService implements DatasetService {
         // 根据当前地图提供者实现不同的数据集获取逻辑
         if (config.map.provider === 'mapbox') {
             return await this.getMapboxFeatures(datasetId)
-        } else if (config.map.provider === 'amap') {
-            return await this.getAmapFeatures(datasetId)
         }
         
         // 其他地图提供者的实现
@@ -58,12 +56,6 @@ export class MapDatasetService implements DatasetService {
             const username = config.map.mapbox.dataset.username
             const secretToken = config.map.mapbox.dataset.secretAccessToken
             const baseUrl = `https://api.mapbox.com/datasets/v1/${username}/${datasetId}/features`
-            
-            console.log('Mapbox API 调试信息:')
-            console.log('- Username:', username)
-            console.log('- Secret Token:', secretToken ? `${secretToken.substring(0, 10)}...` : '未设置')
-            console.log('- Dataset ID:', datasetId)
-            console.log('- API URL:', baseUrl)
             
             // 使用secret token作为access_token参数，参考原版实现
             const timestamp = Date.now()
@@ -115,30 +107,10 @@ export class MapDatasetService implements DatasetService {
         }
     }
 
-    private async getAmapFeatures(datasetId: string): Promise<DatasetFeatureCollection> {
-        try {
-            console.log(`获取高德地图数据集 ${datasetId} 的所有特征`)
-            
-            // 高德地图没有直接的数据集API，这里返回空集合
-            // 实际实现中可能需要使用其他存储方案（如数据库）
-            return {
-                type: 'FeatureCollection',
-                features: []
-            }
-        } catch (error) {
-            console.error('获取高德地图数据集失败:', error)
-            return {
-                type: 'FeatureCollection',
-                features: []
-            }
-        }
-    }
 
     async upsertFeature(datasetId: string, featureId: string, coordinates: MarkerCoordinates, properties: any): Promise<DatasetFeature> {
         if (config.map.provider === 'mapbox') {
             return await this.upsertMapboxFeature(datasetId, featureId, coordinates, properties)
-        } else if (config.map.provider === 'amap') {
-            return await this.upsertAmapFeature(datasetId, featureId, coordinates, properties)
         }
         
         // 其他地图提供者的实现
@@ -153,6 +125,7 @@ export class MapDatasetService implements DatasetService {
             properties
         }
     }
+
 
     private async upsertMapboxFeature(datasetId: string, featureId: string, coordinates: MarkerCoordinates, properties: any): Promise<DatasetFeature> {
         try {
@@ -203,6 +176,7 @@ export class MapDatasetService implements DatasetService {
         // 其他地图提供者的实现
         console.log(`删除特征 ${featureId} 从数据集 ${datasetId} (${config.map.provider})`)
     }
+
 
     private async deleteMapboxFeature(datasetId: string, featureId: string): Promise<void> {
         try {

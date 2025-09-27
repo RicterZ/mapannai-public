@@ -16,7 +16,6 @@
 ### 3. 配置支持
 通过环境变量 `NEXT_PUBLIC_MAP_PROVIDER` 选择地图提供者：
 - `mapbox`: 使用Mapbox地图（默认）
-- `amap`: 使用高德地图（未来支持）
 - `baidu`: 使用百度地图（未来支持）
 - `google`: 使用Google地图（未来支持）
 
@@ -48,7 +47,7 @@ const results = await mapProvider.searchPlaces('东京', mapConfig)
 
 ### 1. 实现MapProvider接口
 ```typescript
-export class AmapProvider implements MapProvider {
+export class BaiduProvider implements MapProvider {
     // 实现所有必需的方法
     async createMapInstance(container: HTMLElement, config: MapProviderConfig): Promise<any> {
         // 实现地图实例创建
@@ -61,15 +60,15 @@ export class AmapProvider implements MapProvider {
 ### 2. 注册到工厂
 ```typescript
 // 在 MapProviderFactoryImpl 构造函数中
-this.registerProvider('amap', () => new AmapProvider())
+this.registerProvider('baidu', () => new BaiduProvider())
 ```
 
 ### 3. 更新配置
 ```typescript
 // 在 config.ts 中添加配置
-amap: {
-    accessToken: process.env.NEXT_PUBLIC_AMAP_ACCESS_TOKEN || '',
-    style: process.env.NEXT_PUBLIC_AMAP_STYLE || 'normal',
+baidu: {
+    accessToken: process.env.NEXT_PUBLIC_BAIDU_ACCESS_TOKEN || '',
+    style: process.env.NEXT_PUBLIC_BAIDU_STYLE || 'normal',
 }
 ```
 
