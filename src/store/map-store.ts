@@ -93,6 +93,7 @@ const saveMarkerToDataset = async (marker: Marker) => {
         markdownContent: marker.content.markdownContent,
         headerImage: marker.content.headerImage || null,
         iconType: marker.content.iconType || 'location', // 添加iconType支持
+        next: marker.content.next || [], // 添加next字段支持
         metadata: {
             id: marker.id,
             title: marker.content.title || '新标记',
@@ -170,6 +171,7 @@ export const useMapStore = create<MapStore>()(
                     content: {
                         id: uuidv4(),
                         markdownContent: content || '',
+                        next: [], // 默认为空数组
                         createdAt: now,
                         updatedAt: now,
                     },
@@ -207,6 +209,7 @@ export const useMapStore = create<MapStore>()(
                         title: data.name,
                         iconType: data.iconType,
                         markdownContent: '',
+                        next: [], // 默认为空数组
                         createdAt: now,
                         updatedAt: now,
                     },
@@ -550,6 +553,7 @@ export const useMapStore = create<MapStore>()(
                                             headerImage: properties.headerImage,
                                             iconType: properties.iconType, // 添加iconType
                                             markdownContent: properties.markdownContent || '',
+                                            next: properties.next || [], // 处理缺失的next字段，默认为空数组
                                             createdAt: metadata.createdAt ? new Date(metadata.createdAt) : new Date(),
                                             updatedAt: metadata.updatedAt ? new Date(metadata.updatedAt) : new Date(),
                                         },

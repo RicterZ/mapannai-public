@@ -35,6 +35,7 @@ export interface MarkerContent {
     headerImage?: string // 首图URL
     iconType?: MarkerIconType // 图标类型
     markdownContent: string // Markdown内容
+    next: string[] // 下一个标记的ID列表，默认为空数组
     createdAt: Date
     updatedAt: Date
 }
