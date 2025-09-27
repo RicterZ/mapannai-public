@@ -76,7 +76,7 @@ export class MapboxProvider implements MapProvider {
         // Mapbox的标记更新由React组件处理
     }
 
-    onMapClick(mapInstance: MapRef, callback: (coordinates: MapCoordinates) => void): void {
+    onMapClick(mapInstance: MapRef, callback: (coordinates: MapCoordinates, placeInfo?: { name: string; address: string; placeId: string }) => void): void {
         if (mapInstance) {
             const handler = (event: any) => {
                 callback({
@@ -143,6 +143,51 @@ export class MapboxProvider implements MapProvider {
             return 'mapbox://styles/mapbox/streets-zh-v1'
         }
         return config.style || 'mapbox://styles/mapbox/streets-zh-v1'
+    }
+
+    // 应用POI过滤的CSS样式
+    applyPOIFilter(): void {
+        // 创建CSS样式来隐藏特定的POI元素
+        const style = document.createElement('style')
+        style.id = 'mapbox-poi-filter'
+        style.textContent = `
+            /* 隐藏停车场相关POI */
+            .mapboxgl-canvas-container .mapboxgl-marker[data-poi-type="parking"],
+            .mapboxgl-canvas-container .mapboxgl-marker[data-poi-type="car_parking"],
+            .mapboxgl-canvas-container .mapboxgl-marker[data-poi-type="parking_lot"] {
+                display: none !important;
+            }
+            
+            /* 隐藏医院相关POI */
+            .mapboxgl-canvas-container .mapboxgl-marker[data-poi-type="hospital"],
+            .mapboxgl-canvas-container .mapboxgl-marker[data-poi-type="medical"],
+            .mapboxgl-canvas-container .mapboxgl-marker[data-poi-type="clinic"] {
+                display: none !important;
+            }
+            
+            /* 隐藏厕所相关POI */
+            .mapboxgl-canvas-container .mapboxgl-marker[data-poi-type="toilet"],
+            .mapboxgl-canvas-container .mapboxgl-marker[data-poi-type="restroom"],
+            .mapboxgl-canvas-container .mapboxgl-marker[data-poi-type="bathroom"] {
+                display: none !important;
+            }
+            
+            /* 隐藏其他不需要的POI标签 */
+            .mapboxgl-canvas-container .mapboxgl-marker[data-poi-type="atm"],
+            .mapboxgl-canvas-container .mapboxgl-marker[data-poi-type="bank"],
+            .mapboxgl-canvas-container .mapboxgl-marker[data-poi-type="gas_station"] {
+                display: none !important;
+            }
+        `
+        
+        // 移除已存在的样式
+        const existingStyle = document.getElementById('mapbox-poi-filter')
+        if (existingStyle) {
+            existingStyle.remove()
+        }
+        
+        // 添加新样式
+        document.head.appendChild(style)
     }
 
     getAttribution(): string {

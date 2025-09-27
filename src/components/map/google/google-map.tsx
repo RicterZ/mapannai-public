@@ -5,11 +5,12 @@ import { GoogleProvider, GoogleMapInstance } from '@/lib/map-providers/google-pr
 import { MapProviderConfig } from '@/types/map-provider'
 import { Marker } from '@/types/marker'
 import { MapMarker } from '@/types/map-provider'
+import { GoogleConnectionLines } from './google-connection-lines'
 
 interface GoogleMapProps {
     config: MapProviderConfig
     markers: Marker[]
-    onMapClick?: (coordinates: { latitude: number; longitude: number }) => void
+    onMapClick?: (coordinates: { latitude: number; longitude: number }, placeInfo?: { name: string; address: string; placeId: string }, clickPosition?: { x: number; y: number }, isMarkerClick?: boolean) => void
     onMarkerClick?: (markerId: string) => void
     onMapLoad?: () => void
     onMapError?: (error: Error) => void
@@ -113,18 +114,153 @@ export const GoogleMap: React.FC<GoogleMapProps> = ({
                 googleProvider.current.onMarkerClick(mapInstance, marker.id, () => handleMarkerClick(marker.id))
             }
 
-            // 设置标记图标（如果有的话）
+            // 设置标记悬停效果
+            googleProvider.current.onMarkerHover(
+                mapInstance, 
+                marker.id, 
+                () => {
+                    // 鼠标进入：降低透明度到0.9
+                    if (marker.content.iconType) {
+                        const iconConfig = getMarkerIconConfig(marker.content.iconType)
+                        if (iconConfig) {
+                            const currentZoom = mapInstance.map.getZoom()
+                            const shouldRenderAsDot = currentZoom < 13
+                            const svgIcon = createSimpleSVGIcon(iconConfig.emoji, iconConfig.color, shouldRenderAsDot, 0.9, true)
+                            googleMarker.setIcon({
+                                url: svgIcon,
+                                scaledSize: new (window as any).google.maps.Size(
+                                    shouldRenderAsDot ? 10 : 32, 
+                                    shouldRenderAsDot ? 10 : 32
+                                ),
+                                anchor: new (window as any).google.maps.Point(
+                                    shouldRenderAsDot ? 5 : 16, 
+                                    shouldRenderAsDot ? 5 : 16
+                                )
+                            })
+                        }
+                    }
+                },
+                () => {
+                    // 鼠标离开：恢复透明度到0.7
+                    if (marker.content.iconType) {
+                        const iconConfig = getMarkerIconConfig(marker.content.iconType)
+                        if (iconConfig) {
+                            const currentZoom = mapInstance.map.getZoom()
+                            const shouldRenderAsDot = currentZoom < 13
+                            const svgIcon = createSimpleSVGIcon(iconConfig.emoji, iconConfig.color, shouldRenderAsDot, 0.7, false)
+                            googleMarker.setIcon({
+                                url: svgIcon,
+                                scaledSize: new (window as any).google.maps.Size(
+                                    shouldRenderAsDot ? 10 : 32, 
+                                    shouldRenderAsDot ? 10 : 32
+                                ),
+                                anchor: new (window as any).google.maps.Point(
+                                    shouldRenderAsDot ? 5 : 16, 
+                                    shouldRenderAsDot ? 5 : 16
+                                )
+                            })
+                        }
+                    }
+                }
+            )
+
+            // 设置标记图标（使用与Mapbox相同的图标系统）
             if (marker.content.iconType) {
-                const iconUrl = getMarkerIconUrl(marker.content.iconType)
-                if (iconUrl) {
+                const iconConfig = getMarkerIconConfig(marker.content.iconType)
+                if (iconConfig) {
+                    // 获取当前缩放级别
+                    const currentZoom = mapInstance.map.getZoom()
+                    const shouldRenderAsDot = currentZoom < 13
+                    
+                    
+                    // 创建SVG图标，使用emoji和颜色，默认透明度0.7，添加动画效果
+                    const svgIcon = createSimpleSVGIcon(iconConfig.emoji, iconConfig.color, shouldRenderAsDot, 0.7, false)
                     googleMarker.setIcon({
-                        url: iconUrl,
-                        scaledSize: new (window as any).google.maps.Size(32, 32),
-                        anchor: new (window as any).google.maps.Point(16, 32)
+                        url: svgIcon,
+                        scaledSize: new (window as any).google.maps.Size(
+                            shouldRenderAsDot ? 10 : 32, 
+                            shouldRenderAsDot ? 10 : 32
+                        ),
+                        anchor: new (window as any).google.maps.Point(
+                            shouldRenderAsDot ? 5 : 16, 
+                            shouldRenderAsDot ? 5 : 16
+                        )
                     })
                 }
             }
         })
+        
+        // 设置缩放事件监听器（每次markers更新时重新设置）
+        const setupZoomListener = () => {
+            if (!mapInstance) return
+            
+            // 移除旧的缩放监听器
+            if (mapInstance.eventListeners.has('zoom_changed')) {
+                const oldListener = mapInstance.eventListeners.get('zoom_changed')
+                if (oldListener) {
+                    (window as any).google.maps.event.removeListener(oldListener)
+                }
+                mapInstance.eventListeners.delete('zoom_changed')
+            }
+
+            // 添加新的缩放监听器
+            const zoomListener = mapInstance.map.addListener('zoom_changed', () => {
+                // 获取当前缩放级别
+                const currentZoom = mapInstance.map.getZoom()
+                
+                // 延迟执行，避免频繁更新
+                setTimeout(() => {
+                    if (mapInstance) {
+                        const shouldRenderAsDot = currentZoom < 13
+                        
+                        // 重新渲染所有标记
+                        mapInstance.markers.forEach((googleMarker, markerId) => {
+                            if (googleMarker) {
+                                // 从当前markers props中查找标记数据
+                                const marker = markers.find(m => m.id === markerId)
+                                
+                                if (marker && marker.content.iconType) {
+                                    const iconConfig = getMarkerIconConfig(marker.content.iconType)
+                                    
+                                    if (iconConfig) {
+                                        const svgIcon = createSimpleSVGIcon(iconConfig.emoji, iconConfig.color, shouldRenderAsDot, 0.7, false)
+                                        
+                                        // 确保图标正确设置
+                                        try {
+                                            const iconOptions = {
+                                                url: svgIcon,
+                                                scaledSize: new (window as any).google.maps.Size(
+                                                    shouldRenderAsDot ? 10 : 32, 
+                                                    shouldRenderAsDot ? 10 : 32
+                                                ),
+                                                anchor: new (window as any).google.maps.Point(
+                                                    shouldRenderAsDot ? 5 : 16, 
+                                                    shouldRenderAsDot ? 5 : 16
+                                                )
+                                            }
+                                            
+                                            googleMarker.setIcon(iconOptions)
+                                            
+                                            // 强制刷新标记显示
+                                            googleMarker.setMap(null)
+                                            googleMarker.setMap(mapInstance.map)
+                                        } catch (error) {
+                                            console.error(`更新标记 ${markerId} 图标失败:`, error)
+                                        }
+                                    }
+                                }
+                            }
+                        })
+                    }
+                }, 100)
+            })
+            
+            // 存储缩放监听器
+            mapInstance.eventListeners.set('zoom_changed', zoomListener)
+        }
+
+        // 设置缩放监听器
+        setupZoomListener()
     }, [mapInstance, markers, onMarkerClick, handleMarkerClick])
 
     // 初始化地图
@@ -172,8 +308,13 @@ export const GoogleMap: React.FC<GoogleMapProps> = ({
 
                 // 设置事件监听器
                 if (onMapClick) {
-                    googleProvider.current.onMapClick(instance, onMapClick)
+                    googleProvider.current.onMapClick(instance, (coordinates, placeInfo, clickPosition, isMarkerClick) => {
+                        // 直接传递coordinates作为event参数，因为AbstractMap期望的是coordinates对象
+                        onMapClick(coordinates, placeInfo, clickPosition, isMarkerClick)
+                    })
                 }
+
+                // 缩放监听器现在在useEffect中设置，这里不需要重复设置
 
                 if (onMapLoad) {
                     googleProvider.current.onMapLoad(instance, onMapLoad)
@@ -216,19 +357,42 @@ export const GoogleMap: React.FC<GoogleMapProps> = ({
         }
     }, []) // 只在组件挂载时执行一次
 
-    // 获取标记图标URL
-    const getMarkerIconUrl = (iconType: string): string | null => {
-        // 这里可以根据 iconType 返回对应的图标URL
-        // 可以使用本地图标或在线图标服务
-        const iconMap: Record<string, string> = {
-            'default': '/icons/marker-default.png',
-            'restaurant': '/icons/marker-restaurant.png',
-            'hotel': '/icons/marker-hotel.png',
-            'attraction': '/icons/marker-attraction.png',
-            'shopping': '/icons/marker-shopping.png',
-            'transport': '/icons/marker-transport.png'
+    // 获取标记图标配置（与Mapbox保持一致）
+    const getMarkerIconConfig = (iconType: string) => {
+        const iconMap: Record<string, { emoji: string; color: string }> = {
+            'activity': { emoji: '🎯', color: '#f97316' }, // orange-500
+            'location': { emoji: '📍', color: '#ec4899' }, // pink-500
+            'hotel': { emoji: '🏨', color: '#22c55e' }, // green-500
+            'shopping': { emoji: '🛍️', color: '#a855f7' }, // purple-500
+            'food': { emoji: '🍜', color: '#71717a' }, // zinc-500
+            'landmark': { emoji: '🌆', color: '#a855f7' }, // purple-500
+            'park': { emoji: '🎡', color: '#64748b' }, // slate-500
+            'natural': { emoji: '🗻', color: '#d946ef' }, // fuchsia-500
+            'culture': { emoji: '⛩️', color: '#6b7280' } // gray-500
         }
-        return iconMap[iconType] || iconMap['default']
+        return iconMap[iconType] || iconMap['location']
+    }
+
+    // 创建简化的SVG图标，与Mapbox样式一致
+    const createSimpleSVGIcon = (emoji: string, color: string, isDot: boolean = false, opacity: number = 0.7, isHover: boolean = false): string => {
+        if (isDot) {
+            // 小圆点模式：只显示纯色圆点，不显示emoji
+            const svg = `
+                <svg width="10" height="10" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="5" cy="5" r="4" fill="${color}" opacity="${opacity}" stroke="white" stroke-width="1"/>
+                </svg>
+            `
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+        } else {
+            // 正常模式：显示emoji和颜色，与Mapbox样式一致
+            const svg = `
+                <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="16" cy="16" r="14" fill="${color}" opacity="${opacity}" stroke="white" stroke-width="2"/>
+                    <text x="16" y="20" text-anchor="middle" font-size="14" fill="white" opacity="${opacity}">${emoji}</text>
+                </svg>
+            `
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+        }
     }
 
     return (
@@ -237,6 +401,12 @@ export const GoogleMap: React.FC<GoogleMapProps> = ({
             <div 
                 ref={mapRef} 
                 className="w-full h-full"
+            />
+            
+            {/* 连接线组件 */}
+            <GoogleConnectionLines 
+                mapInstance={mapInstance} 
+                markers={markers} 
             />
             
             {/* 加载状态覆盖层 */}

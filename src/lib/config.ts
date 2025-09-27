@@ -21,7 +21,11 @@ export const config = {
         google: {
             accessToken: process.env.NEXT_PUBLIC_GOOGLE_ACCESS_TOKEN || '',
             style: process.env.NEXT_PUBLIC_GOOGLE_STYLE || 'roadmap',
-            datasetId: process.env.GOOGLE_DATASET_ID || '',
+            dataset: {
+                projectId: process.env.GOOGLE_PROJECT_ID || '',
+                datasetId: process.env.GOOGLE_DATASET_ID || '',
+                apiKey: process.env.GOOGLE_API_KEY || '',
+            },
         },
     },
     // AWS S3 配置（已弃用）
