@@ -242,7 +242,6 @@ export const useMapStore = create<MapStore>()(
                 // 异步保存到 Dataset
                 try {
                     await get().saveMarkerToDataset(markerId)
-                    console.log('新标记已保存到 Dataset:', markerId)
                 } catch (error) {
                     console.error('保存到 Dataset 失败:', error)
                     set({ error: '保存标记失败，请稍后重试' })
@@ -499,7 +498,6 @@ export const useMapStore = create<MapStore>()(
                 set({ isLoading: true })
                 try {
                     await saveMarkerToDataset(marker)
-                    console.log('标记已保存到 Dataset:', markerId)
                 } catch (error) {
                     console.error('保存到 Dataset 失败:', error)
                     throw error
@@ -575,7 +573,6 @@ export const useMapStore = create<MapStore>()(
                             .filter((marker: Marker | null): marker is Marker => marker !== null)
 
                         set({ markers: loadedMarkers, error: null })
-                        console.log('从 Dataset 加载了', loadedMarkers.length, '个标记')
                     } else {
                         console.warn('Dataset 返回数据格式不正确:', result)
                         // 不设置错误，让地图正常显示
@@ -601,7 +598,6 @@ export const useMapStore = create<MapStore>()(
                         throw new Error(`删除失败: ${response.status}`)
                     }
 
-                    console.log('标记已从 Dataset 删除:', markerId)
                 } catch (error: any) {
                     console.error('从 Dataset 删除失败:', error)
                     throw error

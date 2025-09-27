@@ -129,8 +129,6 @@ const EditorJSWrapper = ({ data, onChange, onReady, readOnly = false, placeholde
 
         const initEditor = async () => {
             try {
-                console.log('EditorJSWrapper: 初始化编辑器，数据:', data)
-
                 // @ts-ignore
                 const editor = new EditorJS({
                     holder: editorContainerRef.current!,
@@ -183,14 +181,12 @@ const EditorJSWrapper = ({ data, onChange, onReady, readOnly = false, placeholde
 
                         try {
                             const outputData = await editorInstance.current.save()
-                            console.log('EditorJS onChange - 获取编辑器数据:', outputData)
                             onChange(outputData)
                         } catch (error) {
                             console.error('Error getting editor content:', error)
                         }
                     },
                     onReady: () => {
-                        console.log('Editor.js is ready to work!')
                         setIsReady(true)
                         if (onReady) {
                             onReady({
