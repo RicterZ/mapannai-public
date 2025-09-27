@@ -5,7 +5,7 @@ import { MapboxFeatureProperties } from '@/types/mapbox-dataset'
 import { MarkerCoordinates } from '@/types/marker'
 
 // 初始化 Mapbox Dataset 服务
-const datasetService = new MapboxDatasetService(config.mapbox.dataset)
+const datasetService = new MapboxDatasetService(config.map.mapbox.dataset)
 
 /**
  * GET - 获取所有标记数据
@@ -13,7 +13,7 @@ const datasetService = new MapboxDatasetService(config.mapbox.dataset)
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
-        const datasetId = searchParams.get('datasetId') || config.mapbox.dataset.datasetId
+        const datasetId = searchParams.get('datasetId') || config.map.mapbox.dataset.datasetId
 
         if (!datasetId) {
             return NextResponse.json(
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const targetDatasetId = datasetId || config.mapbox.dataset.datasetId
+        const targetDatasetId = datasetId || config.map.mapbox.dataset.datasetId
 
         if (!targetDatasetId) {
             return NextResponse.json(
@@ -102,7 +102,7 @@ export async function DELETE(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
         const featureId = searchParams.get('featureId')
-        const datasetId = searchParams.get('datasetId') || config.mapbox.dataset.datasetId
+        const datasetId = searchParams.get('datasetId') || config.map.mapbox.dataset.datasetId
 
         if (!featureId || !datasetId) {
             return NextResponse.json(
