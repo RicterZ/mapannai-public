@@ -1,5 +1,6 @@
 'use client'
 
+import React, { useRef, useState, useCallback, useEffect } from 'react'
 import { Marker } from '@/types/marker'
 import { MARKER_ICONS } from '@/types/marker'
 import { cn } from '@/utils/cn'
@@ -11,7 +12,12 @@ interface MapMarkerProps {
     zoom?: number
 }
 
-export const MapMarker = ({ marker, isSelected, onClick, zoom }: MapMarkerProps) => {
+export const MapMarker = ({ 
+    marker, 
+    isSelected, 
+    onClick, 
+    zoom
+}: MapMarkerProps) => {
     const iconType = marker.content.iconType || 'location'
     const iconConfig = MARKER_ICONS[iconType]
 

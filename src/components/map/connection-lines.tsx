@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { Source, Layer } from 'react-map-gl'
 import { Marker } from '@/types/marker'
+import { useMapStore } from '@/store/map-store'
 
 interface ConnectionLinesProps {
     markers: Marker[]
@@ -15,6 +16,9 @@ interface ConnectionLine {
 }
 
 export const ConnectionLines = ({ markers }: ConnectionLinesProps) => {
+    const { interactionState } = useMapStore()
+    const { highlightedChainIds } = interactionState
+    
     // 计算所有连接线
     const connectionLines = useMemo(() => {
         const lines: ConnectionLine[] = []
@@ -39,8 +43,9 @@ export const ConnectionLines = ({ markers }: ConnectionLinesProps) => {
         return lines
     }, [markers])
 
-    // 生成 GeoJSON 数据用于绘制线条
-    const lineGeoJSON = useMemo(() => {
+
+    // 生成普通连接线的 GeoJSON
+    const connectionGeoJSON = useMemo(() => {
         if (connectionLines.length === 0) {
             return {
                 type: 'FeatureCollection' as const,
@@ -60,7 +65,8 @@ export const ConnectionLines = ({ markers }: ConnectionLinesProps) => {
             properties: {
                 id: line.id,
                 fromId: line.from.id,
-                toId: line.to.id
+                toId: line.to.id,
+                isDragPreview: false
             }
         }))
 
@@ -76,20 +82,48 @@ export const ConnectionLines = ({ markers }: ConnectionLinesProps) => {
     }
 
     return (
-        <Source id="connection-lines" type="geojson" data={lineGeoJSON}>
+        <Source id="connection-lines" type="geojson" data={connectionGeoJSON}>
+            {/* 普通连接线 */}
             <Layer
                 id="connection-lines-layer"
                 type="line"
                 paint={{
-                    'line-color': 'rgba(255, 255, 255, 0.6)', // 白色半透明
-                    'line-width': 2,
-                    'line-opacity': 0.8,
-                    'line-dasharray': [2, 2] // 虚线效果
+                    'line-color': 'rgba(0, 0, 0, 0.4)', // 黑色半透明，降低不透明度
+                    'line-width': 4, // 加粗
+                    'line-opacity': 0.6, // 降低不透明度
                 }}
                 layout={{
                     'line-join': 'round',
                     'line-cap': 'round'
                 }}
+            />
+            
+            {/* 高亮连接线 */}
+            <Layer
+                id="highlighted-connection-lines-layer"
+                type="line"
+                paint={{
+                    'line-color': 'rgba(59, 130, 246, 0.8)', // 蓝色高亮
+                    'line-width': 6, // 更粗
+                    'line-opacity': 1, // 完全不透明
+                }}
+                layout={{
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                }}
+                filter={highlightedChainIds.length > 0 ? [
+                    'all',
+                    [
+                        'in',
+                        ['get', 'fromId'],
+                        ['literal', highlightedChainIds]
+                    ],
+                    [
+                        'in',
+                        ['get', 'toId'],
+                        ['literal', highlightedChainIds]
+                    ]
+                ] : ['literal', false]}
             />
         </Source>
     )

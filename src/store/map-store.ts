@@ -33,6 +33,7 @@ interface MapStore {
         isEnabled: boolean
     }
 
+
     // Actions
     addMarker: (coordinates: MarkerCoordinates, content?: string) => string
     createMarkerFromModal: (data: {
@@ -71,12 +72,17 @@ interface MapStore {
     setEditMode: (enabled: boolean) => void
     toggleEditMode: () => void
 
+
     // Sidebar actions
     openSidebar: () => void
     closeSidebar: () => void
 
     // Editor actions
-    updateMarkerContent: (markerId: string, content: { title?: string; headerImage?: string; markdownContent: string }) => void
+    updateMarkerContent: (markerId: string, content: { title?: string; headerImage?: string; markdownContent: string; next?: string[] }) => void
+
+    // Chain highlight actions
+    setHighlightedChain: (chainIds: string[]) => void
+    clearHighlightedChain: () => void
 
     // Dataset actions
     saveMarkerToDataset: (markerId: string) => Promise<void>
@@ -134,6 +140,7 @@ export const useMapStore = create<MapStore>()(
                 isSidebarOpen: false,
                 pendingCoordinates: null,
                 popupCoordinates: null,
+                highlightedChainIds: [],
             },
             isLoading: false,
             error: null,
@@ -159,6 +166,7 @@ export const useMapStore = create<MapStore>()(
             editMode: {
                 isEnabled: false,
             },
+
 
             // Actions
             addMarker: (coordinates, content) => {
@@ -467,6 +475,7 @@ export const useMapStore = create<MapStore>()(
                                     title: content.title,
                                     headerImage: content.headerImage,
                                     markdownContent: content.markdownContent,
+                                    next: content.next || marker.content.next || [],
                                     updatedAt: new Date(),
                                 },
                             }
@@ -601,6 +610,25 @@ export const useMapStore = create<MapStore>()(
 
             clearError: () => {
                 set({ error: null }, false, 'clearError')
+            },
+
+            // Chain highlight actions
+            setHighlightedChain: (chainIds) => {
+                set(state => ({
+                    interactionState: {
+                        ...state.interactionState,
+                        highlightedChainIds: chainIds,
+                    },
+                }), false, 'setHighlightedChain')
+            },
+
+            clearHighlightedChain: () => {
+                set(state => ({
+                    interactionState: {
+                        ...state.interactionState,
+                        highlightedChainIds: [],
+                    },
+                }), false, 'clearHighlightedChain')
             },
 
             setLoading: (loading) => {

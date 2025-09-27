@@ -1,9 +1,10 @@
 'use client'
 
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useState, useEffect } from 'react'
 import { useMapStore } from '@/store/map-store'
 import { cn } from '@/utils/cn'
 import { marked } from 'marked'
+import { MarkerChain } from './marker-chain'
 
 interface SidebarProps {
     onClose?: () => void
@@ -11,6 +12,8 @@ interface SidebarProps {
 
 export const Sidebar = ({ onClose }: SidebarProps) => {
     const sidebarRef = useRef<HTMLDivElement>(null)
+    const [isAddingToChain, setIsAddingToChain] = useState(false)
+    const [targetMarkerId, setTargetMarkerId] = useState<string | null>(null)
 
     const {
         markers,
@@ -19,11 +22,17 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
         editMarkerModal,
         openEditMarkerModal,
         deleteMarker,
+        selectMarker,
+        updateMarkerContent,
     } = useMapStore()
 
     // 自定义关闭函数，在移动端关闭时跳转到正中间
     const handleClose = useCallback(() => {
         const { selectedMarkerId } = interactionState
+        
+        // 关闭添加模式
+        setIsAddingToChain(false)
+        setTargetMarkerId(null)
         
         closeSidebar()
         
@@ -39,10 +48,108 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                     }
                 })
                 window.dispatchEvent(event)
-                console.log('Dispatched jumpToCenter event:', marker.coordinates)
             }
         }
     }, [closeSidebar, interactionState.selectedMarkerId, markers])
+
+    // 处理标记链中的标记点击
+    const handleMarkerClick = useCallback((markerId: string) => {
+        selectMarker(markerId)
+    }, [selectMarker])
+
+    // 处理添加标记到链中
+    const handleAddToChain = useCallback((sourceMarkerId: string) => {
+        setIsAddingToChain(true)
+        setTargetMarkerId(sourceMarkerId)
+        
+        // 显示提示信息
+        const event = new CustomEvent('showMessage', {
+            detail: {
+                type: 'info',
+                message: '点击地图上的标记添加到链中',
+                duration: 5000
+            }
+        })
+        window.dispatchEvent(event)
+    }, [])
+
+    // 处理标记选择（当处于添加模式时）
+    const handleMarkerSelection = useCallback((markerId: string) => {
+        if (isAddingToChain) {
+            if (targetMarkerId) {
+                
+                // 获取源标记
+                const sourceMarker = markers.find(m => m.id === targetMarkerId)
+                if (sourceMarker) {
+                    // 更新 next 字段
+                    const currentNext = sourceMarker.content.next || []
+                    if (!currentNext.includes(markerId)) {
+                        const updatedNext = [...currentNext, markerId]
+                        
+                        // 更新标记内容
+                        updateMarkerContent(targetMarkerId, {
+                            title: sourceMarker.content.title,
+                            headerImage: sourceMarker.content.headerImage,
+                            markdownContent: sourceMarker.content.markdownContent,
+                            next: updatedNext
+                        })
+                        
+                        
+                        // 显示成功消息
+                        const event = new CustomEvent('showMessage', {
+                            detail: {
+                                type: 'success',
+                                message: '成功添加到标记链',
+                                duration: 3000
+                            }
+                        })
+                        window.dispatchEvent(event)
+                    } else {
+                    }
+                }
+            } else {
+                // 如果没有目标标记，说明是直接添加模式，不需要添加到链中
+                return // 直接返回，不执行后续逻辑
+            }
+            
+            // 重置状态
+            setIsAddingToChain(false)
+            setTargetMarkerId(null)
+        } else {
+            // 正常选择标记
+            selectMarker(markerId)
+        }
+    }, [isAddingToChain, targetMarkerId, markers, updateMarkerContent, selectMarker])
+
+    // 监听添加标记事件
+    useEffect(() => {
+        const handleAddMarkerToChain = (event: CustomEvent) => {
+            if (isAddingToChain) {
+                handleMarkerSelection(event.detail.markerId)
+            }
+        }
+
+        const handleCheckAddingMode = (event: CustomEvent) => {
+            if (event.detail && event.detail.callback) {
+                event.detail.callback(isAddingToChain)
+            }
+        }
+
+        const handleResetAddMode = () => {
+            setIsAddingToChain(false)
+            setTargetMarkerId(null)
+        }
+
+        window.addEventListener('addMarkerToChain', handleAddMarkerToChain as EventListener)
+        window.addEventListener('checkAddingMode', handleCheckAddingMode as EventListener)
+        window.addEventListener('resetAddMode', handleResetAddMode as EventListener)
+
+        return () => {
+            window.removeEventListener('addMarkerToChain', handleAddMarkerToChain as EventListener)
+            window.removeEventListener('checkAddingMode', handleCheckAddingMode as EventListener)
+            window.removeEventListener('resetAddMode', handleResetAddMode as EventListener)
+        }
+    }, [isAddingToChain, targetMarkerId, handleMarkerSelection])
 
     const { isSidebarOpen, selectedMarkerId, displayedMarkerId } = interactionState
 
@@ -80,7 +187,17 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
             {/* Backdrop */}
             <div
                 className="fixed inset-0 bg-black bg-opacity-25 z-40 lg:hidden"
-                onClick={onClose || closeSidebar}
+                onClick={() => {
+                    // 关闭添加模式
+                    setIsAddingToChain(false)
+                    setTargetMarkerId(null)
+                    // 调用关闭函数
+                    if (onClose) {
+                        onClose()
+                    } else {
+                        closeSidebar()
+                    }
+                }}
             />
 
             {/* Sidebar */}
@@ -159,10 +276,28 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                     </button>
                 </div>
 
+                {/* 添加模式指示器 */}
+                {isAddingToChain && (
+                    <div className="px-4 py-2 bg-blue-50 border-b border-blue-200">
+                        <div className="flex items-center space-x-2">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                            <span className="text-sm font-medium text-blue-700">添加模式</span>
+                            <span className="text-xs text-blue-600">点击地图上的标记添加到链中</span>
+                        </div>
+                    </div>
+                )}
+
                 {/* Content */}
                 <div className="flex-1 overflow-hidden flex flex-col min-h-0">
                     {selectedMarker ? (
-                        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-visible custom-scrollbar">
+                            {/* 标记链 */}
+                            <MarkerChain 
+                                currentMarker={selectedMarker} 
+                                onMarkerClick={handleMarkerClick}
+                                onAddMarker={handleAddToChain}
+                            />
+
                             {/* 首图显示 */}
                             {selectedMarker.content.headerImage && (
                                 <div className="w-full">
