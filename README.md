@@ -2,9 +2,9 @@
 
 一个基于Next.js和Mapbox的交互式地图标记编辑平台，支持富文本内容编辑、坐标跳转、标记分类等功能。
 
-![](READMEIMG/1.png)
-![](READMEIMG/2.png)
-![](READMEIMG/3.png)
+<img width="1236" height="906" alt="image" src="https://github.com/user-attachments/assets/b5c90caf-3545-495a-9ebc-eceefb7aa8b8" />
+<img width="1236" height="906" alt="image" src="https://github.com/user-attachments/assets/44897d0a-3ef0-4ee6-89c6-777a70876d69" />
+<img width="1236" height="906" alt="image" src="https://github.com/user-attachments/assets/1869b0cc-8c9e-4b7d-aed3-4dc487700b12" />
 
 ## 🚀 部署
 
