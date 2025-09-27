@@ -22,19 +22,63 @@ export const InteractiveMap = () => {
     const [mapInitialized, setMapInitialized] = useState(false)
     const [loadingRetryCount, setLoadingRetryCount] = useState(0)
     const [dataLoaded, setDataLoaded] = useState(false) // 新增：防止重复加载
-    const [viewState, setViewState] = useState<ViewState>({
-        longitude: config.app.defaultCenter.longitude,
-        latitude: config.app.defaultCenter.latitude,
-        zoom: config.app.defaultZoom,
-        bearing: 0,
-        pitch: 0,
-        padding: {
-            top: 0,
-            bottom: 0,
-            left: 0,
-            right: 0,
-        },
-    })
+    
+    // 从localStorage恢复上次的坐标，如果没有则使用默认坐标
+    const getInitialViewState = (): ViewState => {
+        if (typeof window === 'undefined') {
+            return {
+                longitude: config.app.defaultCenter.longitude,
+                latitude: config.app.defaultCenter.latitude,
+                zoom: config.app.defaultZoom,
+                bearing: 0,
+                pitch: 0,
+                padding: {
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                },
+            }
+        }
+        
+        try {
+            const savedViewState = localStorage.getItem('mapViewState')
+            if (savedViewState) {
+                const parsed = JSON.parse(savedViewState)
+                return {
+                    longitude: parsed.longitude || config.app.defaultCenter.longitude,
+                    latitude: parsed.latitude || config.app.defaultCenter.latitude,
+                    zoom: parsed.zoom || config.app.defaultZoom,
+                    bearing: parsed.bearing || 0,
+                    pitch: parsed.pitch || 0,
+                    padding: {
+                        top: 0,
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                    },
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to parse saved view state:', error)
+        }
+        
+        return {
+            longitude: config.app.defaultCenter.longitude,
+            latitude: config.app.defaultCenter.latitude,
+            zoom: config.app.defaultZoom,
+            bearing: 0,
+            pitch: 0,
+            padding: {
+                top: 0,
+                bottom: 0,
+                left: 0,
+                right: 0,
+            },
+        }
+    }
+    
+    const [viewState, setViewState] = useState<ViewState>(getInitialViewState())
 
     // 城市快速跳转折叠状态
     const [isCityListOpen, setIsCityListOpen] = useState(false)
@@ -76,18 +120,20 @@ export const InteractiveMap = () => {
 
     // 自定义关闭标记详情函数，在移动端关闭时跳转到正中间
     const handleCloseSidebar = useCallback(() => {
-        console.log('handleCloseSidebar called', { selectedMarkerId, windowWidth: window.innerWidth })
+        
+        // 发送事件通知侧边栏重置添加模式
+        const resetAddModeEvent = new CustomEvent('resetAddMode')
+        window.dispatchEvent(resetAddModeEvent)
+        
         closeSidebar()
         
         // 在移动端关闭标记详情时，跳转到正中间（修复之前的偏移）
         if (window.innerWidth < 1024 && selectedMarkerId) {
             const marker = markers.find(m => m.id === selectedMarkerId)
-            console.log('Found marker for center jump:', marker)
             if (marker && mapRef.current) {
                 // 延迟执行，确保侧边栏已经关闭
                 setTimeout(() => {
                     if (mapRef.current) {
-                        console.log('Jumping to center:', marker.coordinates)
                         // 跳转到正中间，无偏移
                         mapRef.current.flyTo({
                             center: [marker.coordinates.longitude, marker.coordinates.latitude],
@@ -102,7 +148,6 @@ export const InteractiveMap = () => {
 
     // 地图初始化成功后设置状态
     const handleMapLoad = useCallback(() => {
-        console.log('地图初始化成功')
         setMapInitialized(true)
         setError(null) // 清除可能的错误
     }, [])
@@ -112,10 +157,10 @@ export const InteractiveMap = () => {
         const handleJumpToCenter = (event: CustomEvent) => {
             const { coordinates, zoom } = event.detail
             if (mapRef.current) {
-                console.log('Received jumpToCenter event:', coordinates)
+                const currentZoom = mapRef.current.getZoom()
                 mapRef.current.flyTo({
                     center: [coordinates.longitude, coordinates.latitude],
-                    zoom: zoom || 15,
+                    zoom: zoom !== null ? zoom : currentZoom, // 如果zoom为null，保持当前zoom
                     duration: 1000,
                 })
             }
@@ -340,14 +385,19 @@ export const InteractiveMap = () => {
                 // 清除选中的标记状态
                 selectMarker(null)
             } else {
-                // Open popup for adding new marker
-                openPopup(coordinates)
+                // 如果有选中的标记，只清除选中状态，不打开添加popup
+                if (selectedMarkerId) {
+                    selectMarker(null)
+                } else {
+                    // 没有选中标记时，打开添加新标记的popup
+                    openPopup(coordinates)
+                }
             }
         } catch (err) {
             console.error('Map click error:', err)
             // 不设置严重错误，只是控制台输出
         }
-    }, [isPopupOpen, isSidebarOpen, openPopup, closePopup, closeSidebar, selectMarker])
+    }, [isPopupOpen, isSidebarOpen, openPopup, closePopup, closeSidebar, selectMarker, selectedMarkerId])
 
     const handleMarkerClick = useCallback((markerId: string) => {
         try {
@@ -357,9 +407,28 @@ export const InteractiveMap = () => {
             // 关闭可能存在的弹窗
             closePopup()
 
-            // 选择标记并打开右侧详情栏
-            selectMarker(markerId)
-            openSidebar()
+            // 检查是否处于添加模式 - 通过自定义事件获取状态
+            let isAddingMode = false
+            const checkEvent = new CustomEvent('checkAddingMode', {
+                detail: { callback: (result: boolean) => { isAddingMode = result } }
+            })
+            window.dispatchEvent(checkEvent)
+
+            // 等待回调执行
+            setTimeout(() => {
+                if (isAddingMode) {
+                    // 触发添加标记事件
+                    const addEvent = new CustomEvent('addMarkerToChain', {
+                        detail: { markerId }
+                    })
+                    window.dispatchEvent(addEvent)
+                    return
+                }
+
+                // 选择标记并打开右侧详情栏
+                selectMarker(markerId)
+                openSidebar()
+            }, 0)
         } catch (err) {
             console.error('Marker click error:', err)
         }
@@ -404,8 +473,7 @@ export const InteractiveMap = () => {
             const markerId = await createMarkerFromModal(data)
             console.log('新标记已创建:', markerId, data)
             
-            // 创建标记后自动打开编辑模态框
-            openEditMarkerModal(markerId)
+            // 创建标记后不再自动打开编辑模态框
         } catch (err) {
             console.error('Save new marker error:', err)
         }
@@ -497,23 +565,6 @@ export const InteractiveMap = () => {
             {/* 城市快速跳转（可折叠） */}
             <div className="absolute left-4 top-4 z-50">
                 <div className="flex flex-col items-start space-y-2">
-                    {/* 搜索悬浮按钮：打开半屏浮层 */}
-                    <button
-                        onClick={() => setIsSearchFabOpen(true)}
-                        className={cn(
-                            'w-12 h-12 rounded-full shadow-lg border border-gray-200 bg-white',
-                            'flex items-center justify-center',
-                            'hover:bg-blue-50 hover:border-blue-300 transition-all duration-200',
-                            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
-                        )}
-                        aria-label="查找或跳转"
-                        title="查找或跳转"
-                    >
-                        <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </button>
-
                     {/* 标记按钮：打开左侧栏（标记列表） */}
                     <button
                         onClick={toggleLeftSidebar}
@@ -521,7 +572,7 @@ export const InteractiveMap = () => {
                             'w-12 h-12 rounded-full shadow-lg border border-gray-200 bg-white',
                             'flex items-center justify-center',
                             'hover:bg-blue-50 hover:border-blue-300 transition-all duration-200',
-                            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                            'focus:outline-none'
                         )}
                         aria-label="打开标记列表"
                         title="打开标记列表"
@@ -532,6 +583,23 @@ export const InteractiveMap = () => {
                         </svg>
                     </button>
 
+                    {/* 搜索悬浮按钮：打开半屏浮层 */}
+                    <button
+                        onClick={() => setIsSearchFabOpen(true)}
+                        className={cn(
+                            'w-12 h-12 rounded-full shadow-lg border border-gray-200 bg-white',
+                            'flex items-center justify-center',
+                            'hover:bg-blue-50 hover:border-blue-300 transition-all duration-200',
+                            'focus:outline-none'
+                        )}
+                        aria-label="查找或跳转"
+                        title="查找或跳转"
+                    >
+                        <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </button>
+
                     {/* 城市快速跳转按钮 */}
                     <button
                         onClick={() => setIsCityListOpen(!isCityListOpen)}
@@ -539,7 +607,7 @@ export const InteractiveMap = () => {
                             'w-12 h-12 rounded-full shadow-lg border border-gray-200 bg-white',
                             'flex items-center justify-center',
                             'hover:bg-blue-50 hover:border-blue-300 transition-all duration-200',
-                            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                            'focus:outline-none'
                         )}
                         aria-expanded={isCityListOpen}
                         aria-label={isCityListOpen ? '收起城市快速跳转' : '展开城市快速跳转'}
@@ -571,7 +639,7 @@ export const InteractiveMap = () => {
                                         'text-sm font-medium text-gray-700',
                                         'hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700',
                                         'transition-all duration-200',
-                                        'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                                        'focus:outline-none',
                                         'flex items-center space-x-2',
                                         'transform transition-transform duration-200',
                                         isCityListOpen ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
@@ -602,7 +670,21 @@ export const InteractiveMap = () => {
             <Map
                 ref={mapRef}
                 {...viewState}
-                onMove={(evt) => setViewState(evt.viewState)}
+                onMove={(evt) => {
+                    setViewState(evt.viewState)
+                    // 保存当前视图状态到localStorage
+                    try {
+                        localStorage.setItem('mapViewState', JSON.stringify({
+                            longitude: evt.viewState.longitude,
+                            latitude: evt.viewState.latitude,
+                            zoom: evt.viewState.zoom,
+                            bearing: evt.viewState.bearing,
+                            pitch: evt.viewState.pitch,
+                        }))
+                    } catch (error) {
+                        console.warn('Failed to save view state to localStorage:', error)
+                    }
+                }}
                 onLoad={handleMapLoad}
                 onClick={handleMapClick}
 
@@ -612,7 +694,10 @@ export const InteractiveMap = () => {
                 attributionControl={false}
                 logoPosition="bottom-left"
                 doubleClickZoom={false}
-                style={{ width: '100%', height: '100%' }}
+                style={{ 
+                    width: '100%', 
+                    height: '100%'
+                }}
                 onError={(event) => {
                     console.error('Mapbox error:', event)
                     if (event.error?.message?.includes('Unauthorized') || event.error?.message?.includes('Invalid Token')) {
@@ -637,7 +722,7 @@ export const InteractiveMap = () => {
                             key={marker.id}
                             longitude={marker.coordinates.longitude}
                             latitude={marker.coordinates.latitude}
-                            anchor="bottom"
+                            anchor="center"
                         >
                             <MapMarker
                                 marker={marker}
@@ -661,6 +746,7 @@ export const InteractiveMap = () => {
                     />
                 )}
             </Map>
+
         {/* 右下角：搜索侧边栏（桌面端右侧弹出，移动端半屏） */}
         {isSearchFabOpen && (
             <div className="fixed inset-0 z-[60]">
@@ -708,13 +794,13 @@ export const InteractiveMap = () => {
                                     坐标跳转
                                 </h4>
                                 <div className="relative">
-                                    <input type="text" value={fabCoordInput} onChange={(e) => { setFabCoordInput(e.target.value); if (fabCoordError) setFabCoordError('') }} onKeyDown={(e) => { if (e.key === 'Enter') handleFabCoordinateJump() }} placeholder="输入坐标，如: 35.452, 139.638" className={cn('w-full h-9 pl-9 pr-12 border rounded-md text-sm', fabCoordError ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500', 'focus:outline-none focus:ring-2 transition-colors duration-200')} />
+                                    <input type="text" value={fabCoordInput} onChange={(e) => { setFabCoordInput(e.target.value); if (fabCoordError) setFabCoordError('') }} onKeyDown={(e) => { if (e.key === 'Enter') handleFabCoordinateJump() }} placeholder="输入坐标，如: 35.452, 139.638" className={cn('w-full h-9 pl-9 pr-12 border rounded-md text-sm', fabCoordError ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500', 'focus:outline-none transition-colors duration-200')} />
                                     <div className="absolute left-3 top-1/2 -translate-y-1/2">
                                         <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                         </svg>
                                     </div>
-                                    <button onClick={handleFabCoordinateJump} className={cn('absolute right-2 top-1/2 -translate-y-1/2', 'px-2 py-1 text-xs font-medium rounded', 'bg-blue-600 text-white hover:bg-blue-700', 'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2', 'transition-colors duration-200')}>跳转</button>
+                                    <button onClick={handleFabCoordinateJump} className={cn('absolute right-2 top-1/2 -translate-y-1/2', 'px-2 py-1 text-xs font-medium rounded', 'bg-blue-600 text-white hover:bg-blue-700', 'focus:outline-none', 'transition-colors duration-200')}>跳转</button>
                                 </div>
                                 {fabCoordError && <div className="text-xs text-red-600 bg-red-50 p-2 rounded-md">{fabCoordError}</div>}
                             </div>
@@ -728,19 +814,19 @@ export const InteractiveMap = () => {
                                     地点搜索
                                 </h4>
                                 <div className="relative">
-                                    <input type="text" value={fabQuery} onChange={(e) => { setFabQuery(e.target.value); if (fabQueryError) setFabQueryError(''); if (e.target.value.trim() === '') setFabResults([]) }} onKeyDown={(e) => { if (e.key === 'Enter') handleFabSearch() }} placeholder="输入关键字，如：东京" className={cn('w-full h-9 pl-9 pr-12 border rounded-md text-sm', fabQueryError ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500', 'focus:outline-none focus:ring-2 transition-colors duration-200')} />
+                                    <input type="text" value={fabQuery} onChange={(e) => { setFabQuery(e.target.value); if (fabQueryError) setFabQueryError(''); if (e.target.value.trim() === '') setFabResults([]) }} onKeyDown={(e) => { if (e.key === 'Enter') handleFabSearch() }} placeholder="输入关键字，如：东京" className={cn('w-full h-9 pl-9 pr-12 border rounded-md text-sm', fabQueryError ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500', 'focus:outline-none transition-colors duration-200')} />
                                     <div className="absolute left-3 top-1/2 -translate-y-1/2">
                                         <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                         </svg>
                                     </div>
-                                    <button onClick={handleFabSearch} className={cn('absolute right-2 top-1/2 -translate-y-1/2', 'px-2 py-1 text-xs font-medium rounded', 'bg-blue-600 text-white hover:bg-blue-700', 'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2', 'transition-colors duration-200')}>搜索</button>
+                                    <button onClick={handleFabSearch} className={cn('absolute right-2 top-1/2 -translate-y-1/2', 'px-2 py-1 text-xs font-medium rounded', 'bg-blue-600 text-white hover:bg-blue-700', 'focus:outline-none', 'transition-colors duration-200')}>搜索</button>
                                 </div>
                                 {fabQueryError && <div className="text-xs text-red-600 bg-red-50 p-2 rounded-md">{fabQueryError}</div>}
                                 {fabResults.length > 0 && (
                                     <div className="space-y-2 animate-pop-in">
                                         {fabResults.map((r: any, idx: number) => (
-                                            <button key={`${r.name}-${idx}`} onClick={() => handleFabResultClick(r)} className={cn('w-full p-3 bg-white rounded-lg border border-gray-200', 'hover:border-blue-300 hover:shadow-md', 'transition-all duration-200', 'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2', 'text-left')}>
+                                            <button key={`${r.name}-${idx}`} onClick={() => handleFabResultClick(r)} className={cn('w-full p-3 bg-white rounded-lg border border-gray-200', 'hover:border-blue-300 hover:shadow-md', 'transition-all duration-200', 'focus:outline-none', 'text-left')}>
                                                 <div className="flex items-start space-x-3">
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center justify-between">

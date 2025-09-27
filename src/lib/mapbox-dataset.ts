@@ -41,8 +41,15 @@ export class MapboxDatasetService {
      * 获取 Dataset 信息
      */
     async getDataset(datasetId: string): Promise<MapboxDataset> {
+        const timestamp = Date.now()
         const response = await fetch(
-            `${this.baseUrl}/${this.config.username}/${datasetId}?access_token=${this.config.secretAccessToken}`
+            `${this.baseUrl}/${this.config.username}/${datasetId}?access_token=${this.config.secretAccessToken}&_t=${timestamp}`,
+            {
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                }
+            }
         )
 
         if (!response.ok) {
@@ -56,8 +63,16 @@ export class MapboxDatasetService {
      * 获取所有 Features
      */
     async getAllFeatures(datasetId: string): Promise<MapboxFeatureCollection> {
+        // 添加时间戳参数破坏 Mapbox API 缓存
+        const timestamp = Date.now()
         const response = await fetch(
-            `${this.baseUrl}/${this.config.username}/${datasetId}/features?access_token=${this.config.secretAccessToken}`
+            `${this.baseUrl}/${this.config.username}/${datasetId}/features?access_token=${this.config.secretAccessToken}&_t=${timestamp}`,
+            {
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                }
+            }
         )
 
         if (!response.ok) {
@@ -108,8 +123,15 @@ export class MapboxDatasetService {
      * 获取单个 Feature
      */
     async getFeature(datasetId: string, featureId: string): Promise<MapboxMarkerFeature> {
+        const timestamp = Date.now()
         const response = await fetch(
-            `${this.baseUrl}/${this.config.username}/${datasetId}/features/${featureId}?access_token=${this.config.secretAccessToken}`
+            `${this.baseUrl}/${this.config.username}/${datasetId}/features/${featureId}?access_token=${this.config.secretAccessToken}&_t=${timestamp}`,
+            {
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                }
+            }
         )
 
         if (!response.ok) {

@@ -24,10 +24,17 @@ export async function GET(request: NextRequest) {
 
         const featureCollection = await datasetService.getAllFeatures(datasetId)
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             data: featureCollection,
         })
+
+        // 禁用缓存，确保获取最新数据
+        response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+        response.headers.set('Pragma', 'no-cache')
+        response.headers.set('Expires', '0')
+
+        return response
     } catch (error) {
         console.error('获取标记数据失败:', error)
         return NextResponse.json(
@@ -68,10 +75,17 @@ export async function POST(request: NextRequest) {
             properties as MapboxFeatureProperties
         )
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             data: feature,
         })
+
+        // 禁用缓存，确保数据更新后立即生效
+        response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+        response.headers.set('Pragma', 'no-cache')
+        response.headers.set('Expires', '0')
+
+        return response
     } catch (error) {
         console.error('保存标记失败:', error)
         return NextResponse.json(
@@ -99,10 +113,17 @@ export async function DELETE(request: NextRequest) {
 
         await datasetService.deleteFeature(datasetId, featureId)
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: '标记删除成功',
         })
+
+        // 禁用缓存，确保删除操作立即生效
+        response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+        response.headers.set('Pragma', 'no-cache')
+        response.headers.set('Expires', '0')
+
+        return response
     } catch (error) {
         console.error('删除标记失败:', error)
         return NextResponse.json(
