@@ -41,6 +41,8 @@ export class MapDatasetService implements DatasetService {
         // 根据当前地图提供者实现不同的数据集获取逻辑
         if (config.map.provider === 'mapbox') {
             return await this.getMapboxFeatures(datasetId)
+        } else if (config.map.provider === 'amap') {
+            return await this.getAmapFeatures(datasetId)
         }
         
         // 其他地图提供者的实现
@@ -113,9 +115,30 @@ export class MapDatasetService implements DatasetService {
         }
     }
 
+    private async getAmapFeatures(datasetId: string): Promise<DatasetFeatureCollection> {
+        try {
+            console.log(`获取高德地图数据集 ${datasetId} 的所有特征`)
+            
+            // 高德地图没有直接的数据集API，这里返回空集合
+            // 实际实现中可能需要使用其他存储方案（如数据库）
+            return {
+                type: 'FeatureCollection',
+                features: []
+            }
+        } catch (error) {
+            console.error('获取高德地图数据集失败:', error)
+            return {
+                type: 'FeatureCollection',
+                features: []
+            }
+        }
+    }
+
     async upsertFeature(datasetId: string, featureId: string, coordinates: MarkerCoordinates, properties: any): Promise<DatasetFeature> {
         if (config.map.provider === 'mapbox') {
             return await this.upsertMapboxFeature(datasetId, featureId, coordinates, properties)
+        } else if (config.map.provider === 'amap') {
+            return await this.upsertAmapFeature(datasetId, featureId, coordinates, properties)
         }
         
         // 其他地图提供者的实现
