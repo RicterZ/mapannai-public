@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import { useState } from 'react'
 
 // 动态导入地图组件，避免SSR问题
-const InteractiveMap = dynamic(() => import('@/components/map/interactive-map').then(mod => ({ default: mod.InteractiveMap })), {
+const InteractiveMap = dynamic(() => import('@/components/map/common/interactive-map').then(mod => ({ default: mod.InteractiveMap })), {
     ssr: false,
     loading: () => (
         <div className="w-full h-screen flex items-center justify-center bg-gray-100">

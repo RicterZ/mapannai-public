@@ -15,6 +15,7 @@ interface MapStore {
     addMarkerModal: {
         isOpen: boolean
         coordinates: MarkerCoordinates | null
+        placeName: string | null
     }
 
     // 编辑弹窗状态
@@ -52,11 +53,11 @@ interface MapStore {
     selectMarker: (markerId: string | null) => void
 
     // Popup actions
-    openPopup: (coordinates: MarkerCoordinates) => void
+    openPopup: (coordinates: MarkerCoordinates, placeName?: string) => void
     closePopup: () => void
 
     // 新增弹窗 actions
-    openAddMarkerModal: (coordinates: MarkerCoordinates) => void
+    openAddMarkerModal: (coordinates: MarkerCoordinates, placeName?: string) => void
     closeAddMarkerModal: () => void
 
     // 编辑弹窗 actions
@@ -140,6 +141,7 @@ export const useMapStore = create<MapStore>()(
                 isSidebarOpen: false,
                 pendingCoordinates: null,
                 popupCoordinates: null,
+                placeName: null,
                 highlightedChainIds: [],
             },
             isLoading: false,
@@ -149,6 +151,7 @@ export const useMapStore = create<MapStore>()(
             addMarkerModal: {
                 isOpen: false,
                 coordinates: null,
+                placeName: null,
             },
 
             // 编辑弹窗初始状态
@@ -229,6 +232,7 @@ export const useMapStore = create<MapStore>()(
                     addMarkerModal: {
                         isOpen: false,
                         coordinates: null,
+                        placeName: null,
                     },
                     interactionState: {
                         ...state.interactionState,
@@ -331,13 +335,14 @@ export const useMapStore = create<MapStore>()(
                 }), false, 'selectMarker')
             },
 
-            openPopup: (coordinates) => {
+            openPopup: (coordinates, placeName) => {
                 set(state => ({
                     interactionState: {
                         ...state.interactionState,
                         isPopupOpen: true,
                         popupCoordinates: coordinates,
                         pendingCoordinates: coordinates,
+                        placeName: placeName || null,
                     },
                 }), false, 'openPopup')
             },
@@ -348,21 +353,24 @@ export const useMapStore = create<MapStore>()(
                         ...state.interactionState,
                         isPopupOpen: false,
                         popupCoordinates: null,
+                        placeName: null,
                     },
                 }), false, 'closePopup')
             },
 
             // 新增弹窗 actions
-            openAddMarkerModal: (coordinates) => {
+            openAddMarkerModal: (coordinates, placeName) => {
                 set({
                     addMarkerModal: {
                         isOpen: true,
                         coordinates,
+                        placeName: placeName || null,
                     },
                     interactionState: {
                         ...get().interactionState,
                         isPopupOpen: false, // 关闭popup
                         popupCoordinates: null,
+                        placeName: placeName || null,
                     },
                 }, false, 'openAddMarkerModal')
             },
@@ -372,6 +380,7 @@ export const useMapStore = create<MapStore>()(
                     addMarkerModal: {
                         isOpen: false,
                         coordinates: null,
+                        placeName: null,
                     },
                 }, false, 'closeAddMarkerModal')
             },
