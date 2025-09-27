@@ -2,7 +2,7 @@
 export const config = {
     // 地图提供者配置
     map: {
-        provider: (process.env.NEXT_PUBLIC_MAP_PROVIDER || 'mapbox') as 'mapbox' | 'amap' | 'baidu' | 'google',
+        provider: (process.env.NEXT_PUBLIC_MAP_PROVIDER || 'mapbox') as 'mapbox' | 'baidu' | 'google',
         mapbox: {
             accessToken: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '',
             style: process.env.NEXT_PUBLIC_MAPBOX_STYLE || 'mapbox://styles/mapbox/streets-zh-v1',
@@ -12,12 +12,6 @@ export const config = {
                 secretAccessToken: process.env.MAPBOX_SECRET_ACCESS_TOKEN || '',
                 datasetId: process.env.MAPBOX_DATASET_ID || '',
             },
-        },
-        // 未来可以添加其他地图提供者配置
-        amap: {
-            accessToken: process.env.NEXT_PUBLIC_AMAP_ACCESS_TOKEN || '',
-            style: process.env.NEXT_PUBLIC_AMAP_STYLE || 'normal',
-            datasetId: process.env.AMAP_DATASET_ID || '',
         },
         baidu: {
             accessToken: process.env.NEXT_PUBLIC_BAIDU_ACCESS_TOKEN || '',
@@ -52,32 +46,32 @@ export const config = {
         name: 'マップ案内 - 交互式地图编辑器',
         version: '1.0.0',
         defaultCenter: {
-            latitude: 35.452,
-            longitude: 139.638,
+            latitude: 35.6895,
+            longitude: 139.6917,
         },
-        defaultZoom: 14.09,
+        defaultZoom: 11,
     },
     // 城市快速跳转配置
     cities: {
         kyoto: {
             name: '京都',
             coordinates: { longitude: 135.7681, latitude: 35.0116 },
-            zoom: 14
+            zoom: 12
         },
         osaka: {
             name: '大阪',
             coordinates: { longitude: 135.5022, latitude: 34.6937 },
-            zoom: 14
+            zoom: 12
         },
         yokohama: {
             name: '横滨',
             coordinates: { longitude: 139.6380, latitude: 35.452 },
-            zoom: 14
+            zoom: 12
         },
         tokyo: {
             name: '东京',
             coordinates: { longitude: 139.6917, latitude: 35.6895 },
-            zoom: 11
+            zoom: 10
         },
         // nagoya: {
         //     name: '名古屋',
