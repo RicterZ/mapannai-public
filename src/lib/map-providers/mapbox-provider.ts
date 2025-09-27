@@ -114,15 +114,22 @@ export class MapboxProvider implements MapProvider {
 
     async searchPlaces(query: string, config: MapProviderConfig): Promise<MapSearchResult[]> {
         try {
-            const response = await fetch(`/api/mapbox-search?q=${encodeURIComponent(query)}&limit=10`)
-            const data = await response.json()
+            // 直接调用Mapbox搜索API
+            const mapboxSearchUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`
+            const searchResponse = await fetch(`${mapboxSearchUrl}?access_token=${config.accessToken}&limit=10&language=zh-CN&country=JP`)
+
+            if (!searchResponse.ok) {
+                throw new Error(`Mapbox API 错误: ${searchResponse.status}`)
+            }
+
+            const searchData = await searchResponse.json()
             
-            if (Array.isArray(data?.data)) {
-                return data.data.map((item: any) => ({
-                    name: item.name,
+            if (Array.isArray(searchData.features)) {
+                return searchData.features.map((feature: any) => ({
+                    name: feature.place_name,
                     coordinates: {
-                        latitude: item.coordinates.latitude,
-                        longitude: item.coordinates.longitude,
+                        latitude: feature.center[1],
+                        longitude: feature.center[0],
                     }
                 }))
             }
