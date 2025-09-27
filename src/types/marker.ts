@@ -59,6 +59,7 @@ export interface MapInteractionState {
     isSidebarOpen: boolean
     pendingCoordinates: MarkerCoordinates | null
     popupCoordinates: MarkerCoordinates | null
+    placeName: string | null // 地点名称
     highlightedChainIds: string[] // 高亮的标记链ID列表
 }
 

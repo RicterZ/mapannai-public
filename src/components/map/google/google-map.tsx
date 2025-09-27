@@ -13,6 +13,9 @@ interface GoogleMapProps {
     onMarkerClick?: (markerId: string) => void
     onMapLoad?: () => void
     onMapError?: (error: Error) => void
+    onMapMove?: (viewState: { longitude: number; latitude: number; zoom: number }) => void
+    onMapInstanceReady?: (mapInstance: GoogleMapInstance) => void
+    initialViewState?: { longitude: number; latitude: number; zoom: number }
     className?: string
     style?: React.CSSProperties
 }
@@ -32,6 +35,9 @@ export const GoogleMap: React.FC<GoogleMapProps> = ({
     onMarkerClick,
     onMapLoad,
     onMapError,
+    onMapMove,
+    onMapInstanceReady,
+    initialViewState,
     className = '',
     style = {}
 }) => {
@@ -67,47 +73,13 @@ export const GoogleMap: React.FC<GoogleMapProps> = ({
             script.async = true
             script.defer = true
             script.onload = () => resolve()
-            script.onerror = () => reject(new Error('Failed to load Google Maps API'))
+            script.onerror = (error) => {
+                reject(new Error('Failed to load Google Maps API'))
+            }
             document.head.appendChild(script)
         })
     }, [config.accessToken])
 
-    // 初始化地图
-    const initializeMap = useCallback(async () => {
-        if (!mapRef.current) return
-
-        try {
-            setIsLoading(true)
-            setError(null)
-
-            await loadGoogleMapsAPI()
-            
-            const instance = await googleProvider.current.createMapInstance(mapRef.current, config)
-            setMapInstance(instance)
-
-            // 设置事件监听器
-            if (onMapClick) {
-                googleProvider.current.onMapClick(instance, onMapClick)
-            }
-
-            if (onMapLoad) {
-                googleProvider.current.onMapLoad(instance, onMapLoad)
-            }
-
-            if (onMapError) {
-                googleProvider.current.onMapError(instance, onMapError)
-            }
-
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Failed to initialize Google Maps'
-            setError(errorMessage)
-            if (onMapError) {
-                onMapError(new Error(errorMessage))
-            }
-        } finally {
-            setIsLoading(false)
-        }
-    }, [config, onMapClick, onMapLoad, onMapError, loadGoogleMapsAPI])
 
     // 处理标记点击
     const handleMarkerClick = useCallback((markerId: string) => {
@@ -157,14 +129,92 @@ export const GoogleMap: React.FC<GoogleMapProps> = ({
 
     // 初始化地图
     useEffect(() => {
-        initializeMap()
+        let isMounted = true
+        
+        const initMap = async () => {
+            if (!mapRef.current) {
+                // 如果容器未准备好，延迟重试
+                setTimeout(() => {
+                    if (isMounted) {
+                        initMap()
+                    }
+                }, 200)
+                return
+            }
+
+            try {
+                setIsLoading(true)
+                setError(null)
+
+                await loadGoogleMapsAPI()
+                
+                if (!isMounted || !mapRef.current) return
+                
+                const instance = await googleProvider.current.createMapInstance(mapRef.current, config)
+                
+                if (!isMounted) return
+                
+                setMapInstance(instance)
+
+                // 通知父组件地图实例已准备好
+                if (onMapInstanceReady) {
+                    onMapInstanceReady(instance)
+                }
+
+                // 设置初始位置（如果提供）
+                if (initialViewState) {
+                    googleProvider.current.setViewState(instance, {
+                        longitude: initialViewState.longitude,
+                        latitude: initialViewState.latitude,
+                        zoom: initialViewState.zoom
+                    })
+                }
+
+                // 设置事件监听器
+                if (onMapClick) {
+                    googleProvider.current.onMapClick(instance, onMapClick)
+                }
+
+                if (onMapLoad) {
+                    googleProvider.current.onMapLoad(instance, onMapLoad)
+                }
+
+                if (onMapError) {
+                    googleProvider.current.onMapError(instance, onMapError)
+                }
+
+                // 添加位置变化监听器
+                if (onMapMove) {
+                    googleProvider.current.onMapMove(instance, onMapMove)
+                }
+            } catch (err) {
+                if (!isMounted) return
+                
+                const errorMessage = err instanceof Error ? err.message : 'Failed to initialize Google Maps'
+                setError(errorMessage)
+                if (onMapError) {
+                    onMapError(new Error(errorMessage))
+                }
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false)
+                }
+            }
+        }
+
+        // 延迟初始化，确保容器准备好
+        const timer = setTimeout(() => {
+            initMap()
+        }, 100)
 
         return () => {
+            isMounted = false
+            clearTimeout(timer)
             if (mapInstance) {
                 googleProvider.current.destroyMapInstance(mapInstance)
             }
         }
-    }, [initializeMap])
+    }, []) // 只在组件挂载时执行一次
 
     // 获取标记图标URL
     const getMarkerIconUrl = (iconType: string): string | null => {
@@ -181,34 +231,34 @@ export const GoogleMap: React.FC<GoogleMapProps> = ({
         return iconMap[iconType] || iconMap['default']
     }
 
-    if (error) {
-        return (
-            <div className={`flex items-center justify-center h-full bg-gray-100 ${className}`} style={style}>
-                <div className="text-center">
-                    <div className="text-red-500 text-lg font-semibold mb-2">地图加载失败</div>
-                    <div className="text-gray-600">{error}</div>
-                </div>
-            </div>
-        )
-    }
-
-    if (isLoading) {
-        return (
-            <div className={`flex items-center justify-center h-full bg-gray-100 ${className}`} style={style}>
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-                    <div className="text-gray-600">正在加载地图...</div>
-                </div>
-            </div>
-        )
-    }
-
     return (
-        <div 
-            ref={mapRef} 
-            className={`w-full h-full ${className}`} 
-            style={style}
-        />
+        <div className={`relative w-full h-full ${className}`} style={style}>
+            {/* 地图容器 - 始终渲染 */}
+            <div 
+                ref={mapRef} 
+                className="w-full h-full"
+            />
+            
+            {/* 加载状态覆盖层 */}
+            {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-90 z-10">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                        <div className="text-gray-600">正在加载地图...</div>
+                    </div>
+                </div>
+            )}
+            
+            {/* 错误状态覆盖层 */}
+            {error && (
+                <div className="absolute inset-0 flex items-center justify-center bg-red-100 bg-opacity-90 z-10">
+                    <div className="text-center">
+                        <div className="text-red-500 text-lg font-semibold mb-2">地图加载失败</div>
+                        <div className="text-gray-600">{error}</div>
+                    </div>
+                </div>
+            )}
+        </div>
     )
 }
 

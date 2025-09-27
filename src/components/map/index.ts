@@ -1,5 +1,9 @@
 // Map components index
-export { MapMarker } from './map-marker'
-export { MapPopup } from './map-popup'
-export { InteractiveMap } from './interactive-map'
-export { GoogleMap } from './google-map' 
+
+// Re-export all components from subdirectories
+export * from './common'
+export * from './google'
+export * from './mapbox'
+
+// Main map component
+export { AbstractMap } from './abstract-map' 

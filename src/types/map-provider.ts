@@ -53,7 +53,7 @@ export interface MapProvider {
     updateMarker(mapInstance: any, marker: MapMarker): void
     
     // 事件处理
-    onMapClick(mapInstance: any, callback: (coordinates: MapCoordinates) => void): void
+    onMapClick(mapInstance: any, callback: (coordinates: MapCoordinates, placeName?: string) => void): void
     onMarkerClick(mapInstance: any, markerId: string, callback: () => void): void
     onMapLoad(mapInstance: any, callback: () => void): void
     onMapError(mapInstance: any, callback: (error: Error) => void): void
