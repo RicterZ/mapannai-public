@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
         // 调用Mapbox搜索API
         const mapboxSearchUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`
-        const searchResponse = await fetch(`${mapboxSearchUrl}?access_token=${config.mapbox.accessToken}&limit=${limit}&language=zh-CN&country=JP`)
+        const searchResponse = await fetch(`${mapboxSearchUrl}?access_token=${config.map.mapbox.accessToken}&limit=${limit}&language=zh-CN&country=JP`)
 
         if (!searchResponse.ok) {
             throw new Error(`Mapbox API 错误: ${searchResponse.status}`)
