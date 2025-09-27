@@ -1,4 +1,4 @@
-import { MapProvider, MapCoordinates, MapViewState, MapMarker, MapSearchResult, MapProviderConfig } from '@/types/map-provider'
+import { MapProvider, MapCoordinates, MapViewState, MapMarker, MapSearchResult, MapProviderConfig, DetailedPlaceInfo } from '@/types/map-provider'
 
 // Google Maps 相关类型定义
 export interface GoogleMapInstance {
@@ -34,6 +34,27 @@ export class GoogleProvider implements MapProvider {
         
         const map = new (window as any).google.maps.Map(container, mapOptions)
 
+        // 通过 CSS 隐藏 info window
+        const style = document.createElement('style')
+        style.textContent = `
+            .gm-style-iw {
+                display: none !important;
+            }
+            .gm-style-iw-c {
+                display: none !important;
+            }
+            .gm-style-iw-d {
+                display: none !important;
+            }
+            .gm-style-iw-t {
+                display: none !important;
+            }
+            .gm-style-iw-tc {
+                display: none !important;
+            }
+        `
+        document.head.appendChild(style)
+
         this.mapInstance = {
             map,
             markers: new Map(),
@@ -48,6 +69,7 @@ export class GoogleProvider implements MapProvider {
             // 清理所有标记
             mapInstance.markers.forEach(marker => marker.setMap(null))
             mapInstance.markers.clear()
+
 
             // 清理所有事件监听器
             mapInstance.eventListeners.forEach(listener => (window as any).google.maps.event.removeListener(listener))
@@ -112,83 +134,58 @@ export class GoogleProvider implements MapProvider {
                 return
             }
             
+            // 使用 Google Maps 的内置动画功能
+            const duration = options?.duration || 1000 // 默认1秒动画
+            
+            // 启用地图动画
+            map.setOptions({
+                gestureHandling: 'cooperative', // 保持手势控制
+                animation: (window as any).google.maps.Animation.DROP // 添加动画效果
+            })
+            
             // 计算距离，决定动画类型
             const latDiff = Math.abs(currentCenter.lat() - targetPosition.lat)
             const lngDiff = Math.abs(currentCenter.lng() - targetPosition.lng)
             const distance = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff)
             
-            // 如果距离很大，使用更平滑的动画
+            // 如果距离很大，使用 fitBounds 创建更平滑的大距离跳转
             if (distance > 0.1) {
-                // 使用 fitBounds 创建更平滑的大距离跳转
                 const bounds = new (window as any).google.maps.LatLngBounds()
                 bounds.extend(targetPosition)
                 
-                // 设置合适的缩放级别
-                if (zoom) {
-                    map.fitBounds(bounds, {
-                        top: 0,
-                        right: 0,
-                        bottom: 0,
-                        left: 0
-                    })
-                    
-                    // 延迟设置精确的缩放级别
+                // 使用 fitBounds 进行平滑过渡
+                map.fitBounds(bounds, {
+                    top: 50,
+                    right: 50,
+                    bottom: 50,
+                    left: 50
+                })
+                
+                // 如果指定了缩放级别，延迟设置
+                if (zoom && Math.abs(currentZoom - targetZoom) > 0.1) {
                     setTimeout(() => {
                         map.setZoom(targetZoom)
-                    }, 300)
-                } else {
-                    map.fitBounds(bounds)
+                    }, duration * 0.7) // 在动画70%时设置缩放
                 }
             } else {
                 // 小距离移动，使用平滑的 panTo
                 map.panTo(targetPosition)
+                
+                // 如果缩放级别有变化，延迟调整缩放
+                if (Math.abs(currentZoom - targetZoom) > 0.1) {
+                    setTimeout(() => {
+                        map.setZoom(targetZoom)
+                    }, duration * 0.5) // 在动画50%时设置缩放
+                }
             }
             
-            // 如果缩放级别有变化，平滑调整缩放
-            if (Math.abs(currentZoom - targetZoom) > 0.1) {
-                // 延迟执行缩放动画，让位置移动先完成
-                setTimeout(() => {
-                    const zoomDifference = targetZoom - currentZoom
-                    const animationSteps = Math.min(Math.abs(zoomDifference) * 2, 20)
-                    const stepDuration = options?.duration ? options.duration / animationSteps : 30
-                    
-                    let currentStep = 0
-                    
-                    // 根据选项选择缓动函数
-                    const getEasingFunction = (easing: string = 'easeOut') => {
-                        switch (easing) {
-                            case 'linear':
-                                return (t: number) => t
-                            case 'easeIn':
-                                return (t: number) => t * t
-                            case 'easeOut':
-                                return (t: number) => 1 - Math.pow(1 - t, 3)
-                            case 'easeInOut':
-                                return (t: number) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
-                            default:
-                                return (t: number) => 1 - Math.pow(1 - t, 3)
-                        }
-                    }
-                    
-                    const easingFunction = getEasingFunction(options?.easing)
-                    
-                    const animateZoom = () => {
-                        if (currentStep < animationSteps) {
-                            const progress = currentStep / animationSteps
-                            const easedProgress = easingFunction(progress)
-                            const newZoom = currentZoom + (zoomDifference * easedProgress)
-                            
-                            map.setZoom(newZoom)
-                            currentStep++
-                            setTimeout(animateZoom, stepDuration)
-                        } else {
-                            map.setZoom(targetZoom)
-                        }
-                    }
-                    
-                    animateZoom()
-                }, distance > 0.1 ? 200 : 0) // 大距离移动时延迟更久
-            }
+            // 动画完成后恢复默认设置
+            setTimeout(() => {
+                map.setOptions({
+                    animation: null,
+                    gestureHandling: 'auto'
+                })
+            }, duration)
         }
     }
 
@@ -203,7 +200,8 @@ export class GoogleProvider implements MapProvider {
                 lng: marker.coordinates.longitude
             },
             map: mapInstance.map,
-            title: marker.id
+            title: marker.id,
+            clickable: true
         })
 
         mapInstance.markers.set(marker.id, googleMarker)
@@ -232,47 +230,92 @@ export class GoogleProvider implements MapProvider {
         }
     }
 
-    onMapClick(mapInstance: GoogleMapInstance, callback: (coordinates: MapCoordinates, placeName?: string) => void): void {
+    onMapClick(mapInstance: GoogleMapInstance, callback: (coordinates: MapCoordinates, placeInfo?: DetailedPlaceInfo, clickPosition?: { x: number; y: number }, isMarkerClick?: boolean) => void): void {
         if (mapInstance?.map) {
-            const listener = mapInstance.map.addListener('click', async (event: any) => {
-                // Google Maps 事件对象结构
+            const listener = mapInstance.map.addListener('click', (event: any) => {
                 if (event && event.latLng) {
                     try {
+                        
                         const coordinates = {
                             latitude: event.latLng.lat(),
                             longitude: event.latLng.lng()
                         }
                         
-                        // 尝试获取地点名称
-                        let placeName: string | undefined
-                        try {
-                            if (window.google && window.google.maps && window.google.maps.places) {
-                                const service = new window.google.maps.places.PlacesService(document.createElement('div'))
-                                const request = {
-                                    location: event.latLng,
-                                    radius: 50, // 50米范围内搜索
-                                    fields: ['name']
-                                }
-                                
-                                const results = await new Promise<any[]>((resolve, reject) => {
-                                    service.nearbySearch(request, (results: any, status: any) => {
-                                        if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-                                            resolve(results)
-                                        } else {
-                                            resolve([])
-                                        }
-                                    })
-                                })
-                                
-                                if (results.length > 0) {
-                                    placeName = results[0].name
-                                }
+                        // 获取鼠标点击的视口坐标 - 区分marker点击和地图点击
+                        let clickPosition: { x: number; y: number } | undefined = undefined
+                        
+                        // 简单判断：如果存在placeId，说明点击的是Google Places的marker
+                        const isMarkerClick = !!event.placeId
+                        
+                        // 优先使用 domEvent（这是实际的事件对象）
+                        if (event.domEvent) {
+                            clickPosition = {
+                                x: event.domEvent.clientX,
+                                y: event.domEvent.clientY
                             }
-                        } catch (error) {
-                            console.warn('Failed to get place name:', error)
+                        } else if (event.originalEvent) {
+                            // 使用原始事件的clientX和clientY
+                            clickPosition = {
+                                x: event.originalEvent.clientX,
+                                y: event.originalEvent.clientY
+                            }
+                        } else if (event.pixel) {
+                            // 如果没有originalEvent，尝试使用pixel坐标
+                            const mapDiv = mapInstance.map.getDiv()
+                            const mapRect = mapDiv.getBoundingClientRect()
+                            clickPosition = {
+                                x: mapRect.left + event.pixel.x,
+                                y: mapRect.top + event.pixel.y
+                            }
                         }
                         
-                        callback(coordinates, placeName)
+                        
+                        // 构造placeInfo - 检查是否有更多可用的地点信息
+                        const placeInfo = event.placeId ? {
+                            name: event.place?.name || event.name || 'Google Place',
+                            address: event.place?.formatted_address || event.address || 'Google Place',
+                            placeId: event.placeId
+                        } : undefined
+                        
+                        // 如果有 placeId，异步获取详细信息并更新回调
+                        if (event.placeId && mapInstance?.map) {
+                            try {
+                                const placesService = new (window as any).google.maps.places.PlacesService(mapInstance.map)
+                                placesService.getDetails({
+                                    placeId: event.placeId,
+                                    fields: ['name', 'formatted_address', 'formatted_phone_number', 'website', 'rating', 'user_ratings_total', 'price_level', 'opening_hours']
+                                }, (place: any, status: any) => {
+                                    if (status === (window as any).google.maps.places.PlacesServiceStatus.OK && place) {
+                                        // 构造包含真实信息的 placeInfo
+                                        const detailedPlaceInfo = {
+                                            name: place.name || 'Google Place',
+                                            address: place.formatted_address || 'Google Place',
+                                            placeId: event.placeId,
+                                            // 添加更多详细信息
+                                            phone: place.formatted_phone_number,
+                                            website: place.website,
+                                            rating: place.rating,
+                                            user_ratings_total: place.user_ratings_total,
+                                            price_level: place.price_level,
+                                            opening_hours: place.opening_hours
+                                        }
+                                        
+                                        // 重新调用回调，传递详细信息
+                                        callback(coordinates, detailedPlaceInfo, clickPosition, isMarkerClick)
+                                    } else {
+                                        // 使用基本信息调用回调
+                                        callback(coordinates, placeInfo, clickPosition, isMarkerClick)
+                                    }
+                                })
+                            } catch (error) {
+                                // 使用基本信息调用回调
+                                callback(coordinates, placeInfo, clickPosition, isMarkerClick)
+                            }
+                        } else {
+                            // 没有 placeId，直接调用回调
+                            callback(coordinates, placeInfo, clickPosition, isMarkerClick)
+                        }
+                        
                     } catch (error) {
                         console.error('Error processing map click:', error)
                     }
@@ -281,6 +324,7 @@ export class GoogleProvider implements MapProvider {
             mapInstance.eventListeners.set('click', listener)
         }
     }
+
 
     onMapMove(mapInstance: GoogleMapInstance, callback: (viewState: MapViewState) => void): void {
         if (mapInstance?.map) {
@@ -307,8 +351,54 @@ export class GoogleProvider implements MapProvider {
         if (mapInstance?.markers.has(markerId)) {
             const marker = mapInstance.markers.get(markerId)
             if (marker) {
-                const listener = marker.addListener('click', callback)
+                const listener = marker.addListener('click', (event: any) => {
+                    // 立即阻止所有默认行为
+                    if (event.stop) {
+                        event.stop()
+                    }
+                    
+                    // 阻止事件冒泡和默认行为
+                    if (event.originalEvent) {
+                        event.originalEvent.stopPropagation()
+                        event.originalEvent.preventDefault()
+                        event.originalEvent.stopImmediatePropagation()
+                    }
+                    
+                    // 阻止事件传播到地图
+                    if (event.domEvent) {
+                        event.domEvent.stopPropagation()
+                        event.domEvent.preventDefault()
+                        event.domEvent.stopImmediatePropagation()
+                    }
+                    
+                    // 调用自定义回调
+                    callback()
+                    
+                    // 返回 false 进一步阻止默认行为
+                    return false
+                })
                 mapInstance.eventListeners.set(`marker_${markerId}`, listener)
+            }
+        }
+    }
+
+    // 添加标记鼠标悬停效果
+    onMarkerHover(mapInstance: GoogleMapInstance, markerId: string, onMouseEnter: () => void, onMouseLeave: () => void): void {
+        if (mapInstance?.markers.has(markerId)) {
+            const marker = mapInstance.markers.get(markerId)
+            if (marker) {
+                // 鼠标进入事件
+                const mouseEnterListener = marker.addListener('mouseover', () => {
+                    onMouseEnter()
+                })
+                
+                // 鼠标离开事件
+                const mouseLeaveListener = marker.addListener('mouseout', () => {
+                    onMouseLeave()
+                })
+                
+                mapInstance.eventListeners.set(`marker_${markerId}_hover_enter`, mouseEnterListener)
+                mapInstance.eventListeners.set(`marker_${markerId}_hover_leave`, mouseLeaveListener)
             }
         }
     }
@@ -401,4 +491,5 @@ export class GoogleProvider implements MapProvider {
         }
         return undefined
     }
+
 }

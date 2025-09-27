@@ -17,6 +17,9 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
 
     // 计算标记链：多行显示多个标记链
     const markerChains = useMemo(() => {
+        console.log('计算标记链，当前标记:', currentMarker.id, 'next字段:', currentMarker.content.next)
+        console.log('所有标记:', markers.map(m => ({ id: m.id, title: m.content.title, next: m.content.next })))
+        
         const chains: Marker[][] = []
         const visited = new Set<string>() // 防止循环引用
         const maxDepth = 3
@@ -123,8 +126,8 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
                 <div className="space-y-3">
                     {/* 显示所有标记链 */}
                     {markerChains.map((chain, chainIndex) => {
-                        // 获取当前链的所有标记ID
-                        const chainIds = [currentMarker.id, ...chain.map(m => m.id)]
+                        // 获取当前链的所有标记ID（不包含当前标记，只包含链中的标记）
+                        const chainIds = chain.map(m => m.id)
                         
                         return (
                             <div 

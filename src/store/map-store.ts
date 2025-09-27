@@ -53,8 +53,9 @@ interface MapStore {
     selectMarker: (markerId: string | null) => void
 
     // Popup actions
-    openPopup: (coordinates: MarkerCoordinates, placeName?: string) => void
+    openPopup: (coordinates: MarkerCoordinates, placeName?: string, placeInfo?: { name: string; address: string; placeId: string }) => void
     closePopup: () => void
+    updatePlaceInfo: (placeInfo: { name: string; address: string; placeId: string }) => void
 
     // 新增弹窗 actions
     openAddMarkerModal: (coordinates: MarkerCoordinates, placeName?: string) => void
@@ -86,7 +87,7 @@ interface MapStore {
     clearHighlightedChain: () => void
 
     // Dataset actions
-    saveMarkerToDataset: (markerId: string) => Promise<void>
+    saveMarkerToDataset: (marker: Marker) => Promise<void>
     loadMarkersFromDataset: () => Promise<void>
     deleteMarkerFromDataset: (markerId: string) => Promise<void>
     clearError: () => void
@@ -110,6 +111,14 @@ const saveMarkerToDataset = async (marker: Marker) => {
             isPublished: true,
         },
     }
+
+    // 调试日志
+    console.log('保存标记数据:', {
+        markerId: marker.id,
+        title: marker.content.title,
+        properties,
+        metadata: properties.metadata
+    })
 
     const response = await fetch(`/api/dataset?t=${Date.now()}`, {
         method: 'POST',
@@ -245,7 +254,7 @@ export const useMapStore = create<MapStore>()(
 
                 // 异步保存到 Dataset
                 try {
-                    await get().saveMarkerToDataset(markerId)
+                    await get().saveMarkerToDataset(newMarker)
                 } catch (error) {
                     console.error('保存到 Dataset 失败:', error)
                     set({ error: '保存标记失败，请稍后重试' })
@@ -335,7 +344,7 @@ export const useMapStore = create<MapStore>()(
                 }), false, 'selectMarker')
             },
 
-            openPopup: (coordinates, placeName) => {
+            openPopup: (coordinates, placeName, placeInfo) => {
                 set(state => ({
                     interactionState: {
                         ...state.interactionState,
@@ -343,6 +352,7 @@ export const useMapStore = create<MapStore>()(
                         popupCoordinates: coordinates,
                         pendingCoordinates: coordinates,
                         placeName: placeName || null,
+                        placeInfo: placeInfo || null,
                     },
                 }), false, 'openPopup')
             },
@@ -354,8 +364,19 @@ export const useMapStore = create<MapStore>()(
                         isPopupOpen: false,
                         popupCoordinates: null,
                         placeName: null,
+                        placeInfo: null,
                     },
                 }), false, 'closePopup')
+            },
+
+            updatePlaceInfo: (placeInfo) => {
+                set(state => ({
+                    interactionState: {
+                        ...state.interactionState,
+                        placeInfo: placeInfo,
+                        placeName: placeInfo.name, // 保持向后兼容
+                    },
+                }), false, 'updatePlaceInfo')
             },
 
             // 新增弹窗 actions
@@ -492,18 +513,16 @@ export const useMapStore = create<MapStore>()(
                 }), false, 'updateMarkerContent')
 
                 // 异步保存到 Dataset
-                get().saveMarkerToDataset(markerId).catch(error => {
-                    console.error('保存内容到 Dataset 失败:', error)
-                })
+                const marker = get().markers.find(m => m.id === markerId)
+                if (marker) {
+                    get().saveMarkerToDataset(marker).catch(error => {
+                        console.error('保存内容到 Dataset 失败:', error)
+                    })
+                }
             },
 
             // Dataset actions
-            saveMarkerToDataset: async (markerId) => {
-                const marker = get().markers.find(m => m.id === markerId)
-                if (!marker) {
-                    throw new Error('标记不存在')
-                }
-
+            saveMarkerToDataset: async (marker) => {
                 set({ isLoading: true })
                 try {
                     await saveMarkerToDataset(marker)
@@ -534,6 +553,7 @@ export const useMapStore = create<MapStore>()(
                     }
 
                     const result = await response.json()
+                    console.log('数据加载结果:', result)
                     if (result.success && result.data?.features && Array.isArray(result.data.features)) {
                         const loadedMarkers: Marker[] = result.data.features
                             .filter((feature: any) => {
@@ -554,6 +574,15 @@ export const useMapStore = create<MapStore>()(
                                     const properties = feature.properties
                                     const metadata = properties.metadata || {}
 
+                                    // 调试日志
+                                    console.log('加载标记数据:', {
+                                        featureId: feature.id,
+                                        properties,
+                                        metadata,
+                                        title: metadata.title,
+                                        next: properties.next
+                                    })
+
                                     // 优先使用feature.id，如果没有则使用metadata.id
                                     const markerId = feature.id || metadata.id || `marker-${Date.now()}-${Math.random()}`
 
@@ -565,7 +594,7 @@ export const useMapStore = create<MapStore>()(
                                         },
                                         content: {
                                             id: metadata.id || markerId,
-                                            title: metadata.title,
+                                            title: metadata.title || '未命名标记',
                                             headerImage: properties.headerImage,
                                             iconType: properties.iconType, // 添加iconType
                                             markdownContent: properties.markdownContent || '',
@@ -581,6 +610,7 @@ export const useMapStore = create<MapStore>()(
                             })
                             .filter((marker: Marker | null): marker is Marker => marker !== null)
 
+                        console.log('成功加载标记数量:', loadedMarkers.length)
                         set({ markers: loadedMarkers, error: null })
                     } else {
                         console.warn('Dataset 返回数据格式不正确:', result)

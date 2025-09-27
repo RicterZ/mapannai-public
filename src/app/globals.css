@@ -282,6 +282,18 @@ body {
     }
 }
 
+@keyframes slideUpFadeIn {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
 .animate-fade-in {
     animation: fadeIn 0.3s ease-in-out;
 }
@@ -312,6 +324,10 @@ body {
 
 .animate-scale-in {
     animation: scaleIn 0.2s ease-in-out;
+}
+
+.animate-slide-up-fade-in {
+    animation: slideUpFadeIn 0.3s ease-out;
 }
 
 /* Loading states */

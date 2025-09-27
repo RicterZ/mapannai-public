@@ -30,6 +30,19 @@ export interface MapSearchResult {
     // 其他搜索结果属性
 }
 
+// 详细的地点信息接口
+export interface DetailedPlaceInfo {
+    name: string
+    address: string
+    placeId: string
+    phone?: string
+    website?: string
+    rating?: number
+    user_ratings_total?: number
+    price_level?: number
+    opening_hours?: any
+}
+
 export interface MapProviderConfig {
     accessToken: string
     style?: string
@@ -53,7 +66,7 @@ export interface MapProvider {
     updateMarker(mapInstance: any, marker: MapMarker): void
     
     // 事件处理
-    onMapClick(mapInstance: any, callback: (coordinates: MapCoordinates, placeName?: string) => void): void
+    onMapClick(mapInstance: any, callback: (coordinates: MapCoordinates, placeInfo?: DetailedPlaceInfo, clickPosition?: { x: number; y: number }, isMarkerClick?: boolean) => void): void
     onMarkerClick(mapInstance: any, markerId: string, callback: () => void): void
     onMapLoad(mapInstance: any, callback: () => void): void
     onMapError(mapInstance: any, callback: (error: Error) => void): void

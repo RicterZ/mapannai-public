@@ -3,13 +3,31 @@ import { datasetService } from '@/lib/api/dataset-service'
 import { config } from '@/lib/config'
 import { MarkerCoordinates } from '@/types/marker'
 
+// 获取当前地图提供者的datasetId
+function getDatasetId(): string | undefined {
+    const provider = config.map.provider
+    
+    if (provider === 'mapbox') {
+        const mapboxConfig = config.map.mapbox
+        return mapboxConfig.dataset?.datasetId || mapboxConfig.datasetId
+    } else if (provider === 'google') {
+        const googleConfig = config.map.google
+        return googleConfig.dataset?.datasetId
+    } else if (provider === 'baidu') {
+        const baiduConfig = config.map.baidu
+        return baiduConfig.datasetId
+    }
+    
+    return undefined
+}
+
 /**
  * GET - 获取所有标记数据
  */
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
-        const datasetId = searchParams.get('datasetId') || config.map[config.map.provider].datasetId
+        const datasetId = searchParams.get('datasetId') || getDatasetId()
 
         if (!datasetId) {
             return NextResponse.json(
@@ -55,7 +73,7 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const targetDatasetId = datasetId || config.map[config.map.provider].datasetId
+        const targetDatasetId = datasetId || getDatasetId()
 
         if (!targetDatasetId) {
             return NextResponse.json(
@@ -98,7 +116,7 @@ export async function DELETE(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
         const featureId = searchParams.get('featureId')
-        const datasetId = searchParams.get('datasetId') || config.map[config.map.provider].datasetId
+        const datasetId = searchParams.get('datasetId') || getDatasetId()
 
         if (!featureId || !datasetId) {
             return NextResponse.json(

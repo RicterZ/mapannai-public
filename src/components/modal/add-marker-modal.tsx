@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { MarkerCoordinates, MarkerIconType } from '@/types/marker'
 import { IconSelector } from '@/components/ui/icon-selector'
 
@@ -13,11 +13,19 @@ interface AddMarkerModalProps {
         name: string
         iconType: MarkerIconType
     }) => void
+    placeName?: string  // 添加地点名称参数
 }
 
-export const AddMarkerModal = ({ coordinates, isOpen, onClose, onSave }: AddMarkerModalProps) => {
+export const AddMarkerModal = ({ coordinates, isOpen, onClose, onSave, placeName }: AddMarkerModalProps) => {
     const [name, setName] = useState('')
     const [iconType, setIconType] = useState<MarkerIconType>('location')
+
+    // 当模态框打开且有地点名称时，自动填写
+    useEffect(() => {
+        if (isOpen && placeName) {
+            setName(placeName)
+        }
+    }, [isOpen, placeName])
 
     if (!isOpen) return null
 
