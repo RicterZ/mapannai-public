@@ -6,6 +6,7 @@ export const config = {
         mapbox: {
             accessToken: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '',
             style: process.env.NEXT_PUBLIC_MAPBOX_STYLE || 'mapbox://styles/mapbox/streets-zh-v1',
+            datasetId: process.env.MAPBOX_DATASET_ID || '',
             dataset: {
                 username: process.env.MAPBOX_USERNAME || '',
                 secretAccessToken: process.env.MAPBOX_SECRET_ACCESS_TOKEN || '',
@@ -16,14 +17,17 @@ export const config = {
         amap: {
             accessToken: process.env.NEXT_PUBLIC_AMAP_ACCESS_TOKEN || '',
             style: process.env.NEXT_PUBLIC_AMAP_STYLE || 'normal',
+            datasetId: process.env.AMAP_DATASET_ID || '',
         },
         baidu: {
             accessToken: process.env.NEXT_PUBLIC_BAIDU_ACCESS_TOKEN || '',
             style: process.env.NEXT_PUBLIC_BAIDU_STYLE || 'normal',
+            datasetId: process.env.BAIDU_DATASET_ID || '',
         },
         google: {
             accessToken: process.env.NEXT_PUBLIC_GOOGLE_ACCESS_TOKEN || '',
             style: process.env.NEXT_PUBLIC_GOOGLE_STYLE || 'roadmap',
+            datasetId: process.env.GOOGLE_DATASET_ID || '',
         },
     },
     // AWS S3 配置（已弃用）

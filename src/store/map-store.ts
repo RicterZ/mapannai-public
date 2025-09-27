@@ -110,7 +110,7 @@ const saveMarkerToDataset = async (marker: Marker) => {
         },
     }
 
-    const response = await fetch(`/api/mapbox-dataset?t=${Date.now()}`, {
+    const response = await fetch(`/api/dataset?t=${Date.now()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -511,7 +511,7 @@ export const useMapStore = create<MapStore>()(
             loadMarkersFromDataset: async () => {
                 set({ isLoading: true, error: null })
                 try {
-                    const response = await fetch(`/api/mapbox-dataset?t=${Date.now()}`)
+                    const response = await fetch(`/api/dataset?t=${Date.now()}`)
 
                     if (!response.ok) {
                         // 根据状态码设置不同的错误信息
@@ -593,7 +593,7 @@ export const useMapStore = create<MapStore>()(
 
             deleteMarkerFromDataset: async (markerId: string) => {
                 try {
-                    const response = await fetch(`/api/mapbox-dataset?featureId=${markerId}`, {
+                    const response = await fetch(`/api/dataset?featureId=${markerId}`, {
                         method: 'DELETE',
                     })
 
