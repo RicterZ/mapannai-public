@@ -70,12 +70,10 @@ export class MapboxProvider implements MapProvider {
 
     removeMarker(mapInstance: MapRef, markerId: string): void {
         // Mapbox的标记移除由React组件处理
-        console.log(`Removing marker ${markerId}`)
     }
 
     updateMarker(mapInstance: MapRef, marker: MapMarker): void {
         // Mapbox的标记更新由React组件处理
-        console.log(`Updating marker ${marker.id}`)
     }
 
     onMapClick(mapInstance: MapRef, callback: (coordinates: MapCoordinates) => void): void {
@@ -93,7 +91,6 @@ export class MapboxProvider implements MapProvider {
 
     onMarkerClick(mapInstance: MapRef, markerId: string, callback: () => void): void {
         // Mapbox的标记点击由React组件处理
-        console.log(`Setting up marker click for ${markerId}`)
     }
 
     onMapLoad(mapInstance: MapRef, callback: () => void): void {

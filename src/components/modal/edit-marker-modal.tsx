@@ -40,13 +40,11 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
     // 当marker变化时更新表单数据
     useEffect(() => {
         if (marker && isOpen) {
-            console.log('EditMarkerModal: 初始化数据', marker)
             setTitle(marker.content.title || '')
             setHeaderImage(marker.content.headerImage || '')
             
             // 设置Markdown内容
             const initialMarkdown = marker.content.markdownContent || ''
-            console.log('EditMarkerModal: 设置Markdown内容', initialMarkdown)
             setMarkdownContent(initialMarkdown)
         }
     }, [marker, isOpen])
@@ -77,17 +75,12 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
         if (!marker) return
 
         try {
-            console.log('开始保存编辑标记:', marker.id)
-            console.log('当前Markdown内容:', markdownContent)
-
             const saveData = {
                 markerId: marker.id,
                 title: title.trim() || undefined,
                 headerImage: headerImage || undefined,
                 markdownContent: markdownContent
             }
-
-            console.log('最终保存数据:', saveData)
 
             onSave(saveData)
             onClose()

@@ -29,16 +29,11 @@ export const AbstractMap = () => {
     const [dataLoaded, setDataLoaded] = useState(false)
     
     // 获取当前地图提供者
-    console.log('当前地图提供者:', config.map.provider)
-    console.log('Mapbox配置:', config.map.mapbox)
-    
     const mapProvider = mapProviderFactory.createProvider(config.map.provider)
     const mapConfig: MapProviderConfig = {
         accessToken: config.map[config.map.provider].accessToken,
         style: config.map[config.map.provider].style,
     }
-    
-    console.log('地图配置:', mapConfig)
     
     // 从localStorage恢复上次的坐标，如果没有则使用默认坐标
     const getInitialViewState = (): ViewState => {
@@ -302,7 +297,6 @@ export const AbstractMap = () => {
         const loadData = async () => {
             try {
                 await loadMarkersFromDataset()
-                console.log('初始数据加载成功')
                 setDataLoaded(true)
             } catch (error) {
                 console.warn('初始数据加载失败，将进行静默重试:', error)
@@ -467,7 +461,6 @@ export const AbstractMap = () => {
     }) => {
         try {
             const markerId = await createMarkerFromModal(data)
-            console.log('新标记已创建:', markerId, data)
             
             // 创建标记后不再自动打开编辑模态框
         } catch (err) {
@@ -483,7 +476,6 @@ export const AbstractMap = () => {
     }) => {
         try {
             updateMarkerFromModal(data)
-            console.log('标记已更新:', data.markerId)
         } catch (err) {
             console.error('Update marker error:', err)
         }

@@ -44,7 +44,6 @@ export class MapDatasetService implements DatasetService {
         }
         
         // 其他地图提供者的实现
-        console.log(`获取数据集 ${datasetId} 的所有特征 (${config.map.provider})`)
         return {
             type: 'FeatureCollection',
             features: []
@@ -114,7 +113,6 @@ export class MapDatasetService implements DatasetService {
         }
         
         // 其他地图提供者的实现
-        console.log(`创建/更新特征 ${featureId} 在数据集 ${datasetId} (${config.map.provider})`)
         return {
             id: featureId,
             type: 'Feature',
@@ -174,7 +172,6 @@ export class MapDatasetService implements DatasetService {
         }
         
         // 其他地图提供者的实现
-        console.log(`删除特征 ${featureId} 从数据集 ${datasetId} (${config.map.provider})`)
     }
 
 
