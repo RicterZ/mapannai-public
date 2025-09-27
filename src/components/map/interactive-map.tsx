@@ -7,6 +7,7 @@ import { useMapStore } from '@/store/map-store'
 import { MarkerCoordinates } from '@/types/marker'
 import { MapMarker } from './map-marker'
 import { MapPopup } from './map-popup'
+import { ConnectionLines } from './connection-lines'
 import { AddMarkerModal } from '@/components/modal/add-marker-modal'
 import { EditMarkerModal } from '@/components/modal/edit-marker-modal'
 import { LeftSidebar } from '@/components/sidebar/left-sidebar'
@@ -621,6 +622,9 @@ export const InteractiveMap = () => {
                     }
                 }}
             >
+                {/* Render connection lines */}
+                <ConnectionLines markers={markers} />
+
                 {/* Render existing markers - 添加安全检查 */}
                 {markers && markers.length > 0 && markers.map((marker) => {
                     // 确保marker有必要的属性
