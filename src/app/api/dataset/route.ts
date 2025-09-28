@@ -13,9 +13,6 @@ function getDatasetId(): string | undefined {
     } else if (provider === 'google') {
         const googleConfig = config.map.google
         return googleConfig.dataset?.datasetId
-    } else if (provider === 'baidu') {
-        const baiduConfig = config.map.baidu
-        return baiduConfig.datasetId
     }
     
     return undefined

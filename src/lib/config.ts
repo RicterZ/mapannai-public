@@ -2,7 +2,7 @@
 export const config = {
     // 地图提供者配置
     map: {
-        provider: (process.env.NEXT_PUBLIC_MAP_PROVIDER || 'mapbox') as 'mapbox' | 'baidu' | 'google',
+        provider: (process.env.NEXT_PUBLIC_MAP_PROVIDER || 'mapbox') as 'mapbox' | 'google',
         mapbox: {
             accessToken: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '',
             style: process.env.NEXT_PUBLIC_MAPBOX_STYLE || 'mapbox://styles/mapbox/streets-zh-v1',
@@ -12,11 +12,6 @@ export const config = {
                 secretAccessToken: process.env.MAPBOX_SECRET_ACCESS_TOKEN || '',
                 datasetId: process.env.MAPBOX_DATASET_ID || '',
             },
-        },
-        baidu: {
-            accessToken: process.env.NEXT_PUBLIC_BAIDU_ACCESS_TOKEN || '',
-            style: process.env.NEXT_PUBLIC_BAIDU_STYLE || 'normal',
-            datasetId: process.env.BAIDU_DATASET_ID || '',
         },
         google: {
             accessToken: process.env.NEXT_PUBLIC_GOOGLE_ACCESS_TOKEN || '',
