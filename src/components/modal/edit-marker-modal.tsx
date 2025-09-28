@@ -280,7 +280,6 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
                                             lineHeight: 1.5,
                                         }
                                     }}
-                                    toolbarHeight={isDesktop ? 50 : 60}
                                 commands={[
                                     // 自定义图片上传功能
                                     {
