@@ -23,10 +23,10 @@ export class MapSearchService implements SearchService {
     private mapConfig: MapProviderConfig
 
     constructor() {
-        this.mapProvider = mapProviderFactory.createProvider(config.map.provider)
+        this.mapProvider = mapProviderFactory.createProvider(config.map.searchProvider)
         this.mapConfig = {
-            accessToken: config.map[config.map.provider].accessToken,
-            style: config.map[config.map.provider].style,
+            accessToken: config.map[config.map.searchProvider].accessToken,
+            style: config.map[config.map.searchProvider].style,
         }
     }
 
