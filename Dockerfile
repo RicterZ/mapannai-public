@@ -24,8 +24,15 @@ RUN npm ci --silent
 
 COPY . .
 
-# 排除 MCP 服务器目录，避免在构建时编译
-RUN rm -rf mcp-server
+# 安装 MCP 服务器依赖
+WORKDIR /app/mcp-server
+RUN npm install
+
+# 构建 MCP 服务器
+RUN npm run build
+
+# 回到主目录
+WORKDIR /app
 
 RUN npm run build
 
