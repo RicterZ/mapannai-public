@@ -943,9 +943,13 @@ export const AbstractMap = () => {
 
     const handleDeleteMarker = useCallback((markerId: string) => {
         try {
-            const { deleteMarker } = useMapStore.getState()
-            deleteMarker(markerId)
-            closePopup()
+            // 单次确认机制
+            const confirmed = confirm('🗑️ 确定要删除这个标记吗？删除后无法恢复。')
+            if (confirmed) {
+                const { deleteMarker } = useMapStore.getState()
+                deleteMarker(markerId)
+                closePopup()
+            }
         } catch (err) {
             console.error('Delete marker error:', err)
         }
