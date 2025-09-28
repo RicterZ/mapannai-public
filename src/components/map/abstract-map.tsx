@@ -667,12 +667,10 @@ export const AbstractMap = () => {
     // 异步获取 Google Maps placeId 的通用函数
     const getPlaceIdAsync = useCallback(async (coordinates: { latitude: number; longitude: number }) => {
         try {
-            console.log('🔍 开始获取坐标的 placeId:', coordinates)
             
             // 检查是否有 Google Maps API 密钥
             const googleApiKey = config.map.google.accessToken
             if (!googleApiKey || googleApiKey === 'your_google_api_key_here') {
-                console.log('⚠️ Google Maps API 密钥未配置，跳过 placeId 获取')
                 return
             }
             
@@ -759,10 +757,8 @@ export const AbstractMap = () => {
                         name: finalPlaceName,
                         address: finalAddress || undefined
                     }
-                    console.log('💾 地点信息已缓存:', { name: finalPlaceName, address: finalAddress })
                 }
             } else {
-                console.log('❌ 未找到 placeId')
                 // 如果没有找到 placeId，清除地点名称
                 setCurrentPlaceName(undefined)
             }
