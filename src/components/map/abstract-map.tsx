@@ -156,6 +156,7 @@ export const AbstractMap = () => {
         clearError,
         openSidebar,
         closeSidebar,
+        updatePlaceInfo,
     } = useMapStore()
 
     const { isPopupOpen, popupCoordinates, selectedMarkerId, isSidebarOpen } = interactionState
@@ -503,12 +504,56 @@ export const AbstractMap = () => {
         return `${lat.toFixed(4)},${lng.toFixed(4)},${zoomLevel}`
     }, [])
 
-    // 简化的地点信息获取函数（仅用于 Mapbox）
+    // 通过后端API获取地点信息
     const getPlaceIdAsync = useCallback(async (coordinates: { latitude: number; longitude: number }) => {
-        // 对于 Mapbox，我们不需要获取 Google placeId
-        // 可以在这里添加其他地图服务的地点信息获取逻辑
-        console.log('Mapbox 地图点击坐标:', coordinates)
-    }, [])
+        try {
+            console.log('🔍 获取地点信息:', coordinates)
+            
+            const response = await fetch('/api/place-info', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    latitude: coordinates.latitude,
+                    longitude: coordinates.longitude
+                })
+            })
+            
+            if (!response.ok) {
+                throw new Error(`获取地点信息失败: ${response.status}`)
+            }
+            
+            const result = await response.json()
+            
+            if (result.success && result.data) {
+                const placeInfo = result.data
+                console.log('📍 获取到地点信息:', placeInfo)
+                
+                // 更新store中的地点信息
+                updatePlaceInfo({
+                    name: placeInfo.name,
+                    address: placeInfo.address,
+                    placeId: placeInfo.placeId,
+                    phone: placeInfo.phone,
+                    website: placeInfo.website,
+                    rating: placeInfo.rating,
+                    user_ratings_total: placeInfo.user_ratings_total,
+                    price_level: placeInfo.price_level,
+                    opening_hours: placeInfo.opening_hours,
+                    types: placeInfo.types
+                })
+                
+                // 更新当前地点名称和地址
+                setCurrentPlaceName(placeInfo.name)
+                setCurrentPlaceAddress(placeInfo.address)
+            } else {
+                console.warn('获取地点信息失败:', result.error)
+            }
+        } catch (error) {
+            console.error('获取地点信息时出错:', error)
+        }
+    }, [updatePlaceInfo, setCurrentPlaceName, setCurrentPlaceAddress])
 
     const handleMapClick = useCallback(async (event: any, placeInfo?: { name: string; address: string; placeId: string }, clickPosition?: { x: number; y: number }, isMarkerClick?: boolean) => {
         // 直接从store获取最新状态，避免闭包中的旧状态

@@ -11,13 +11,7 @@
         "type-check": "tsc --noEmit"
     },
     "dependencies": {
-        "@editorjs/delimiter": "^1.4.2",
-        "@editorjs/editorjs": "^2.28.2",
-        "@editorjs/header": "^2.8.7",
-        "@editorjs/image": "^2.9.3",
-        "@editorjs/list": "^1.9.0",
-        "@editorjs/paragraph": "^2.11.6",
-        "@editorjs/quote": "^2.6.0",
+        "@googlemaps/polyline-codec": "^1.0.28",
         "@tailwindcss/line-clamp": "^0.4.4",
         "@tailwindcss/typography": "^0.5.15",
         "@tanstack/react-query": "^5.59.16",

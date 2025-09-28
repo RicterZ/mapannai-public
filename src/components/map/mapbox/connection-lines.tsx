@@ -120,7 +120,17 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
     const calculateWalkingRoutes = useCallback(async () => {
         if (connectionLines.length === 0) return
 
-        console.log('开始计算路径...', { connectionLinesCount: connectionLines.length })
+        // 先检查哪些路径需要计算
+        const uncachedLines = connectionLines.filter(line => {
+            const cacheKey = `${line.from.id}-${line.to.id}`
+            return !routeCache.has(cacheKey)
+        })
+
+        // 如果所有路径都已缓存，直接返回
+        if (uncachedLines.length === 0) {
+            return
+        }
+        
         setIsLoadingRoutes(true)
         
         try {
@@ -186,7 +196,6 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
     // 监听标记链更新事件，强制重新计算路径
     useEffect(() => {
         const handleRefreshConnectionLines = () => {
-            console.log('标记链更新事件触发，重新计算路径...', { connectionLinesCount: connectionLines.length })
             if (connectionLines.length > 0) {
                 calculateWalkingRoutes()
             }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { config } from '@/lib/config'
+import { decode } from '@googlemaps/polyline-codec'
 
 export const dynamic = 'force-dynamic';
 
@@ -76,21 +77,33 @@ export async function POST(request: NextRequest) {
             if (leg.steps && Array.isArray(leg.steps)) {
                 leg.steps.forEach((step: any) => {
                     if (step.polyline && step.polyline.points) {
-                        // 这里可以解码 polyline，但为了简单起见，我们使用起点和终点
-                        // 实际应用中可能需要使用 polyline 解码库
+                        try {
+                            // 解码 polyline 获取详细路径点
+                            const decodedPath = decode(step.polyline.points)
+                            decodedPath.forEach((point: [number, number]) => {
+                                path.push({
+                                    lat: point[0],
+                                    lng: point[1]
+                                })
+                            })
+                        } catch (error) {
+                            console.warn('Polyline 解码失败:', error)
+                        }
                     }
                 })
             }
             
-            // 如果无法获取详细路径，至少返回起点和终点
-            path.push({
-                lat: leg.start_location.lat,
-                lng: leg.start_location.lng
-            })
-            path.push({
-                lat: leg.end_location.lat,
-                lng: leg.end_location.lng
-            })
+            // 如果仍然没有路径点，至少返回起点和终点
+            if (path.length === 0) {
+                path.push({
+                    lat: leg.start_location.lat,
+                    lng: leg.start_location.lng
+                })
+                path.push({
+                    lat: leg.end_location.lat,
+                    lng: leg.end_location.lng
+                })
+            }
         }
 
         return NextResponse.json({
