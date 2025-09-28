@@ -23,7 +23,6 @@ export async function getPlaceIdFromCoordinates(
     try {
         // 检查 Google Maps API 是否已加载
         if (!window.google || !window.google.maps) {
-            console.log('Google Maps API 未加载，尝试动态加载...')
             // 这里可以尝试动态加载 API，但为了简化，我们直接返回空结果
             return {}
         }
@@ -49,16 +48,9 @@ export async function getPlaceIdFromCoordinates(
                         types: result.types
                     }
                     
-                    console.log('📍 坐标反向地理编码结果:', {
-                        coordinates: { latitude, longitude },
-                        placeId: result.place_id,
-                        address: result.formatted_address,
-                        types: result.types
-                    })
                     
                     resolve(placeInfo)
                 } else {
-                    console.log('❌ 反向地理编码失败:', status)
                     resolve({})
                 }
             })
@@ -112,19 +104,9 @@ export async function getPlaceDetailsFromCoordinates(
                         types: place.types
                     }
                     
-                    console.log('🏢 详细地点信息:', {
-                        coordinates: { latitude, longitude },
-                        placeId: place.place_id,
-                        name: place.name,
-                        address: place.formatted_address,
-                        types: place.types,
-                        rating: place.rating,
-                        userRatingsTotal: place.user_ratings_total
-                    })
                     
                     resolve(detailedInfo)
                 } else {
-                    console.log('❌ 获取详细地点信息失败:', status)
                     resolve(placeIdResult) // 返回基本信息
                 }
             })

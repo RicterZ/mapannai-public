@@ -54,11 +54,8 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
 
     // 处理标记链中的标记点击
     const handleMarkerClick = useCallback((markerId: string) => {
-        console.log('Sidebar handleMarkerClick called with:', markerId)
-        console.log('Current selectedMarkerId before selectMarker:', interactionState.selectedMarkerId)
         selectMarker(markerId)
-        console.log('selectMarker called')
-    }, [selectMarker, interactionState.selectedMarkerId])
+    }, [selectMarker])
 
     // 处理添加标记到链中
     const handleAddToChain = useCallback((sourceMarkerId: string) => {
