@@ -20,7 +20,7 @@ export const config = {
         },
         google: {
             accessToken: process.env.NEXT_PUBLIC_GOOGLE_ACCESS_TOKEN || '',
-            style: process.env.NEXT_PUBLIC_GOOGLE_STYLE || 'roadmap',
+            style: 'custom',
             dataset: {
                 projectId: process.env.GOOGLE_PROJECT_ID || '',
                 datasetId: process.env.GOOGLE_DATASET_ID || '',

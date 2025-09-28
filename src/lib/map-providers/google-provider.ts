@@ -12,16 +12,31 @@ export class GoogleProvider implements MapProvider {
     private eventListeners = new Map<string, Function>()
 
     async createMapInstance(container: HTMLElement, config: MapProviderConfig): Promise<GoogleMapInstance> {
+        // 检查容器
+        if (!container) {
+            throw new Error('地图容器未提供')
+        }
+        
+        // 检查配置
+        if (!config.accessToken) {
+            throw new Error('Google Maps API 密钥未配置')
+        }
+        
         // 确保 Google Maps API 已加载
         if (!window.google || !window.google.maps) {
             throw new Error('Google Maps API not loaded')
         }
         
-        const mapOptions = {
+        // 检查关键组件是否可用
+        if (!window.google.maps.Map) {
+            throw new Error('Google Maps Map 构造函数不可用')
+        }
+        
+        
+        const mapOptions: any = {
             zoom: 11,
             center: { lat: 35.6895, lng: 139.6917 }, // 默认东京
             mapTypeId: this.getGoogleMapTypeId(config.style || 'roadmap'),
-            styles: this.getMapStyles(config.style || 'roadmap'),
             // 禁用地图控件
             mapTypeControl: false,        // 禁用地图类型控件（地形、卫星等）
             streetViewControl: false,     // 禁用街景控件
@@ -31,8 +46,28 @@ export class GoogleProvider implements MapProvider {
             rotateControl: false,         // 禁用旋转控件
             panControl: false,           // 禁用平移控件
         }
+
+        // 根据样式类型设置不同的配置
+        if (config.style === 'custom') {
+            // 使用自定义样式ID
+            mapOptions.mapId = '4f198666cda61276d378468b'
+            // 对于自定义样式，使用字符串而不是枚举
+            mapOptions.mapTypeId = 'roadmap'
+        } else {
+            // 使用传统样式
+            const styles = this.getMapStyles(config.style || 'roadmap')
+            if (styles) {
+                mapOptions.styles = styles
+            }
+        }
         
-        const map = new (window as any).google.maps.Map(container, mapOptions)
+        let map
+        try {
+            map = new (window as any).google.maps.Map(container, mapOptions)
+        } catch (error) {
+            throw new Error(`创建地图实例失败: ${error instanceof Error ? error.message : '未知错误'}`)
+        }
+
 
         // 通过 CSS 隐藏 info window
         const style = document.createElement('style')
@@ -456,19 +491,34 @@ export class GoogleProvider implements MapProvider {
     }
 
     private getGoogleMapTypeId(style: string): string {
+        // 检查 MapTypeId 是否可用
+        if (!window.google?.maps?.MapTypeId) {
+            return 'roadmap' // 使用字符串而不是枚举
+        }
+        
         switch (style) {
             case 'satellite':
-                return (window as any).google.maps.MapTypeId.SATELLITE
+                return window.google.maps.MapTypeId.SATELLITE
             case 'hybrid':
-                return (window as any).google.maps.MapTypeId.HYBRID
+                return window.google.maps.MapTypeId.HYBRID
             case 'terrain':
-                return (window as any).google.maps.MapTypeId.TERRAIN
+                return window.google.maps.MapTypeId.TERRAIN
             default:
-                return (window as any).google.maps.MapTypeId.ROADMAP
+                return window.google.maps.MapTypeId.ROADMAP
         }
     }
 
     private getMapStyles(style: string): any[] | undefined {
+        // 支持自定义样式ID
+        if (style === 'custom') {
+            // 使用你的自定义样式ID
+            return [
+                {
+                    mapId: '4f198666cda61276d378468b'
+                }
+            ]
+        }
+        
         // 可以根据需要返回自定义样式
         if (style === 'dark') {
             return [

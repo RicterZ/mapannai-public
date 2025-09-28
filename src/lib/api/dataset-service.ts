@@ -41,7 +41,6 @@ export class MapDatasetService implements DatasetService {
     }
 
     async getAllFeatures(datasetId: string): Promise<DatasetFeatureCollection> {
-        console.log('获取所有特征，datasetId:', datasetId, 'provider:', config.map.provider)
         // 根据当前地图提供者实现不同的数据集获取逻辑
         if (config.map.provider === 'mapbox') {
             return await this.getMapboxFeatures(datasetId)
@@ -60,10 +59,8 @@ export class MapDatasetService implements DatasetService {
     clearCache(datasetId?: string): void {
         if (datasetId) {
             this.mapDataCache.delete(datasetId)
-            console.log('清理缓存:', datasetId)
         } else {
             this.mapDataCache.clear()
-            console.log('清理所有缓存')
         }
     }
 
@@ -221,7 +218,6 @@ export class MapDatasetService implements DatasetService {
             // 从缓存中获取数据集
             let dataset = this.mapDataCache.get(datasetId)
             if (dataset) {
-                console.log('从缓存获取数据集:', datasetId, '特征数量:', dataset.features.length)
                 return dataset
             }
             
@@ -230,10 +226,8 @@ export class MapDatasetService implements DatasetService {
                 const mapData = await mapDataService.getMapData(datasetId)
                 
                 if (mapData) {
-                    console.log('从COS加载地图数据:', mapData.markers.length, '个标记')
                     // 将存储的标记转换为特征
                     const features: DatasetFeature[] = mapData.markers.map(storedMarker => {
-                        console.log('转换标记:', storedMarker.id, 'next字段:', storedMarker.content.next)
                         return {
                             id: storedMarker.id,
                             type: 'Feature' as const,
@@ -264,7 +258,6 @@ export class MapDatasetService implements DatasetService {
                     }
                     
                     this.mapDataCache.set(datasetId, dataset)
-                    console.log(`地图数据 ${datasetId} 已从COS加载`)
                     return dataset
                 }
             } catch (cosError) {
@@ -326,7 +319,6 @@ export class MapDatasetService implements DatasetService {
 
     private async upsertGoogleFeature(datasetId: string, featureId: string, coordinates: MarkerCoordinates, properties: any): Promise<DatasetFeature> {
         try {
-            console.log('保存标记到Google Maps:', featureId, 'next字段:', properties.next)
             // 创建新特征
             const newFeature: DatasetFeature = {
                 id: featureId,
@@ -523,8 +515,6 @@ export class MapDatasetService implements DatasetService {
                 // 从store中移除标记
                 mapStore.markers = mapStore.markers.filter(m => m.id !== featureId)
             }
-            
-            console.log(`地图数据 ${datasetId} 中的标记 ${featureId} 已删除`)
         } catch (error) {
             console.error('删除地图标记失败:', error)
             throw error

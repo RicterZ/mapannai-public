@@ -9,9 +9,9 @@ import { useMapStore } from '@/store/map-store'
 import { MarkerCoordinates } from '@/types/marker'
 import { MapMarker } from './common/map-marker'
 import { MapPopup } from './mapbox/map-popup'
-import { GoogleMapPopup } from './google/google-map-popup'
+import { GoogleMapPopup } from './google/map-popup'
 import { ConnectionLines } from './mapbox/connection-lines'
-import GoogleMap from './google/google-map'
+import GoogleMap from './google/map'
 import { AddMarkerModal } from '@/components/modal/add-marker-modal'
 import { EditMarkerModal } from '@/components/modal/edit-marker-modal'
 import { LeftSidebar } from '@/components/sidebar/left-sidebar'
@@ -533,11 +533,21 @@ export const AbstractMap = () => {
     }, [])
 
     const handleMapClick = useCallback((event: any, placeInfo?: { name: string; address: string; placeId: string }, clickPosition?: { x: number; y: number }, isMarkerClick?: boolean) => {
+        // 直接从store获取最新状态，避免闭包中的旧状态
+        const currentState = useMapStore.getState()
+        const currentSidebarOpen = currentState.interactionState.isSidebarOpen
+        const currentSelectedMarkerId = currentState.interactionState.selectedMarkerId
         try {
             // 对于 Google Maps，显示自定义 Popup
             if (config.map.provider === 'google') {
                 // Google Provider 传递的是 coordinates 对象，不是 event 对象
                 if (event && event.latitude && event.longitude) {
+                    // 当右侧栏打开时，首次点击仅关闭右侧栏
+                    if (currentSidebarOpen) {
+                        handleCloseSidebar()
+                        return
+                    }
+                    
                     // 检查是否是点击Google Maps自带的clickable marker
                     const isGoogleMarkerClick = placeInfo && placeInfo.placeId
                     
@@ -948,6 +958,8 @@ export const AbstractMap = () => {
                         onMapLoad={handleMapLoad}
                         onMapInstanceReady={(mapInstance) => {
                             setGoogleMapInstance(mapInstance)
+                            // 设置mapRef为Google地图实例
+                            mapRef.current = mapInstance
                         }}
                         onMapMove={(viewState) => {
                             // 使用通用位置保存函数
@@ -1015,7 +1027,7 @@ export const AbstractMap = () => {
                     }}
                 >
                 {/* Render connection lines */}
-                <ConnectionLines markers={markers} />
+                <ConnectionLines markers={markers} zoom={viewState.zoom} />
 
                 {/* Render existing markers - 添加安全检查 */}
                 {markers && markers.length > 0 && markers.map((marker) => {

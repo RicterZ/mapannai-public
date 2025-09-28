@@ -1,12 +1,13 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { Source, Layer } from 'react-map-gl'
 import { Marker } from '@/types/marker'
 import { useMapStore } from '@/store/map-store'
 
 interface ConnectionLinesProps {
     markers: Marker[]
+    zoom?: number
 }
 
 interface ConnectionLine {
@@ -15,9 +16,11 @@ interface ConnectionLine {
     to: Marker
 }
 
-export const ConnectionLines = ({ markers }: ConnectionLinesProps) => {
+export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) => {
     const { interactionState } = useMapStore()
     const { highlightedChainIds } = interactionState
+    
+    // 移除CSS transition动画效果，确保连接线显示/隐藏而不是渐变
     
     // 计算所有连接线
     const connectionLines = useMemo(() => {
@@ -81,6 +84,11 @@ export const ConnectionLines = ({ markers }: ConnectionLinesProps) => {
         return null
     }
 
+    // 当缩放级别小于13时，隐藏连接线
+    if (zoom < 13) {
+        return null
+    }
+
     return (
         <Source id="connection-lines" type="geojson" data={connectionGeoJSON}>
             {/* 普通连接线 */}
@@ -89,8 +97,20 @@ export const ConnectionLines = ({ markers }: ConnectionLinesProps) => {
                 type="line"
                 paint={{
                     'line-color': 'rgba(0, 0, 0, 0.4)', // 黑色半透明，降低不透明度
-                    'line-width': 4, // 加粗
-                    'line-opacity': 0.6, // 降低不透明度
+                    'line-width': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        10, 3,
+                        15, 4,
+                        20, 5
+                    ], // 根据缩放级别动态调整线宽
+                    'line-opacity': [
+                        'case',
+                        ['>', ['length', ['literal', highlightedChainIds]], 0],
+                        0.3, // 当有高亮时，普通线变暗
+                        0.6  // 无高亮时，正常显示
+                    ], // 根据高亮状态调整透明度，不根据缩放级别渐变
                 }}
                 layout={{
                     'line-join': 'round',
@@ -103,9 +123,16 @@ export const ConnectionLines = ({ markers }: ConnectionLinesProps) => {
                 id="highlighted-connection-lines-layer"
                 type="line"
                 paint={{
-                    'line-color': 'rgba(59, 130, 246, 0.8)', // 蓝色高亮
-                    'line-width': 6, // 更粗
-                    'line-opacity': 1, // 完全不透明
+                    'line-color': 'rgba(59, 130, 246, 0.9)', // 蓝色高亮
+                    'line-width': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        10, 4,
+                        15, 6,
+                        20, 8
+                    ], // 根据缩放级别动态调整线宽
+                    'line-opacity': 1, // 高亮时完全不透明
                 }}
                 layout={{
                     'line-join': 'round',
