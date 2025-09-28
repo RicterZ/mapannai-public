@@ -6,7 +6,6 @@ export const config = {
         mapbox: {
             accessToken: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '',
             style: process.env.NEXT_PUBLIC_MAPBOX_STYLE || 'mapbox://styles/mapbox/streets-zh-v1',
-            datasetId: process.env.MAPBOX_DATASET_ID || '',
             dataset: {
                 username: process.env.MAPBOX_USERNAME || '',
                 secretAccessToken: process.env.MAPBOX_SECRET_ACCESS_TOKEN || '',
@@ -14,15 +13,9 @@ export const config = {
             },
         },
         google: {
-            accessToken: process.env.NEXT_PUBLIC_GOOGLE_ACCESS_TOKEN || '',
-            style: 'custom',
+            accessToken: process.env.GOOGLE_API_KEY || '',
             // Google API 基础 URL - 使用反向代理
             baseUrl: process.env.GOOGLE_API_BASE_URL || 'https://maps.googleapis.com',
-            dataset: {
-                projectId: process.env.GOOGLE_PROJECT_ID || '',
-                datasetId: process.env.GOOGLE_DATASET_ID || '',
-                apiKey: process.env.GOOGLE_API_KEY || '',
-            },
         },
     },
     // 腾讯云COS配置
@@ -35,8 +28,6 @@ export const config = {
         },
     },
     app: {
-        name: 'マップ案内 - 交互式地图编辑器',
-        version: '1.0.0',
         defaultCenter: {
             latitude: 35.6895,
             longitude: 139.6917,

@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 // 获取 Mapbox 的 datasetId
 function getDatasetId(): string | undefined {
     const mapboxConfig = config.map.mapbox
-    return mapboxConfig.dataset?.datasetId || mapboxConfig.datasetId
+    return mapboxConfig.dataset?.datasetId
 }
 
 /**
