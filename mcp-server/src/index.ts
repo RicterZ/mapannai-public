@@ -187,13 +187,13 @@ class MapannaiMCPServer {
       try {
         switch (name) {
           case 'create_marker':
-            return await this.handleCreateMarker(args as CreateMarkerRequest);
+            return await this.handleCreateMarker(args as unknown as CreateMarkerRequest);
           
           case 'update_marker_content':
-            return await this.handleUpdateMarkerContent(args as UpdateMarkerContentRequest);
+            return await this.handleUpdateMarkerContent(args as unknown as UpdateMarkerContentRequest);
           
           case 'create_travel_chain':
-            return await this.handleCreateTravelChain(args as CreateChainRequest);
+            return await this.handleCreateTravelChain(args as unknown as CreateChainRequest);
           
           case 'search_places':
             return await this.handleSearchPlaces(args as { query: string; location?: { latitude: number; longitude: number } });
@@ -208,7 +208,7 @@ class MapannaiMCPServer {
             return await this.handleDeleteMarker(args as { markerId: string });
           
           case 'create_travel_plan':
-            return await this.handleCreateTravelPlan(args as TravelPlanRequest);
+            return await this.handleCreateTravelPlan(args as unknown as TravelPlanRequest);
           
           default:
             throw new Error(`未知工具: ${name}`);
