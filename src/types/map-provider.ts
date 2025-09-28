@@ -72,7 +72,7 @@ export interface MapProvider {
     onMapError(mapInstance: any, callback: (error: Error) => void): void
     
     // 搜索功能
-    searchPlaces(query: string, config: MapProviderConfig): Promise<MapSearchResult[]>
+    searchPlaces(query: string, config: MapProviderConfig, country?: string): Promise<MapSearchResult[]>
     
     // 样式和配置
     getMapStyle(config: MapProviderConfig): string
