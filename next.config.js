@@ -15,6 +15,10 @@ const nextConfig = {
         };
         return config;
     },
+    // 排除 MCP 服务器目录，避免在构建时编译
+    experimental: {
+        externalDir: true,
+    },
 }
 
 module.exports = nextConfig 

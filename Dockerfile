@@ -24,6 +24,9 @@ RUN npm ci --silent
 
 COPY . .
 
+# 排除 MCP 服务器目录，避免在构建时编译
+RUN rm -rf mcp-server
+
 RUN npm run build
 
 FROM node:20-alpine AS runner
