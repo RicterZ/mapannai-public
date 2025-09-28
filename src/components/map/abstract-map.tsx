@@ -1413,13 +1413,6 @@ export const AbstractMap = () => {
                                                 <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                             </div>
                                         )}
-                                        {!isSearching && fabQuery.trim().length >= 3 && fabResults.length > 0 && (
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                </svg>
-                                            </div>
-                                        )}
                                         {/* 清除按钮 - 当有输入内容且不在搜索中时显示 */}
                                         {!isSearching && fabQuery.trim().length > 0 && (
                                             <button
