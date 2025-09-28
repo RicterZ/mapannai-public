@@ -255,13 +255,10 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                             {/* 删除按钮 */}
                             <button
                                 onClick={() => {
-                                    // 双重确认机制
-                                    const firstConfirm = confirm('⚠️ 警告：您即将删除这个标记')
-                                    if (firstConfirm) {
-                                        const secondConfirm = confirm('🗑️ 最后确认：删除后无法恢复，确定继续吗？')
-                                        if (secondConfirm) {
-                                            deleteMarker(selectedMarker.id)
-                                        }
+                                    // 单次确认机制
+                                    const confirmed = confirm('🗑️ 确定要删除这个标记吗？删除后无法恢复。')
+                                    if (confirmed) {
+                                        deleteMarker(selectedMarker.id)
                                     }
                                 }}
                                 className={cn(
