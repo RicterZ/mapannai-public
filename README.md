@@ -1,6 +1,6 @@
 # マップ案内 (MapAnNai) - 交互式地图编辑器
 
-一个基于Next.js和Mapbox的交互式地图标记编辑平台，支持富文本内容编辑、坐标跳转、标记分类等功能。
+一个基于Next.js的交互式地图标记编辑平台，支持Mapbox和Google Maps两种地图服务，提供富文本内容编辑、坐标跳转、标记分类等功能。
 
 <img width="1236" height="906" alt="image" src="https://github.com/user-attachments/assets/b5c90caf-3545-495a-9ebc-eceefb7aa8b8" />
 <img width="1236" height="906" alt="image" src="https://github.com/user-attachments/assets/44897d0a-3ef0-4ee6-89c6-777a70876d69" />

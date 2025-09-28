@@ -9,7 +9,6 @@ export class MapProviderFactoryImpl implements MapProviderFactory {
         this.registerProvider('mapbox', () => new MapboxProvider())
         this.registerProvider('google', () => new GoogleProvider())
         // 未来可以注册其他地图提供者
-        // this.registerProvider('baidu', () => new BaiduProvider())
     }
 
     createProvider(type: MapProviderType): MapProvider {

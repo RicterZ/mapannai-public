@@ -42,10 +42,19 @@ cp env.example .env
 包含以下环境变量：
 
 ```bash
+# 地图提供者配置
+NEXT_PUBLIC_MAP_PROVIDER=mapbox  # 可选: mapbox 或 google
+
 # Mapbox 配置
 MAPBOX_SECRET_ACCESS_TOKEN=sk.your_mapbox_secret_token_here
 MAPBOX_USERNAME=your_mapbox_username
 MAPBOX_DATASET_ID=your_dataset_id_here
+
+# Google Maps 配置（如果使用Google Maps）
+NEXT_PUBLIC_GOOGLE_ACCESS_TOKEN=your_google_api_key_here
+GOOGLE_DATASET_ID=your_google_dataset_id
+GOOGLE_PROJECT_ID=your_google_project_id
+GOOGLE_API_KEY=your_google_api_key_here
 
 # 腾讯云 COS 配置
 TENCENT_COS_SECRET_ID=your_tencent_secret_id
@@ -66,8 +75,10 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
+        - NEXT_PUBLIC_MAP_PROVIDER=mapbox  # 或 google
         - NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=pk...
         - NEXT_PUBLIC_MAPBOX_STYLE=mapbox://styles/mapbox/streets-zh-v1
+        - NEXT_PUBLIC_GOOGLE_ACCESS_TOKEN=your_google_api_key_here  # 如果使用Google Maps
         - NEXT_PUBLIC_IMAGE_DOMAINS=mapannai-123456.cos.ap-chongqing.myqcloud.com
     ports:
       - "3000:3000"
@@ -80,10 +91,17 @@ services:
 - `NEXT_PUBLIC_*` 变量必须在构建时传递（通过 `args`）
 - 其他变量在运行时传递（通过 `env_file`）
 - 确保 `.env` 文件存在且包含所有必要的变量
+- 根据选择的地图提供者配置相应的环境变量
+
+#### 地图提供者选择
+- **Mapbox**（默认）：需要配置 `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` 和 `NEXT_PUBLIC_MAPBOX_STYLE`
+- **Google Maps**：需要配置 `NEXT_PUBLIC_GOOGLE_ACCESS_TOKEN`
 
 #### 实际配置说明
+- `NEXT_PUBLIC_MAP_PROVIDER`: 地图提供者，可选 `mapbox` 或 `google`
 - `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`: 您的 Mapbox 公钥令牌（以 `pk.` 开头）
 - `NEXT_PUBLIC_MAPBOX_STYLE`: Mapbox 地图样式，默认为中文街道样式
+- `NEXT_PUBLIC_GOOGLE_ACCESS_TOKEN`: Google Maps API 密钥
 - `NEXT_PUBLIC_IMAGE_DOMAINS`: 图片域名，用于 Next.js 图片优化，格式为 `bucket-name.cos.region.myqcloud.com`
 
 ### 3. 部署步骤
