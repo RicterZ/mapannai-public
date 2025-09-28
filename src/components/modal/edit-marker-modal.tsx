@@ -23,6 +23,8 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
     const [headerImage, setHeaderImage] = useState('')
     const [markdownContent, setMarkdownContent] = useState('')
     const [isUploading, setIsUploading] = useState(false)
+    const [isMarkdownUploading, setIsMarkdownUploading] = useState(false)
+    const [markdownUploadProgress, setMarkdownUploadProgress] = useState(0)
     const [isDesktop, setIsDesktop] = useState(false)
 
     // 检测屏幕尺寸
@@ -216,19 +218,25 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
 
                     {/* 编辑器区域 */}
                     <div className="flex-1 overflow-hidden relative">
-                        {/* 上传进度指示器 */}
-                        {isUploading && (
+                        {/* Markdown编辑器上传进度条 */}
+                        {isMarkdownUploading && (
                             <div className="absolute top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
                                 <div className="p-3">
-                                    <div className="flex items-center justify-center space-x-2">
-                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                                    <div className="flex items-center justify-between mb-2">
                                         <span className="text-sm font-medium text-gray-700">上传图片中...</span>
+                                        <span className="text-sm text-gray-500">{Math.min(Math.round(markdownUploadProgress), 100)}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div 
+                                            className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                                            style={{ width: `${Math.min(markdownUploadProgress, 100)}%` }}
+                                        />
                                     </div>
                                 </div>
                             </div>
                         )}
                         <div className="h-full">
-                            <div className={`markdown-editor-container h-full ${isUploading ? 'pt-16' : ''}`}>
+                            <div className={`markdown-editor-container h-full ${isMarkdownUploading ? 'pt-16' : ''}`}>
                                 <style jsx>{`
                                     .markdown-editor-container {
                                         height: 100% !important;
@@ -237,7 +245,7 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
                                         height: 100% !important;
                                     }
                                     .markdown-editor-container :global(.w-md-editor-text-container) {
-                                        padding-top: ${isUploading ? '16px' : '0'} !important;
+                                        padding-top: ${isMarkdownUploading ? '16px' : '0'} !important;
                                     }
                                     .markdown-editor-container :global(.w-md-editor-toolbar) {
                                         padding: ${isDesktop ? '8px' : '12px'} 8px;
@@ -278,7 +286,7 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
                                     {
                                         ...commands.image,
                                         execute: (state, api) => {
-                                            if (isUploading) return // 如果正在上传，不执行
+                                            if (isMarkdownUploading) return // 如果正在上传，不执行
                                             
                                             // 创建文件输入元素
                                             const input = document.createElement('input')
@@ -288,10 +296,30 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
                                                 const file = (e.target as HTMLInputElement).files?.[0]
                                                 if (file) {
                                                     try {
-                                                        setIsUploading(true)
+                                                        setIsMarkdownUploading(true)
+                                                        setMarkdownUploadProgress(0)
+                                                        
+                                                        // 模拟进度更新
+                                                        const progressInterval = setInterval(() => {
+                                                            setMarkdownUploadProgress(prev => {
+                                                                if (prev >= 90) return prev
+                                                                const increment = Math.random() * 20
+                                                                return Math.min(prev + increment, 90)
+                                                            })
+                                                        }, 200)
+                                                        
                                                         const result = await uploadFileToS3(file)
                                                         
+                                                        clearInterval(progressInterval)
+                                                        setMarkdownUploadProgress(100)
+                                                        
                                                         if (result.success && result.url) {
+                                                            // 延迟一下让用户看到100%进度
+                                                            setTimeout(() => {
+                                                                setIsMarkdownUploading(false)
+                                                                setMarkdownUploadProgress(0)
+                                                            }, 500)
+                                                            
                                                             // 插入markdown图片语法
                                                             const imageMarkdown = `![${file.name}](${result.url})`
                                                             const newValue = markdownContent + imageMarkdown
@@ -302,8 +330,8 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
                                                     } catch (error) {
                                                         console.error('图片上传失败:', error)
                                                         alert('图片上传失败，请重试')
-                                                    } finally {
-                                                        setIsUploading(false)
+                                                        setIsMarkdownUploading(false)
+                                                        setMarkdownUploadProgress(0)
                                                     }
                                                 }
                                             }
