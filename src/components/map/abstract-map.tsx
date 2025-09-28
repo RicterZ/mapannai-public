@@ -3,16 +3,16 @@
 import React, { useCallback, useRef, useEffect, useState, useMemo } from 'react'
 
 import { MapProvider, MapCoordinates, MapViewState, MapProviderConfig } from '@/types/map-provider'
-import { mapProviderFactory } from '@/lib/map-providers'
+import { mapProviderFactory } from '@/lib/map/providers'
 import { config } from '@/lib/config'
 import { searchService } from '@/lib/api/search-service'
 // 移除 Google Places 相关导入
 // 移除 Google Maps 加载函数
 import { useMapStore } from '@/store/map-store'
 import { MarkerCoordinates } from '@/types/marker'
-import { MapMarker } from './common/map-marker'
-import { MapPopup } from './mapbox/map-popup'
-import { ConnectionLines } from './mapbox/connection-lines'
+import { MapMarker } from './map-marker'
+import { MapPopup } from './map-popup'
+import { ConnectionLines } from './connection-lines'
 import { AddMarkerModal } from '@/components/modal/add-marker-modal'
 import { EditMarkerModal } from '@/components/modal/edit-marker-modal'
 import { LeftSidebar } from '@/components/sidebar/left-sidebar'
@@ -194,7 +194,7 @@ export const AbstractMap = () => {
         // 应用Mapbox POI过滤
         try {
             // 动态导入MapboxProvider并应用POI过滤
-            import('@/lib/map-providers/mapbox-provider').then(({ MapboxProvider }) => {
+            import('@/lib/map/providers/mapbox-provider').then(({ MapboxProvider }) => {
                 const mapboxProvider = new MapboxProvider()
                 mapboxProvider.applyPOIFilter()
             })
@@ -509,7 +509,7 @@ export const AbstractMap = () => {
         try {
             console.log('🔍 获取地点信息:', coordinates)
             
-            const response = await fetch('/api/place-info', {
+            const response = await fetch('/api/places', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

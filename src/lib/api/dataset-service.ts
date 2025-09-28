@@ -1,10 +1,10 @@
 // 数据集服务抽象层
 import { MapProvider, MapProviderConfig } from '@/types/map-provider'
-import { mapProviderFactory } from '@/lib/map-providers'
+import { mapProviderFactory } from '@/lib/map/providers'
 import { config } from '@/lib/config'
 import { MarkerCoordinates, Marker } from '@/types/marker'
 import { useMapStore } from '@/store/map-store'
-import { mapDataService } from '@/lib/map-data-service'
+import { mapDataService } from '@/lib/map/map-data-service'
 
 export interface DatasetFeature {
     id: string

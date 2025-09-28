@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Marker } from '@/types/marker'
-import { uploadFileToS3 } from '@/lib/s3-direct-upload'
+import { uploadFileToS3 } from '@/lib/upload/direct-upload'
 import MDEditor from '@uiw/react-md-editor'
 import { commands } from '@uiw/react-md-editor'
 
