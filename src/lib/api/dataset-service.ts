@@ -33,26 +33,16 @@ export class MapDatasetService implements DatasetService {
     private mapDataCache: Map<string, DatasetFeatureCollection> = new Map()
 
     constructor() {
-        this.mapProvider = mapProviderFactory.createProvider(config.map.provider)
+        this.mapProvider = mapProviderFactory.createProvider('mapbox')
         this.mapConfig = {
-            accessToken: config.map[config.map.provider].accessToken,
-            style: config.map[config.map.provider].style,
+            accessToken: config.map.mapbox.accessToken,
+            style: config.map.mapbox.style,
         }
     }
 
     async getAllFeatures(datasetId: string): Promise<DatasetFeatureCollection> {
-        // 根据当前地图提供者实现不同的数据集获取逻辑
-        if (config.map.provider === 'mapbox') {
-            return await this.getMapboxFeatures(datasetId)
-        } else if (config.map.provider === 'google') {
-            return await this.getGoogleFeatures(datasetId)
-        }
-        
-        // 其他地图提供者的实现
-        return {
-            type: 'FeatureCollection',
-            features: []
-        }
+        // 只支持 Mapbox 数据集
+        return await this.getMapboxFeatures(datasetId)
     }
 
     // 清理缓存的方法
@@ -122,22 +112,8 @@ export class MapDatasetService implements DatasetService {
 
 
     async upsertFeature(datasetId: string, featureId: string, coordinates: MarkerCoordinates, properties: any): Promise<DatasetFeature> {
-        if (config.map.provider === 'mapbox') {
-            return await this.upsertMapboxFeature(datasetId, featureId, coordinates, properties)
-        } else if (config.map.provider === 'google') {
-            return await this.upsertGoogleFeature(datasetId, featureId, coordinates, properties)
-        }
-        
-        // 其他地图提供者的实现
-        return {
-            id: featureId,
-            type: 'Feature',
-            geometry: {
-                type: 'Point',
-                coordinates: [coordinates.longitude, coordinates.latitude]
-            },
-            properties
-        }
+        // 只支持 Mapbox 数据集
+        return await this.upsertMapboxFeature(datasetId, featureId, coordinates, properties)
     }
 
 
@@ -183,13 +159,8 @@ export class MapDatasetService implements DatasetService {
     }
 
     async deleteFeature(datasetId: string, featureId: string): Promise<void> {
-        if (config.map.provider === 'mapbox') {
-            return await this.deleteMapboxFeature(datasetId, featureId)
-        } else if (config.map.provider === 'google') {
-            return await this.deleteGoogleFeature(datasetId, featureId)
-        }
-        
-        // 其他地图提供者的实现
+        // 只支持 Mapbox 数据集
+        return await this.deleteMapboxFeature(datasetId, featureId)
     }
 
 

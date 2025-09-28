@@ -94,6 +94,9 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                             next: updatedNext
                         })
                         
+                        // 触发路径重新计算
+                        const refreshEvent = new CustomEvent('refreshConnectionLines')
+                        window.dispatchEvent(refreshEvent)
                         
                         // 显示成功消息
                         const event = new CustomEvent('showMessage', {
