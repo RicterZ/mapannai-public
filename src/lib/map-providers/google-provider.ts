@@ -454,9 +454,8 @@ export class GoogleProvider implements MapProvider {
     }
 
     async searchPlaces(query: string, config: MapProviderConfig): Promise<MapSearchResult[]> {
-        if (!window.google || !window.google.maps) {
-            throw new Error('Google Maps API not loaded')
-        }
+        // 等待 Google Maps API 加载完成
+        await this.waitForGoogleMapsAPI()
 
         return new Promise((resolve, reject) => {
             const service = new (window as any).google.maps.places.PlacesService(document.createElement('div'))
@@ -481,6 +480,60 @@ export class GoogleProvider implements MapProvider {
                     reject(new Error(`Places search failed: ${status}`))
                 }
             })
+        })
+    }
+
+    // 等待 Google Maps API 加载完成
+    private async waitForGoogleMapsAPI(): Promise<void> {
+        return new Promise((resolve, reject) => {
+            // 如果已经加载，直接返回
+            if (window.google && window.google.maps && window.google.maps.places) {
+                resolve()
+                return
+            }
+
+            // 检查是否已有脚本正在加载
+            const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
+            if (existingScript) {
+                // 等待现有脚本加载完成
+                const checkLoaded = () => {
+                    if (window.google && window.google.maps && window.google.maps.places) {
+                        resolve()
+                    } else {
+                        setTimeout(checkLoaded, 100)
+                    }
+                }
+                checkLoaded()
+                return
+            }
+
+            // 如果没有脚本，尝试动态加载
+            const googleApiKey = process.env.NEXT_PUBLIC_GOOGLE_ACCESS_TOKEN
+            if (!googleApiKey || googleApiKey === 'your_google_api_key_here') {
+                reject(new Error('Google Maps API 密钥未配置'))
+                return
+            }
+
+            // 创建脚本元素
+            const script = document.createElement('script')
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&libraries=places&loading=async`
+            script.async = true
+            script.defer = true
+            script.crossOrigin = 'anonymous'
+            script.onload = () => {
+                const checkAPIReady = () => {
+                    if (window.google && window.google.maps && window.google.maps.places) {
+                        resolve()
+                    } else {
+                        setTimeout(checkAPIReady, 50)
+                    }
+                }
+                setTimeout(checkAPIReady, 100)
+            }
+            script.onerror = () => {
+                reject(new Error('Failed to load Google Maps API'))
+            }
+            document.head.appendChild(script)
         })
     }
 
