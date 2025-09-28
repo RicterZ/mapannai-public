@@ -3,6 +3,9 @@ import { datasetService } from '@/lib/api/dataset-service'
 import { config } from '@/lib/config'
 import { MarkerCoordinates } from '@/types/marker'
 
+// 强制动态渲染，因为使用了查询参数
+export const dynamic = 'force-dynamic'
+
 // 获取当前地图提供者的datasetId
 function getDatasetId(): string | undefined {
     const provider = config.map.provider

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { mapDataService } from '@/lib/map-data-service'
 
+// 强制动态渲染，因为使用了查询参数
+export const dynamic = 'force-dynamic'
+
 /**
  * GET - 导出地图数据为 GeoJSON 格式
  */
