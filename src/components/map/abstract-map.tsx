@@ -336,7 +336,7 @@ export const AbstractMap = () => {
             // Google Maps 处理
             if (googleMapInstance) {
                 // 在移动端有标记详情时，调整跳转位置
-                if (window.innerWidth < 1024) {
+                if (window.innerWidth < 1024 && isSidebarOpen) {
                     // 计算偏移量：在zoom 15时，需要合适的偏移量让目标位置出现在上半屏中间
                     const offset = -0.0035 // 纬度偏移量，向下偏移约0.4km
                     const adjustedCoordinates = {
@@ -359,7 +359,7 @@ export const AbstractMap = () => {
             // Mapbox 处理
             if (mapRef.current) {
                 // 在移动端有标记详情时，调整跳转位置
-                if (window.innerWidth < 1024) {
+                if (window.innerWidth < 1024 && isSidebarOpen) {
                     // 计算偏移量：在zoom 15时，需要合适的偏移量让目标位置出现在上半屏中间
                     const offset = -0.0035 // 纬度偏移量，向下偏移约0.4km
                     const adjustedCoordinates = {
@@ -496,36 +496,39 @@ export const AbstractMap = () => {
             zoomLevel = 16
         }
         
-        // 跳转到搜索结果位置
-        handleFlyTo({ longitude: result.coordinates.longitude, latitude: result.coordinates.latitude }, zoomLevel)
-        
-        // 自动弹出添加标记的 popup
-        setTimeout(() => {
-            if (config.map.provider === 'google') {
-                // 对于Google地图，使用Google专用的popup显示逻辑
-                setGooglePopupCoordinates({
-                    latitude: result.coordinates.latitude,
-                    longitude: result.coordinates.longitude
-                })
-                setGooglePopupPlaceInfo({
-                    name: result.name || '搜索结果',
-                    address: result.formatted_address || result.address || '',
-                    placeId: result.place_id || result.id || ''
-                })
-                setGooglePopupClickPosition(null)
-                setGooglePopupIsMarkerClick(false)
-                setGooglePopupVisible(true)
-                googlePopupVisibleRef.current = true
-            } else {
-                // 对于其他地图提供者，使用通用popup
-                openPopup({
-                    latitude: result.coordinates.latitude,
-                    longitude: result.coordinates.longitude
-                })
-            }
-        }, 500) // 等待地图跳转动画完成
-        
+        // 先关闭搜索框，然后跳转到搜索结果位置
         setIsSearchFabOpen(false)
+        
+        // 延迟跳转，确保搜索框关闭动画完成
+        setTimeout(() => {
+            handleFlyTo({ longitude: result.coordinates.longitude, latitude: result.coordinates.latitude }, zoomLevel)
+            
+            // 自动弹出添加标记的 popup
+            setTimeout(() => {
+                if (config.map.provider === 'google') {
+                    // 对于Google地图，使用Google专用的popup显示逻辑
+                    setGooglePopupCoordinates({
+                        latitude: result.coordinates.latitude,
+                        longitude: result.coordinates.longitude
+                    })
+                    setGooglePopupPlaceInfo({
+                        name: result.name || '搜索结果',
+                        address: result.formatted_address || result.address || '',
+                        placeId: result.place_id || result.id || ''
+                    })
+                    setGooglePopupClickPosition(null)
+                    setGooglePopupIsMarkerClick(false)
+                    setGooglePopupVisible(true)
+                    googlePopupVisibleRef.current = true
+                } else {
+                    // 对于其他地图提供者，使用通用popup
+                    openPopup({
+                        latitude: result.coordinates.latitude,
+                        longitude: result.coordinates.longitude
+                    })
+                }
+            }, 500) // 等待地图跳转动画完成
+        }, 300) // 等待搜索框关闭动画完成
     }, [handleFlyTo, openPopup])
 
     // 右下角悬浮搜索：坐标跳转
