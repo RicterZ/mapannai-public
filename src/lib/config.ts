@@ -3,6 +3,8 @@ export const config = {
     // 地图提供者配置
     map: {
         provider: (process.env.NEXT_PUBLIC_MAP_PROVIDER || 'mapbox') as 'mapbox' | 'google',
+        // 搜索提供者配置（可以独立于地图提供者）
+        searchProvider: (process.env.NEXT_PUBLIC_SEARCH_PROVIDER || process.env.NEXT_PUBLIC_MAP_PROVIDER || 'mapbox') as 'mapbox' | 'google',
         mapbox: {
             accessToken: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '',
             style: process.env.NEXT_PUBLIC_MAPBOX_STYLE || 'mapbox://styles/mapbox/streets-zh-v1',

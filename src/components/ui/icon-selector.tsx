@@ -39,7 +39,7 @@ export const IconSelector = ({ selectedIcon = 'location', onSelect, className }:
                 ref={buttonRef}
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full flex items-center justify-between px-3 py-2.5 border border-gray-300 rounded-xl bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
             >
                 <div className="flex items-center space-x-2">
                     <span className="text-lg">{MARKER_ICONS[selectedIcon].emoji}</span>
@@ -66,7 +66,7 @@ export const IconSelector = ({ selectedIcon = 'location', onSelect, className }:
 
                     {/* 选项列表 */}
                     <div 
-                        className="fixed z-[120] bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                        className="fixed z-[120] bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto"
                         style={{
                             top: position.top,
                             left: position.left,

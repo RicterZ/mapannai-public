@@ -5,6 +5,9 @@ import React, { useCallback, useRef, useEffect, useState, useMemo } from 'react'
 import { MapProvider, MapCoordinates, MapViewState, MapProviderConfig } from '@/types/map-provider'
 import { mapProviderFactory } from '@/lib/map-providers'
 import { config } from '@/lib/config'
+import { searchService } from '@/lib/api/search-service'
+import { getPlaceIdFromCoordinates, getPlaceDetailsFromCoordinates } from '@/lib/google-places-reverse-geocoding'
+import { loadGoogleMapsForSearch } from '@/lib/google-maps-loader'
 import { useMapStore } from '@/store/map-store'
 import { MarkerCoordinates } from '@/types/marker'
 import { MapMarker } from './common/map-marker'
@@ -37,6 +40,15 @@ export const AbstractMap = () => {
     const [googlePopupPlaceInfo, setGooglePopupPlaceInfo] = useState<{ name: string; address: string; placeId: string } | null>(null)
     const [googlePopupClickPosition, setGooglePopupClickPosition] = useState<{ x: number; y: number } | null>(null)
     const [googlePopupIsMarkerClick, setGooglePopupIsMarkerClick] = useState(false)
+    
+    // 存储地点名称，用于更新 popup title
+    const [currentPlaceName, setCurrentPlaceName] = useState<string | undefined>(undefined)
+    
+    // 存储地点地址，用于显示在 popup 中
+    const [currentPlaceAddress, setCurrentPlaceAddress] = useState<string | undefined>(undefined)
+    
+    // 地点反查结果缓存
+    const placeCacheRef = useRef<Record<string, { name: string; address?: string }>>({})
     
     // 使用ref来跟踪popup状态，避免异步状态更新问题
     const googlePopupVisibleRef = useRef(false)
@@ -355,15 +367,26 @@ export const AbstractMap = () => {
             return
         }
         try {
-            const results = await mapProvider.searchPlaces(input, mapConfig)
+            // 使用统一的搜索服务，支持混合搜索功能
+            const results = await searchService.searchPlaces(input, 10, 'zh-CN')
             setFabResults(results)
         } catch (e) {
             setFabQueryError('搜索失败，请稍后再试')
         }
-    }, [fabQuery, mapProvider, mapConfig])
+    }, [fabQuery])
 
     const handleFabResultClick = useCallback((result: any) => {
         if (!result?.coordinates) return
+        
+        // 清除之前的地点名称和地址，避免显示缓存的结果
+        setCurrentPlaceName(undefined)
+        setCurrentPlaceAddress(undefined)
+        
+        // 异步获取 placeId（不阻塞主流程）
+        getPlaceIdAsync({
+            latitude: result.coordinates.latitude,
+            longitude: result.coordinates.longitude
+        })
         
         // 根据搜索结果类型智能调整缩放级别
         let zoomLevel = 16 // 默认缩放级别
@@ -532,11 +555,148 @@ export const AbstractMap = () => {
         return () => window.removeEventListener('error', handleError)
     }, [])
 
-    const handleMapClick = useCallback((event: any, placeInfo?: { name: string; address: string; placeId: string }, clickPosition?: { x: number; y: number }, isMarkerClick?: boolean) => {
+    // 生成缓存键的函数
+    const generateCacheKey = useCallback((coordinates: { latitude: number; longitude: number }, zoom: number) => {
+        // 根据缩放级别确定精度 - 扩大缓存范围
+        // zoom 1-4: 0.2度精度 (约22km)
+        // zoom 5-8: 0.02度精度 (约2.2km)  
+        // zoom 9-12: 0.002度精度 (约220m)
+        // zoom 13-16: 0.0002度精度 (约22m)
+        // zoom 17+: 0.0001度精度 (约11m)
+        let precision = 0.2
+        if (zoom >= 5) precision = 0.02
+        if (zoom >= 9) precision = 0.002
+        if (zoom >= 13) precision = 0.0002
+        if (zoom >= 17) precision = 0.0001
+        
+        const lat = Math.round(coordinates.latitude / precision) * precision
+        const lng = Math.round(coordinates.longitude / precision) * precision
+        const zoomLevel = Math.floor(zoom / 3) * 3 // 将缩放级别分组，每3级一组，进一步扩大范围
+        
+        return `${lat.toFixed(4)},${lng.toFixed(4)},${zoomLevel}`
+    }, [])
+
+    // 异步获取 Google Maps placeId 的通用函数
+    const getPlaceIdAsync = useCallback(async (coordinates: { latitude: number; longitude: number }) => {
+        try {
+            console.log('🔍 开始获取坐标的 placeId:', coordinates)
+            
+            // 检查是否有 Google Maps API 密钥
+            const googleApiKey = config.map.google.accessToken
+            if (!googleApiKey || googleApiKey === 'your_google_api_key_here') {
+                console.log('⚠️ Google Maps API 密钥未配置，跳过 placeId 获取')
+                return
+            }
+            
+            // 获取当前缩放级别
+            const currentZoom = mapRef.current?.getZoom?.() || 11
+            
+            // 生成缓存键
+            const cacheKey = generateCacheKey(coordinates, currentZoom)
+            
+            // 检查缓存
+            if (placeCacheRef.current[cacheKey]) {
+                const cachedData = placeCacheRef.current[cacheKey]
+                console.log('✅ 使用缓存的地点信息:', cachedData)
+                setCurrentPlaceName(cachedData.name)
+                if (cachedData.address) {
+                    setCurrentPlaceAddress(cachedData.address)
+                }
+                return
+            }
+            
+            // 如果 Google Maps API 未加载，先动态加载
+            if (!window.google || !window.google.maps) {
+                console.log('Google Maps API 未加载，尝试动态加载...')
+                try {
+                    await loadGoogleMapsForSearch(googleApiKey)
+                } catch (loadError) {
+                    console.error('无法加载 Google Maps API:', loadError)
+                    return
+                }
+            }
+            
+            // 获取基本 placeId 信息
+            const placeIdResult = await getPlaceIdFromCoordinates(
+                coordinates.latitude, 
+                coordinates.longitude, 
+                googleApiKey
+            )
+            
+            if (placeIdResult.placeId) {
+                console.log('✅ 找到 placeId:', placeIdResult.placeId)
+                console.log('📍 地点信息:', {
+                    placeId: placeIdResult.placeId,
+                    name: placeIdResult.name,
+                    address: placeIdResult.address,
+                    types: placeIdResult.types
+                })
+                
+                // 尝试获取更详细的信息
+                const detailedResult = await getPlaceDetailsFromCoordinates(
+                    coordinates.latitude, 
+                    coordinates.longitude, 
+                    googleApiKey
+                )
+                
+                let finalPlaceName = ''
+                
+                if (detailedResult.placeId) {
+                    console.log('🏢 详细地点信息:', detailedResult)
+                    
+                    // 优先使用详细的地点名称
+                    if (detailedResult.name) {
+                        finalPlaceName = detailedResult.name
+                    } else if (placeIdResult.name) {
+                        // 如果没有详细名称，使用基本地理编码结果
+                        finalPlaceName = placeIdResult.name
+                    }
+                } else {
+                    // 如果没有详细信息，使用基本地理编码结果
+                    if (placeIdResult.name) {
+                        finalPlaceName = placeIdResult.name
+                    }
+                }
+                
+                // 更新 popup title 和地址
+                if (finalPlaceName) {
+                    setCurrentPlaceName(finalPlaceName)
+                }
+                
+                // 设置地址信息
+                let finalAddress = ''
+                if (detailedResult.address) {
+                    finalAddress = detailedResult.address
+                    setCurrentPlaceAddress(detailedResult.address)
+                } else if (placeIdResult.address) {
+                    finalAddress = placeIdResult.address
+                    setCurrentPlaceAddress(placeIdResult.address)
+                }
+                
+                // 存储到缓存
+                if (finalPlaceName) {
+                    placeCacheRef.current[cacheKey] = {
+                        name: finalPlaceName,
+                        address: finalAddress || undefined
+                    }
+                    console.log('💾 地点信息已缓存:', { name: finalPlaceName, address: finalAddress })
+                }
+            } else {
+                console.log('❌ 未找到 placeId')
+                // 如果没有找到 placeId，清除地点名称
+                setCurrentPlaceName(undefined)
+            }
+        } catch (error) {
+            console.error('❌ 获取 placeId 时出错:', error)
+        }
+    }, [])
+
+    const handleMapClick = useCallback(async (event: any, placeInfo?: { name: string; address: string; placeId: string }, clickPosition?: { x: number; y: number }, isMarkerClick?: boolean) => {
         // 直接从store获取最新状态，避免闭包中的旧状态
         const currentState = useMapStore.getState()
         const currentSidebarOpen = currentState.interactionState.isSidebarOpen
         const currentSelectedMarkerId = currentState.interactionState.selectedMarkerId
+        
         try {
             // 对于 Google Maps，显示自定义 Popup
             if (config.map.provider === 'google') {
@@ -627,8 +787,15 @@ export const AbstractMap = () => {
                 if (selectedMarkerId) {
                     selectMarker(null)
                 } else {
+                    // 清除之前的地点名称和地址，避免显示缓存的结果
+                    setCurrentPlaceName(undefined)
+                    setCurrentPlaceAddress(undefined)
+                    
                     // 没有选中标记时，打开添加新标记的popup
                     openPopup(coordinates, placeInfo?.name, placeInfo)
+                    
+                    // 只有在显示 popup 时才异步获取 placeId
+                    getPlaceIdAsync(coordinates)
                 }
             }
         } catch (err) {
@@ -1062,6 +1229,8 @@ export const AbstractMap = () => {
                         onEditMarker={handleEditMarker}
                         onDeleteMarker={handleDeleteMarker}
                         onClose={closePopup}
+                        placeName={currentPlaceName}
+                        placeAddress={currentPlaceAddress}
                     />
                 )}
                 </MapboxMapComponent>
@@ -1172,6 +1341,7 @@ export const AbstractMap = () => {
                 onClose={closeAddMarkerModal}
                 onSave={handleSaveNewMarker}
                 placeName={addMarkerModal.placeName || undefined}
+                placeAddress={currentPlaceAddress}
             />
 
             {/* 编辑标记弹窗 */}

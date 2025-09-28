@@ -9,10 +9,12 @@ import { cn } from '@/utils/cn'
 interface MapPopupProps {
     coordinates: MarkerCoordinates
     selectedMarkerId: string | null
-    onAddMarker: () => void
+    onAddMarker: (name?: string) => void
     onEditMarker: (markerId: string) => void
     onDeleteMarker: (markerId: string) => void
     onClose: () => void
+    placeName?: string // 新增：地点名称
+    placeAddress?: string // 新增：地点地址
 }
 
 export const MapPopup = ({
@@ -22,6 +24,8 @@ export const MapPopup = ({
     onEditMarker,
     onDeleteMarker,
     onClose,
+    placeName,
+    placeAddress,
 }: MapPopupProps) => {
     const popupRef = useRef<HTMLDivElement>(null)
     const { markers, editMode } = useMapStore()
@@ -47,7 +51,7 @@ export const MapPopup = ({
     }, [onClose])
 
     const handleAddClick = () => {
-        onAddMarker()
+        onAddMarker(placeName)
     }
 
     const handleEditClick = () => {
@@ -76,8 +80,8 @@ export const MapPopup = ({
             <div
                 ref={popupRef}
                 className={cn(
-                    'bg-white rounded-2xl',
-                    'min-w-[200px] animate-scale-in overflow-hidden'
+                    'bg-white rounded-xl shadow-2xl',
+                    'w-[240px] h-[140px] animate-scale-in overflow-hidden'
                 )}
             >
                 {selectedMarker ? (
@@ -138,61 +142,89 @@ export const MapPopup = ({
                         </div>
                     )
                 ) : (
-                    // 空白区域：根据编辑模式显示添加按钮或提示
-                    editMode.isEnabled ? (
-                        <div className="p-3 space-y-2">
-                            <h3 className="text-sm font-medium text-gray-800 mb-3">
-                                添加新标记
-                            </h3>
-                            <button
-                                onClick={handleAddClick}
-                                className={cn(
-                                    'w-full px-3 py-2 text-sm font-medium rounded-md',
-                                    'bg-green-600 text-white hover:bg-green-700',
-                                    'transition-colors duration-200',
-                                    'focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2',
-                                    'flex items-center justify-center gap-2'
+                    // 空白区域：重新设计的 popup
+                    <div className="p-0">
+                        {/* 头部区域 - 优化版 */}
+                        <div className="bg-gradient-to-r from-slate-50 to-gray-50 px-3 py-2.5 border-b border-gray-200">
+                            <div className="min-w-0 space-y-1">
+                                {placeName ? (
+                                    <h3 className="text-sm font-semibold text-gray-900 truncate" title={placeName}>
+                                        {placeName}
+                                    </h3>
+                                ) : (
+                                    <div className="h-[22px] bg-gray-200 rounded animate-pulse mb-1 w-4/5"></div>
                                 )}
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                添加图标
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="p-3 space-y-2">
-                            <div className="text-center">
-                                <div className="w-8 h-8 mx-auto mb-2 bg-gray-100 rounded-full flex items-center justify-center">
-                                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    </svg>
-                                </div>
-                                <p className="text-xs text-gray-500">
-                                    当前为查看模式
-                                </p>
-                                <p className="text-xs text-gray-400 mt-1">
-                                    开启编辑模式以添加标记
-                                </p>
+                                
+                                {placeAddress ? (
+                                    <p className="text-xs text-gray-600 truncate leading-relaxed" title={placeAddress}>
+                                        {placeAddress}
+                                    </p>
+                                ) : (
+                                    <div className="h-4 bg-gray-200 rounded animate-pulse w-full"></div>
+                                )}
                             </div>
                         </div>
-                    )
+
+                        {/* 内容区域 */}
+                        <div className="p-2">
+                            {editMode.isEnabled ? (
+                                /* 编辑模式 - 优化按钮 */
+                                <div className="space-y-2">
+                                    <button
+                                        onClick={handleAddClick}
+                                        className={cn(
+                                            'w-full px-3 py-1.5 text-sm font-medium rounded-lg',
+                                            'bg-gradient-to-r from-blue-600 to-blue-700 text-white',
+                                            'hover:from-blue-700 hover:to-blue-800',
+                                            'transition-all duration-200 transform hover:scale-[1.02]',
+                                            'focus:outline-none',
+                                            'flex items-center justify-center gap-2 shadow-md'
+                                        )}
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        添加标记
+                                    </button>
+                                    
+                                    <div className="pt-2 border-t border-gray-100">
+                                        <p className="text-xs text-gray-400 font-mono text-center">
+                                            {coordinates.latitude.toFixed(4)}, {coordinates.longitude.toFixed(4)}
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                /* 非编辑模式 - 优化提示 */
+                                <div className="text-center space-y-3">
+                                    <p className="text-xs text-gray-500 leading-relaxed">
+                                        点击编辑按钮，然后点击地图添加标记
+                                    </p>
+                                    
+                                    <div className="pt-2 border-t border-gray-100">
+                                        <p className="text-xs text-gray-400 font-mono">
+                                            {coordinates.latitude.toFixed(4)}, {coordinates.longitude.toFixed(4)}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 )}
 
-                {/* Close button */}
+                {/* Close button - Google Maps 风格 */}
                 <button
                     onClick={onClose}
                     className={cn(
-                        'absolute -top-2 -right-2 w-5 h-5 rounded-full',
-                        'bg-gray-600 text-white hover:bg-gray-700',
-                        'flex items-center justify-center text-xs leading-none p-0',
+                        'absolute -top-2 -right-2 w-6 h-6 rounded-full',
+                        'bg-black/70 hover:bg-black/80 text-white',
+                        'flex items-center justify-center',
                         'transition-colors duration-200',
+                        'shadow-lg'
                     )}
                     aria-label="关闭弹窗"
                 >
                     <svg
-                        className="w-3.5 h-3.5"
+                        className="w-3 h-3"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
