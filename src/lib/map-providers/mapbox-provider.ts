@@ -109,11 +109,12 @@ export class MapboxProvider implements MapProvider {
         }
     }
 
-    async searchPlaces(query: string, config: MapProviderConfig): Promise<MapSearchResult[]> {
+    async searchPlaces(query: string, config: MapProviderConfig, country?: string): Promise<MapSearchResult[]> {
         try {
             // 直接调用Mapbox搜索API
             const mapboxSearchUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`
-            const searchResponse = await fetch(`${mapboxSearchUrl}?access_token=${config.accessToken}&limit=10&language=zh-CN&country=JP`)
+            const countryParam = country || 'JP'  // 默认限制在日本
+            const searchResponse = await fetch(`${mapboxSearchUrl}?access_token=${config.accessToken}&limit=10&language=zh-CN&country=${countryParam}`)
 
             if (!searchResponse.ok) {
                 throw new Error(`Mapbox API 错误: ${searchResponse.status}`)

@@ -32,8 +32,8 @@ export class MapSearchService implements SearchService {
 
     async searchPlaces(query: string, limit: number = 5, language: string = 'zh-CN', country?: string): Promise<SearchResult[]> {
         try {
-            // 使用地图提供者的搜索功能
-            const results = await this.mapProvider.searchPlaces(query, this.mapConfig)
+            // 使用地图提供者的搜索功能，传递国家参数
+            const results = await this.mapProvider.searchPlaces(query, this.mapConfig, country)
             
             // 限制结果数量
             const limitedResults = results.slice(0, limit)

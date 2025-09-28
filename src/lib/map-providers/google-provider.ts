@@ -453,7 +453,7 @@ export class GoogleProvider implements MapProvider {
         }
     }
 
-    async searchPlaces(query: string, config: MapProviderConfig): Promise<MapSearchResult[]> {
+    async searchPlaces(query: string, config: MapProviderConfig, country?: string): Promise<MapSearchResult[]> {
         // 等待 Google Maps API 加载完成
         await this.waitForGoogleMapsAPI()
 
@@ -463,7 +463,8 @@ export class GoogleProvider implements MapProvider {
             const request: any = {
                 query: query,
                 fields: ['name', 'geometry'],
-                language: 'zh-CN'  // 设置语言为中文
+                language: 'zh-CN',  // 设置语言为中文
+                region: country || 'JP'  // 设置国家限制，默认为日本
             }
 
             service.textSearch(request, (results: any, status: any) => {
