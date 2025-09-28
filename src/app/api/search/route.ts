@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         const googleProvider = mapProviderFactory.createGoogleServerProvider()
         const mapConfig = {
             accessToken: config.map.google.accessToken,
-            style: config.map.google.style,
+            style: 'custom',
         }
         
         const searchResults = await googleProvider.searchPlaces(query, mapConfig, country)
