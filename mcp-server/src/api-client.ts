@@ -1,8 +1,8 @@
-import axios, { AxiosInstance } from 'axios';
+import axios from 'axios';
 import { Marker, CreateMarkerRequest, UpdateMarkerContentRequest, CreateChainRequest } from './types.js';
 
 export class MapannaiApiClient {
-  private client: AxiosInstance;
+  private client: any;
   private apiKey: string;
 
   constructor(baseUrl: string, apiKey: string) {

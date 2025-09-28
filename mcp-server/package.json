@@ -16,11 +16,18 @@
     "dotenv": "^16.3.1"
   },
   "devDependencies": {
+    "@types/axios": "^0.9.36",
     "@types/node": "^20.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
   },
-  "keywords": ["mcp", "travel", "ai", "map", "planning"],
+  "keywords": [
+    "mcp",
+    "travel",
+    "ai",
+    "map",
+    "planning"
+  ],
   "author": "Mapannai Team",
   "license": "MIT"
 }
