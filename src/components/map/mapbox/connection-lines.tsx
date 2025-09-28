@@ -5,6 +5,7 @@ import { Source, Layer } from 'react-map-gl'
 import { Marker } from '@/types/marker'
 import { useMapStore } from '@/store/map-store'
 import { googleDirectionsService, GoogleDirectionsRequest } from '@/lib/api/google-directions-service'
+import { config } from '@/lib/config'
 
 // 检查连线是否在完整的标记链中
 // 算法说明：
@@ -230,8 +231,8 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
         return null
     }
 
-    // 当缩放级别小于13时，隐藏连接线
-    if (zoom < 13) {
+    // 当缩放级别小于阈值时，隐藏连接线
+    if (zoom < config.app.zoomThreshold) {
         return null
     }
 

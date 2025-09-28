@@ -4,6 +4,7 @@ import React, { useRef, useState, useCallback, useEffect } from 'react'
 import { Marker } from '@/types/marker'
 import { MARKER_ICONS } from '@/types/marker'
 import { cn } from '@/utils/cn'
+import { config } from '@/lib/config'
 
 interface MapMarkerProps {
     marker: Marker
@@ -26,7 +27,7 @@ export const MapMarker = ({
     const markerColor = `${MARKER_ICONS[iconType].bgClass} ${MARKER_ICONS[iconType].hoverBgClass}`
 
     // 当缩放级别较小时，仅显示纯色小点
-    const shouldRenderAsDot = typeof zoom === 'number' && zoom < 13
+    const shouldRenderAsDot = typeof zoom === 'number' && zoom < config.app.zoomThreshold
 
     return (
         <div
