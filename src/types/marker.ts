@@ -52,6 +52,19 @@ export interface MarkerPopupActions {
     onAdd: (coordinates: MarkerCoordinates) => void
 }
 
+export interface DetailedPlaceInfo {
+    name: string
+    address: string
+    placeId: string
+    phone?: string
+    website?: string
+    rating?: number
+    user_ratings_total?: number
+    price_level?: number
+    opening_hours?: any
+    types?: string[]
+}
+
 export interface MapInteractionState {
     selectedMarkerId: string | null
     displayedMarkerId: string | null // 用于在边栏中显示内容的标记ID
@@ -60,7 +73,7 @@ export interface MapInteractionState {
     pendingCoordinates: MarkerCoordinates | null
     popupCoordinates: MarkerCoordinates | null
     placeName: string | null // 地点名称（保持向后兼容）
-    placeInfo: { name: string; address: string; placeId: string } | null // 完整的地点信息
+    placeInfo: DetailedPlaceInfo | null // 完整的地点信息
     highlightedChainIds: string[] // 高亮的标记链ID列表
 }
 

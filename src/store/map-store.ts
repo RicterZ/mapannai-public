@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import { Marker, MarkerCoordinates, MarkerIconType, MapInteractionState } from '@/types/marker'
-import { OutputData } from '@editorjs/editorjs'
+import { Marker, MarkerCoordinates, MarkerIconType, MapInteractionState, DetailedPlaceInfo } from '@/types/marker'
 import { v4 as uuidv4 } from 'uuid'
 
 interface MapStore {
@@ -53,9 +52,9 @@ interface MapStore {
     selectMarker: (markerId: string | null) => void
 
     // Popup actions
-    openPopup: (coordinates: MarkerCoordinates, placeName?: string, placeInfo?: { name: string; address: string; placeId: string }) => void
+    openPopup: (coordinates: MarkerCoordinates, placeName?: string, placeInfo?: DetailedPlaceInfo) => void
     closePopup: () => void
-    updatePlaceInfo: (placeInfo: { name: string; address: string; placeId: string }) => void
+    updatePlaceInfo: (placeInfo: DetailedPlaceInfo) => void
 
     // 新增弹窗 actions
     openAddMarkerModal: (coordinates: MarkerCoordinates, placeName?: string) => void
