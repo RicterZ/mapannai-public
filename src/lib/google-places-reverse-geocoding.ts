@@ -34,7 +34,10 @@ export async function getPlaceIdFromCoordinates(
         const latLng = new window.google.maps.LatLng(latitude, longitude)
         
         return new Promise((resolve, reject) => {
-            geocoder.geocode({ location: latLng }, (results: any, status: any) => {
+            geocoder.geocode({ 
+                location: latLng,
+                language: 'zh-CN'  // 设置语言为中文
+            }, (results: any, status: any) => {
                 if (status === window.google.maps.GeocoderStatus.OK && results && results.length > 0) {
                     // 获取第一个结果（通常是最精确的）
                     const result = results[0]
@@ -98,7 +101,8 @@ export async function getPlaceDetailsFromCoordinates(
         return new Promise((resolve, reject) => {
             service.getDetails({
                 placeId: placeIdResult.placeId,
-                fields: ['name', 'formatted_address', 'place_id', 'types', 'geometry', 'rating', 'user_ratings_total']
+                fields: ['name', 'formatted_address', 'place_id', 'types', 'geometry', 'rating', 'user_ratings_total'],
+                language: 'zh-CN'  // 设置语言为中文
             }, (place: any, status: any) => {
                 if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
                     const detailedInfo: ReverseGeocodingResult = {

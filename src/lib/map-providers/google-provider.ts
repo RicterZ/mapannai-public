@@ -318,7 +318,8 @@ export class GoogleProvider implements MapProvider {
                                 const placesService = new (window as any).google.maps.places.PlacesService(mapInstance.map)
                                 placesService.getDetails({
                                     placeId: event.placeId,
-                                    fields: ['name', 'formatted_address', 'formatted_phone_number', 'website', 'rating', 'user_ratings_total', 'price_level', 'opening_hours']
+                                    fields: ['name', 'formatted_address', 'formatted_phone_number', 'website', 'rating', 'user_ratings_total', 'price_level', 'opening_hours'],
+                                    language: 'zh-CN'  // 设置语言为中文
                                 }, (place: any, status: any) => {
                                     if (status === (window as any).google.maps.places.PlacesServiceStatus.OK && place) {
                                         // 构造包含真实信息的 placeInfo
@@ -462,7 +463,8 @@ export class GoogleProvider implements MapProvider {
             
             const request: any = {
                 query: query,
-                fields: ['name', 'geometry']
+                fields: ['name', 'geometry'],
+                language: 'zh-CN'  // 设置语言为中文
             }
 
             service.textSearch(request, (results: any, status: any) => {
