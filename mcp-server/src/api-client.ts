@@ -106,16 +106,21 @@ export class MapannaiApiClient {
     }
   }
 
-  // 搜索地点
+  // 搜索地点 (直接使用 /api/search)
   async searchPlaces(query: string, location?: { latitude: number; longitude: number }): Promise<any[]> {
     try {
-      const params: any = { q: query };
+      const params: any = { 
+        q: query,
+        limit: 10,
+        language: 'zh-CN',
+        country: 'JP'
+      };
       if (location) {
         params.lat = location.latitude;
         params.lng = location.longitude;
       }
       const response = await this.client.get('/api/search', { params });
-      return response.data;
+      return response.data.data || response.data;
     } catch (error) {
       console.error('搜索地点失败:', error);
       throw new Error(`搜索地点失败: ${error instanceof Error ? error.message : '未知错误'}`);

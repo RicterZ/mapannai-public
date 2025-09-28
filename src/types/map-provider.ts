@@ -27,7 +27,10 @@ export interface MapMarker {
 export interface MapSearchResult {
     name: string
     coordinates: MapCoordinates
-    // 其他搜索结果属性
+    address?: string
+    placeId?: string
+    rating?: number
+    types?: string[]
 }
 
 // 详细的地点信息接口
@@ -80,7 +83,7 @@ export interface MapProvider {
 }
 
 // 地图提供者类型
-export type MapProviderType = 'mapbox' | 'google'
+export type MapProviderType = 'mapbox' | 'google' | 'google-server'
 
 // 地图提供者工厂接口
 export interface MapProviderFactory {

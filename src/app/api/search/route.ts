@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { searchService } from '@/lib/api/search-service'
+import { mapProviderFactory } from '@/lib/map-providers'
+import { config } from '@/lib/config'
 
 export const dynamic = 'force-dynamic';
 
@@ -21,8 +22,27 @@ export async function GET(request: NextRequest) {
             )
         }
 
-        // 使用抽象搜索服务
-        const results = await searchService.searchPlaces(query, limit, language, country)
+        // 使用 Google 服务器端提供者进行搜索
+        const googleProvider = mapProviderFactory.createGoogleServerProvider()
+        const mapConfig = {
+            accessToken: config.map.google.accessToken,
+            style: config.map.google.style,
+        }
+        
+        const searchResults = await googleProvider.searchPlaces(query, mapConfig, country)
+        
+        // 转换为统一格式
+        const results = searchResults.slice(0, limit).map(result => ({
+            id: result.name,
+            name: result.name,
+            coordinates: result.coordinates,
+            address: result.address || '',
+            placeId: result.placeId || '',
+            rating: result.rating || 0,
+            types: result.types || [],
+            properties: {},
+            bbox: undefined,
+        }))
 
         return NextResponse.json({
             success: true,

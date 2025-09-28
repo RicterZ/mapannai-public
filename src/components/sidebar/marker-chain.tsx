@@ -131,6 +131,10 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
                 markdownContent: currentMarker.content.markdownContent,
                 next: updatedNext
             })
+            
+            // 触发路径重新计算
+            const refreshEvent = new CustomEvent('refreshConnectionLines')
+            window.dispatchEvent(refreshEvent)
         } else {
             // 如果删除的是链中间的标记，需要从前面一个标记的next中移除
             const prevMarker = chain[markerIndex - 1]
@@ -144,6 +148,10 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
                 markdownContent: prevMarker.content.markdownContent,
                 next: updatedNext
             })
+            
+            // 触发路径重新计算
+            const refreshEvent = new CustomEvent('refreshConnectionLines')
+            window.dispatchEvent(refreshEvent)
         }
     }, [markerChains, currentMarker, updateMarkerContent])
 

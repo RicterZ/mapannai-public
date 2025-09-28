@@ -6,58 +6,13 @@ import { MapProvider, MapCoordinates, MapViewState, MapProviderConfig } from '@/
 import { mapProviderFactory } from '@/lib/map-providers'
 import { config } from '@/lib/config'
 import { searchService } from '@/lib/api/search-service'
-import { getPlaceIdFromCoordinates, getPlaceDetailsFromCoordinates } from '@/lib/google-places-reverse-geocoding'
-// 内联的 Google Maps 加载函数
-const loadGoogleMapsForSearch = async (apiKey: string): Promise<void> => {
-    return new Promise<void>((resolve, reject) => {
-        if (window.google && window.google.maps) {
-            resolve()
-            return
-        }
-
-        // 检查是否已有脚本正在加载
-        const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
-        if (existingScript) {
-            const checkLoaded = () => {
-                if (window.google && window.google.maps) {
-                    resolve()
-                } else {
-                    setTimeout(checkLoaded, 100)
-                }
-            }
-            checkLoaded()
-            return
-        }
-
-        // 创建脚本元素
-        const script = document.createElement('script')
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`
-        script.async = true
-        script.defer = true
-        script.crossOrigin = 'anonymous'
-        script.onload = () => {
-            const checkAPIReady = () => {
-                if (window.google && window.google.maps && window.google.maps.Map) {
-                    resolve()
-                } else {
-                    setTimeout(checkAPIReady, 50)
-                }
-            }
-            setTimeout(checkAPIReady, 100)
-        }
-        script.onerror = () => {
-            reject(new Error('Failed to load Google Maps API'))
-        }
-        document.head.appendChild(script)
-    })
-}
+// 移除 Google Places 相关导入
+// 移除 Google Maps 加载函数
 import { useMapStore } from '@/store/map-store'
 import { MarkerCoordinates } from '@/types/marker'
 import { MapMarker } from './common/map-marker'
 import { MapPopup } from './mapbox/map-popup'
-import { GoogleMapPopup } from './google/map-popup'
 import { ConnectionLines } from './mapbox/connection-lines'
-import GoogleMap from './google/map'
 import { AddMarkerModal } from '@/components/modal/add-marker-modal'
 import { EditMarkerModal } from '@/components/modal/edit-marker-modal'
 import { LeftSidebar } from '@/components/sidebar/left-sidebar'
@@ -75,14 +30,7 @@ export const AbstractMap = () => {
     const [mapInitialized, setMapInitialized] = useState(false)
     const [loadingRetryCount, setLoadingRetryCount] = useState(0)
     const [dataLoaded, setDataLoaded] = useState(false)
-    const [googleMapInstance, setGoogleMapInstance] = useState<any>(null)
-    
-    // Google Map 自定义 Popup 状态
-    const [googlePopupVisible, setGooglePopupVisible] = useState(false)
-    const [googlePopupCoordinates, setGooglePopupCoordinates] = useState<MarkerCoordinates | null>(null)
-    const [googlePopupPlaceInfo, setGooglePopupPlaceInfo] = useState<{ name: string; address: string; placeId: string } | null>(null)
-    const [googlePopupClickPosition, setGooglePopupClickPosition] = useState<{ x: number; y: number } | null>(null)
-    const [googlePopupIsMarkerClick, setGooglePopupIsMarkerClick] = useState(false)
+    // 移除 Google Map 相关状态
     
     // 存储地点名称，用于更新 popup title
     const [currentPlaceName, setCurrentPlaceName] = useState<string | undefined>(undefined)
@@ -93,15 +41,14 @@ export const AbstractMap = () => {
     // 地点反查结果缓存
     const placeCacheRef = useRef<Record<string, { name: string; address?: string }>>({})
     
-    // 使用ref来跟踪popup状态，避免异步状态更新问题
-    const googlePopupVisibleRef = useRef(false)
+    // 移除 Google popup 引用
     
-    // 获取当前地图提供者 - 使用 useMemo 避免重复创建
-    const mapProvider = useMemo(() => mapProviderFactory.createProvider(config.map.provider), [config.map.provider])
+    // 获取当前地图提供者 - 只支持 Mapbox
+    const mapProvider = useMemo(() => mapProviderFactory.createProvider('mapbox'), [])
     const mapConfig: MapProviderConfig = useMemo(() => ({
-        accessToken: config.map[config.map.provider].accessToken,
-        style: config.map[config.map.provider].style,
-    }), [config.map.provider, config.map[config.map.provider].accessToken, config.map[config.map.provider].style])
+        accessToken: config.map.mapbox.accessToken,
+        style: config.map.mapbox.style,
+    }), [config.map.mapbox.accessToken, config.map.mapbox.style])
     
     // 从localStorage恢复上次的坐标，如果没有则使用默认坐标
     const getInitialViewState = (): ViewState => {
@@ -243,17 +190,15 @@ export const AbstractMap = () => {
         setMapInitialized(true)
         setError(null) // 清除可能的错误
         
-        // 如果是Mapbox地图，应用POI过滤
-        if (config.map.provider === 'mapbox') {
-            try {
-                // 动态导入MapboxProvider并应用POI过滤
-                import('@/lib/map-providers/mapbox-provider').then(({ MapboxProvider }) => {
-                    const mapboxProvider = new MapboxProvider()
-                    mapboxProvider.applyPOIFilter()
-                })
-            } catch (error) {
-                console.warn('无法应用Mapbox POI过滤:', error)
-            }
+        // 应用Mapbox POI过滤
+        try {
+            // 动态导入MapboxProvider并应用POI过滤
+            import('@/lib/map-providers/mapbox-provider').then(({ MapboxProvider }) => {
+                const mapboxProvider = new MapboxProvider()
+                mapboxProvider.applyPOIFilter()
+            })
+        } catch (error) {
+            console.warn('无法应用Mapbox POI过滤:', error)
         }
     }, [])
 
@@ -272,136 +217,47 @@ export const AbstractMap = () => {
         }
     }, [mapProvider])
 
-    // Google Map Popup 关闭处理
-    const handleCloseGooglePopup = useCallback(() => {
-        setGooglePopupVisible(false)
-        setGooglePopupCoordinates(null)
-        setGooglePopupPlaceInfo(null)
-        setGooglePopupClickPosition(null)
-        setGooglePopupIsMarkerClick(false)
-        googlePopupVisibleRef.current = false
-    }, [])
+    // 移除 Google popup 处理函数
 
-    // 监听地图缩放，重新计算Popup位置
-    useEffect(() => {
-        if (!googlePopupVisible || !googleMapInstance) return
+    // 移除 Google 地图缩放监听
 
-        let zoomTimeout: NodeJS.Timeout | null = null
+    // 移除 Google popup 添加标记处理
 
-        const handleMapZoom = () => {
-            // 防抖处理，避免频繁更新
-            if (zoomTimeout) {
-                clearTimeout(zoomTimeout)
-            }
-            
-            zoomTimeout = setTimeout(() => {
-                // 触发Popup位置重新计算
-                if (googlePopupClickPosition) {
-                    // 强制重新计算位置
-                    setGooglePopupClickPosition({ ...googlePopupClickPosition })
-                }
-            }, 50) // 50ms防抖
-        }
-
-        // 监听地图缩放和移动事件
-        if (googleMapInstance.map) {
-            const zoomListener = googleMapInstance.map.addListener('zoom_changed', handleMapZoom)
-            const moveListener = googleMapInstance.map.addListener('center_changed', handleMapZoom)
-            
-            return () => {
-                if (zoomTimeout) {
-                    clearTimeout(zoomTimeout)
-                }
-                if (zoomListener) {
-                    (window as any).google.maps.event.removeListener(zoomListener)
-                }
-                if (moveListener) {
-                    (window as any).google.maps.event.removeListener(moveListener)
-                }
-            }
-        }
-    }, [googlePopupVisible, googleMapInstance, googlePopupClickPosition])
-
-    // Google Map Popup 添加标记处理
-    const handleGooglePopupAddMarker = useCallback(() => {
-        if (googlePopupCoordinates) {
-            openAddMarkerModal(googlePopupCoordinates, googlePopupPlaceInfo?.name)
-            handleCloseGooglePopup()
-        }
-    }, [googlePopupCoordinates, googlePopupPlaceInfo, openAddMarkerModal, handleCloseGooglePopup])
-
-    // 地图flyTo功能
+    // 地图flyTo功能 - 只支持 Mapbox
     const handleFlyTo = useCallback((coordinates: { longitude: number; latitude: number }, zoom?: number) => {
-        if (config.map.provider === 'google') {
-            // Google Maps 处理
-            if (googleMapInstance) {
-                // 在移动端有标记详情时，调整跳转位置
-                if (window.innerWidth < 1024 && isSidebarOpen) {
-                    // 计算偏移量：在zoom 15时，需要合适的偏移量让目标位置出现在上半屏中间
-                    const offset = -0.0035 // 纬度偏移量，向下偏移约0.4km
-                    const adjustedCoordinates = {
-                        longitude: coordinates.longitude,
-                        latitude: coordinates.latitude + offset,
-                    }
-                    
-                    // 延迟执行，确保标记详情已经打开
-                    setTimeout(() => {
-                        if (googleMapInstance) {
-                            mapProvider.flyTo(googleMapInstance, adjustedCoordinates, zoom)
-                        }
-                    }, 100)
-                } else {
-                    // 正常跳转
-                    mapProvider.flyTo(googleMapInstance, coordinates, zoom)
+        if (mapRef.current) {
+            // 在移动端有标记详情时，调整跳转位置
+            if (window.innerWidth < 1024 && isSidebarOpen) {
+                // 计算偏移量：在zoom 15时，需要合适的偏移量让目标位置出现在上半屏中间
+                const offset = -0.0035 // 纬度偏移量，向下偏移约0.4km
+                const adjustedCoordinates = {
+                    longitude: coordinates.longitude,
+                    latitude: coordinates.latitude + offset,
                 }
-            }
-        } else {
-            // Mapbox 处理
-            if (mapRef.current) {
-                // 在移动端有标记详情时，调整跳转位置
-                if (window.innerWidth < 1024 && isSidebarOpen) {
-                    // 计算偏移量：在zoom 15时，需要合适的偏移量让目标位置出现在上半屏中间
-                    const offset = -0.0035 // 纬度偏移量，向下偏移约0.4km
-                    const adjustedCoordinates = {
-                        longitude: coordinates.longitude,
-                        latitude: coordinates.latitude + offset,
+                
+                // 延迟执行，确保标记详情已经打开
+                setTimeout(() => {
+                    if (mapRef.current) {
+                        mapProvider.flyTo(mapRef.current, adjustedCoordinates, zoom)
                     }
-                    
-                    // 延迟执行，确保标记详情已经打开
-                    setTimeout(() => {
-                        if (mapRef.current) {
-                            mapProvider.flyTo(mapRef.current, adjustedCoordinates, zoom)
-                        }
-                    }, 100)
-                } else {
-                    // 正常跳转
-                    mapProvider.flyTo(mapRef.current, coordinates, zoom)
-                }
+                }, 100)
+            } else {
+                // 正常跳转
+                mapProvider.flyTo(mapRef.current, coordinates, zoom)
             }
         }
-    }, [isSidebarOpen, mapProvider, googleMapInstance, config.map.provider])
+    }, [isSidebarOpen, mapProvider])
 
-    // 城市快速跳转功能
+    // 城市快速跳转功能 - 只支持 Mapbox
     const handleCityJump = useCallback((cityKey: keyof typeof config.cities) => {
         const city = config.cities[cityKey]
-        if (config.map.provider === 'google') {
-            // Google Maps 处理
-            if (googleMapInstance) {
-                mapProvider.flyTo(googleMapInstance, {
-                    longitude: city.coordinates.longitude,
-                    latitude: city.coordinates.latitude,
-                }, city.zoom)
-            }
-        } else {
-            // Mapbox 处理
-            if (mapRef.current) {
-                mapProvider.flyTo(mapRef.current, {
-                    longitude: city.coordinates.longitude,
-                    latitude: city.coordinates.latitude,
-                }, city.zoom)
-            }
+        if (mapRef.current) {
+            mapProvider.flyTo(mapRef.current, {
+                longitude: city.coordinates.longitude,
+                latitude: city.coordinates.latitude,
+            }, city.zoom)
         }
-    }, [mapProvider, googleMapInstance, config.map.provider])
+    }, [mapProvider])
 
     // 右下角悬浮搜索：地点搜索
     const handleFabSearch = useCallback(async () => {
@@ -505,28 +361,11 @@ export const AbstractMap = () => {
             
             // 自动弹出添加标记的 popup
             setTimeout(() => {
-                if (config.map.provider === 'google') {
-                    // 对于Google地图，使用Google专用的popup显示逻辑
-                    setGooglePopupCoordinates({
-                        latitude: result.coordinates.latitude,
-                        longitude: result.coordinates.longitude
-                    })
-                    setGooglePopupPlaceInfo({
-                        name: result.name || '搜索结果',
-                        address: result.formatted_address || result.address || '',
-                        placeId: result.place_id || result.id || ''
-                    })
-                    setGooglePopupClickPosition(null)
-                    setGooglePopupIsMarkerClick(false)
-                    setGooglePopupVisible(true)
-                    googlePopupVisibleRef.current = true
-                } else {
-                    // 对于其他地图提供者，使用通用popup
-                    openPopup({
-                        latitude: result.coordinates.latitude,
-                        longitude: result.coordinates.longitude
-                    })
-                }
+                // 只支持 Mapbox 地图
+                openPopup({
+                    latitude: result.coordinates.latitude,
+                    longitude: result.coordinates.longitude
+                })
             }, 500) // 等待地图跳转动画完成
         }, 300) // 等待搜索框关闭动画完成
     }, [handleFlyTo, openPopup])
@@ -664,107 +503,11 @@ export const AbstractMap = () => {
         return `${lat.toFixed(4)},${lng.toFixed(4)},${zoomLevel}`
     }, [])
 
-    // 异步获取 Google Maps placeId 的通用函数
+    // 简化的地点信息获取函数（仅用于 Mapbox）
     const getPlaceIdAsync = useCallback(async (coordinates: { latitude: number; longitude: number }) => {
-        try {
-            
-            // 检查是否有 Google Maps API 密钥
-            const googleApiKey = config.map.google.accessToken
-            if (!googleApiKey || googleApiKey === 'your_google_api_key_here') {
-                return
-            }
-            
-            // 获取当前缩放级别
-            const currentZoom = mapRef.current?.getZoom?.() || 11
-            
-            // 生成缓存键
-            const cacheKey = generateCacheKey(coordinates, currentZoom)
-            
-            // 检查缓存
-            if (placeCacheRef.current[cacheKey]) {
-                const cachedData = placeCacheRef.current[cacheKey]
-                console.log('✅ 使用缓存的地点信息:', cachedData)
-                setCurrentPlaceName(cachedData.name)
-                if (cachedData.address) {
-                    setCurrentPlaceAddress(cachedData.address)
-                }
-                return
-            }
-            
-            // 如果 Google Maps API 未加载，先动态加载
-            if (!window.google || !window.google.maps) {
-                console.log('Google Maps API 未加载，尝试动态加载...')
-                try {
-                    await loadGoogleMapsForSearch(googleApiKey)
-                } catch (loadError) {
-                    console.error('无法加载 Google Maps API:', loadError)
-                    return
-                }
-            }
-            
-            // 获取基本 placeId 信息
-            const placeIdResult = await getPlaceIdFromCoordinates(
-                coordinates.latitude, 
-                coordinates.longitude, 
-                googleApiKey
-            )
-            
-            if (placeIdResult.placeId) {
-                
-                // 尝试获取更详细的信息
-                const detailedResult = await getPlaceDetailsFromCoordinates(
-                    coordinates.latitude, 
-                    coordinates.longitude, 
-                    googleApiKey
-                )
-                
-                let finalPlaceName = ''
-                
-                if (detailedResult.placeId) {
-                    
-                    // 优先使用详细的地点名称
-                    if (detailedResult.name) {
-                        finalPlaceName = detailedResult.name
-                    } else if (placeIdResult.name) {
-                        // 如果没有详细名称，使用基本地理编码结果
-                        finalPlaceName = placeIdResult.name
-                    }
-                } else {
-                    // 如果没有详细信息，使用基本地理编码结果
-                    if (placeIdResult.name) {
-                        finalPlaceName = placeIdResult.name
-                    }
-                }
-                
-                // 更新 popup title 和地址
-                if (finalPlaceName) {
-                    setCurrentPlaceName(finalPlaceName)
-                }
-                
-                // 设置地址信息
-                let finalAddress = ''
-                if (detailedResult.address) {
-                    finalAddress = detailedResult.address
-                    setCurrentPlaceAddress(detailedResult.address)
-                } else if (placeIdResult.address) {
-                    finalAddress = placeIdResult.address
-                    setCurrentPlaceAddress(placeIdResult.address)
-                }
-                
-                // 存储到缓存
-                if (finalPlaceName) {
-                    placeCacheRef.current[cacheKey] = {
-                        name: finalPlaceName,
-                        address: finalAddress || undefined
-                    }
-                }
-            } else {
-                // 如果没有找到 placeId，清除地点名称
-                setCurrentPlaceName(undefined)
-            }
-        } catch (error) {
-            console.error('❌ 获取 placeId 时出错:', error)
-        }
+        // 对于 Mapbox，我们不需要获取 Google placeId
+        // 可以在这里添加其他地图服务的地点信息获取逻辑
+        console.log('Mapbox 地图点击坐标:', coordinates)
     }, [])
 
     const handleMapClick = useCallback(async (event: any, placeInfo?: { name: string; address: string; placeId: string }, clickPosition?: { x: number; y: number }, isMarkerClick?: boolean) => {
@@ -774,55 +517,7 @@ export const AbstractMap = () => {
         const currentSelectedMarkerId = currentState.interactionState.selectedMarkerId
         
         try {
-            // 对于 Google Maps，显示自定义 Popup
-            if (config.map.provider === 'google') {
-                // Google Provider 传递的是 coordinates 对象，不是 event 对象
-                if (event && event.latitude && event.longitude) {
-                    // 当右侧栏打开时，首次点击仅关闭右侧栏
-                    if (currentSidebarOpen) {
-                        handleCloseSidebar()
-                        return
-                    }
-                    
-                    // 检查是否是点击Google Maps自带的clickable marker
-                    const isGoogleMarkerClick = placeInfo && placeInfo.placeId
-                    
-                    if (isGoogleMarkerClick) {
-                        // 点击Google Maps自带的clickable marker，显示对应的popup
-                        googlePopupVisibleRef.current = true
-                        
-                        setGooglePopupCoordinates({
-                            latitude: event.latitude,
-                            longitude: event.longitude
-                        })
-                        setGooglePopupPlaceInfo(placeInfo)
-                        setGooglePopupClickPosition(clickPosition || null)
-                        setGooglePopupIsMarkerClick(true)
-                        setGooglePopupVisible(true)
-                        return
-                    }
-                    
-                    // 如果popup已经显示，点击空白区域时隐藏它
-                    if (googlePopupVisibleRef.current) {
-                        handleCloseGooglePopup()
-                        return
-                    }
-                    // 更新ref状态
-                    googlePopupVisibleRef.current = true
-                    
-                    setGooglePopupCoordinates({
-                        latitude: event.latitude,
-                        longitude: event.longitude
-                    })
-                    setGooglePopupPlaceInfo(placeInfo || null)
-                    setGooglePopupClickPosition(clickPosition || null)
-                    setGooglePopupIsMarkerClick(isMarkerClick || false)
-                    setGooglePopupVisible(true)
-                }
-                return
-            }
-
-            // 对于 Mapbox，保持原有的处理逻辑
+            // 只支持 Mapbox 地图
             // Prevent map click when clicking on markers
             if (event.originalEvent?.target &&
                 (event.originalEvent.target as HTMLElement).closest('.map-marker')) {
@@ -870,7 +565,7 @@ export const AbstractMap = () => {
                     // 没有选中标记时，打开添加新标记的popup
                     openPopup(coordinates, placeInfo?.name, placeInfo)
                     
-                    // 只有在显示 popup 时才异步获取 placeId
+                    // 异步获取地点信息
                     getPlaceIdAsync(coordinates)
                 }
             }
@@ -878,7 +573,7 @@ export const AbstractMap = () => {
             console.error('Map click error:', err)
             // 不设置严重错误，只是控制台输出
         }
-    }, [isPopupOpen, isSidebarOpen, openPopup, closePopup, closeSidebar, selectMarker, selectedMarkerId, handleCloseGooglePopup])
+    }, [isPopupOpen, isSidebarOpen, openPopup, closePopup, closeSidebar, selectMarker, selectedMarkerId])
 
     const handleMarkerClick = useCallback((markerId: string) => {
         try {
@@ -887,11 +582,6 @@ export const AbstractMap = () => {
 
             // 关闭可能存在的弹窗
             closePopup()
-            
-            // 关闭Google Maps popup（如果存在）
-            if (config.map.provider === 'google' && googlePopupVisibleRef.current) {
-                handleCloseGooglePopup()
-            }
 
             // 检查是否处于添加模式 - 通过自定义事件获取状态
             let isAddingMode = false
@@ -918,7 +608,7 @@ export const AbstractMap = () => {
         } catch (err) {
             console.error('Marker click error:', err)
         }
-    }, [markers, selectMarker, openSidebar, closePopup, handleCloseGooglePopup])
+    }, [markers, selectMarker, openSidebar, closePopup])
 
     const handleAddMarker = useCallback((placeName?: string) => {
         try {
@@ -1005,28 +695,13 @@ export const AbstractMap = () => {
                         请设置地图 API Key：
                     </p>
                     <div className="text-left bg-gray-100 p-4 rounded text-sm">
-                        {config.map.provider === 'mapbox' ? (
-                            <div>
-                                <p className="font-semibold mb-2">Mapbox 配置：</p>
-                                <p>NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=your_mapbox_token</p>
-                                <p className="text-xs text-gray-500 mt-2">
-                                    获取 token: <a href="https://account.mapbox.com/access-tokens/" target="_blank" className="text-blue-500">https://account.mapbox.com/access-tokens/</a>
-                                </p>
-                            </div>
-                        ) : config.map.provider === 'google' ? (
-                            <div>
-                                <p className="font-semibold mb-2">Google Maps 配置：</p>
-                                <p>NEXT_PUBLIC_GOOGLE_ACCESS_TOKEN=your_google_api_key</p>
-                                <p className="text-xs text-gray-500 mt-2">
-                                    获取 API Key: <a href="https://console.cloud.google.com/" target="_blank" className="text-blue-500">Google Cloud Console</a>
-                                </p>
-                            </div>
-                        ) : (
-                            <div>
-                                <p className="font-semibold mb-2">当前提供者：{config.map.provider}</p>
-                                <p>请设置相应的 API Key</p>
-                            </div>
-                        )}
+                        <div>
+                            <p className="font-semibold mb-2">Mapbox 配置：</p>
+                            <p>NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=your_mapbox_token</p>
+                            <p className="text-xs text-gray-500 mt-2">
+                                获取 token: <a href="https://account.mapbox.com/access-tokens/" target="_blank" className="text-blue-500">https://account.mapbox.com/access-tokens/</a>
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1194,50 +869,7 @@ export const AbstractMap = () => {
             {/* 右侧详情栏 */}
             <Sidebar />
 
-            {/* 根据配置渲染对应的地图组件 */}
-            {config.map.provider === 'google' ? (
-                <>
-                    <GoogleMap
-                        config={mapConfig}
-                        markers={markers}
-                        onMapClick={handleMapClick}
-                        onMarkerClick={handleMarkerClick}
-                        onMapLoad={handleMapLoad}
-                        onMapInstanceReady={(mapInstance) => {
-                            setGoogleMapInstance(mapInstance)
-                            // 设置mapRef为Google地图实例
-                            mapRef.current = mapInstance
-                        }}
-                        onMapMove={(viewState) => {
-                            // 使用通用位置保存函数
-                            saveViewState({
-                                longitude: viewState.longitude,
-                                latitude: viewState.latitude,
-                                zoom: viewState.zoom,
-                                bearing: 0, // Google Maps 不支持 bearing
-                                pitch: 0,  // Google Maps 不支持 pitch
-                            })
-                        }}
-                        initialViewState={{
-                            longitude: viewState.longitude,
-                            latitude: viewState.latitude,
-                            zoom: viewState.zoom
-                        }}
-                        onMapError={(error: Error) => {
-                            if (error.message?.includes('API key') || error.message?.includes('Unauthorized')) {
-                                setError('Google Maps API Key 无效，请检查配置')
-                            } else {
-                                setError('Google Maps 初始化失败')
-                            }
-                        }}
-                        style={{ 
-                            width: '100%', 
-                            height: '100%'
-                        }}
-                    />
-                    
-                </>
-            ) : (
+            {/* 只渲染 Mapbox 地图组件 */}
                 <MapboxMapComponent
                     ref={mapRef}
                     viewState={viewState}
@@ -1314,7 +946,6 @@ export const AbstractMap = () => {
                     />
                 )}
                 </MapboxMapComponent>
-            )}
 
             {/* 右下角：搜索侧边栏（桌面端右侧弹出，移动端半屏） */}
             {isSearchFabOpen && (
@@ -1470,20 +1101,7 @@ export const AbstractMap = () => {
                 onSave={handleUpdateMarker}
             />
 
-            {/* Google Map 自定义 Popup */}
-            {config.map.provider === 'google' && googlePopupVisible && googlePopupCoordinates && (
-                <GoogleMapPopup
-                        coordinates={googlePopupCoordinates}
-                        isVisible={googlePopupVisible}
-                        onClose={handleCloseGooglePopup}
-                        onAddMarker={handleGooglePopupAddMarker}
-                        placeId={googlePopupPlaceInfo?.placeId}
-                        placeName={googlePopupPlaceInfo?.name}
-                        clickPosition={googlePopupClickPosition || undefined}
-                        isMarkerClick={googlePopupIsMarkerClick}
-                        mapInstance={googleMapInstance}
-                    />
-            )}
+            {/* 移除 Google Map 自定义 Popup */}
         </div>
     )
 }

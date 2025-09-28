@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useEffect, useState } from 'react'
+import { useMemo, useEffect, useState, useCallback } from 'react'
 import { Source, Layer } from 'react-map-gl'
 import { Marker } from '@/types/marker'
 import { useMapStore } from '@/store/map-store'
@@ -117,9 +117,10 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
     }, [connectionLines, highlightedChainIds, markers])
 
     // 计算步行+公共交通路径
-    const calculateWalkingRoutes = async () => {
+    const calculateWalkingRoutes = useCallback(async () => {
         if (connectionLines.length === 0) return
 
+        console.log('开始计算路径...', { connectionLinesCount: connectionLines.length })
         setIsLoadingRoutes(true)
         
         try {
@@ -173,14 +174,29 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
         } finally {
             setIsLoadingRoutes(false)
         }
-    }
+    }, [connectionLines, routeCache, setRouteCache, saveCacheToStorage])
 
     // 当连接线变化时，计算路径
     useEffect(() => {
         if (connectionLines.length > 0) {
             calculateWalkingRoutes()
         }
-    }, [connectionLines])
+    }, [connectionLines, calculateWalkingRoutes])
+
+    // 监听标记链更新事件，强制重新计算路径
+    useEffect(() => {
+        const handleRefreshConnectionLines = () => {
+            console.log('标记链更新事件触发，重新计算路径...', { connectionLinesCount: connectionLines.length })
+            if (connectionLines.length > 0) {
+                calculateWalkingRoutes()
+            }
+        }
+
+        window.addEventListener('refreshConnectionLines', handleRefreshConnectionLines)
+        return () => {
+            window.removeEventListener('refreshConnectionLines', handleRefreshConnectionLines)
+        }
+    }, [calculateWalkingRoutes, connectionLines.length])
 
 
     // 生成普通连接线的 GeoJSON

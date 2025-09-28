@@ -1,14 +1,18 @@
 import { MapProvider, MapProviderType, MapProviderFactory } from '@/types/map-provider'
 import { MapboxProvider } from './mapbox-provider'
-import { GoogleProvider } from './google-provider'
+import { GoogleServerProvider } from './google-server-provider'
 
 export class MapProviderFactoryImpl implements MapProviderFactory {
     private providers: Map<MapProviderType, () => MapProvider> = new Map()
 
     constructor() {
         this.registerProvider('mapbox', () => new MapboxProvider())
-        this.registerProvider('google', () => new GoogleProvider())
         // 未来可以注册其他地图提供者
+    }
+    
+    // 创建 Google 服务器端提供者（仅用于后端 API）
+    createGoogleServerProvider(): GoogleServerProvider {
+        return new GoogleServerProvider()
     }
 
     createProvider(type: MapProviderType): MapProvider {

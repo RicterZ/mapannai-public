@@ -2,9 +2,7 @@
 export const config = {
     // 地图提供者配置
     map: {
-        provider: (process.env.NEXT_PUBLIC_MAP_PROVIDER || 'mapbox') as 'mapbox' | 'google',
-        // 搜索提供者配置（可以独立于地图提供者）
-        searchProvider: (process.env.NEXT_PUBLIC_SEARCH_PROVIDER || process.env.NEXT_PUBLIC_MAP_PROVIDER || 'google') as 'mapbox' | 'google',
+        provider: 'mapbox' as 'mapbox',
         mapbox: {
             accessToken: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '',
             style: process.env.NEXT_PUBLIC_MAPBOX_STYLE || 'mapbox://styles/mapbox/streets-zh-v1',
@@ -18,20 +16,13 @@ export const config = {
         google: {
             accessToken: process.env.NEXT_PUBLIC_GOOGLE_ACCESS_TOKEN || '',
             style: 'custom',
+            // Google API 基础 URL - 使用反向代理
+            baseUrl: process.env.GOOGLE_API_BASE_URL || 'https://maps.googleapis.com',
             dataset: {
                 projectId: process.env.GOOGLE_PROJECT_ID || '',
                 datasetId: process.env.GOOGLE_DATASET_ID || '',
                 apiKey: process.env.GOOGLE_API_KEY || '',
             },
-        },
-    },
-    // AWS S3 配置（已弃用）
-    aws: {
-        s3: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-            region: process.env.AWS_REGION || 'ap-northeast-1',
-            bucket: process.env.AWS_S3_BUCKET || '',
         },
     },
     // 腾讯云COS配置

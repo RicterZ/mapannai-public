@@ -6,19 +6,10 @@ import { MarkerCoordinates } from '@/types/marker'
 // 强制动态渲染，因为使用了查询参数
 export const dynamic = 'force-dynamic'
 
-// 获取当前地图提供者的datasetId
+// 获取 Mapbox 的 datasetId
 function getDatasetId(): string | undefined {
-    const provider = config.map.provider
-    
-    if (provider === 'mapbox') {
-        const mapboxConfig = config.map.mapbox
-        return mapboxConfig.dataset?.datasetId || mapboxConfig.datasetId
-    } else if (provider === 'google') {
-        const googleConfig = config.map.google
-        return googleConfig.dataset?.datasetId
-    }
-    
-    return undefined
+    const mapboxConfig = config.map.mapbox
+    return mapboxConfig.dataset?.datasetId || mapboxConfig.datasetId
 }
 
 /**
