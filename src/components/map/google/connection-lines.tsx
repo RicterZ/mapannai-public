@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Marker } from '@/types/marker'
 import { useMapStore } from '@/store/map-store'
 import { GoogleMapInstance } from '@/lib/map-providers/google-provider'
+import { config } from '@/lib/config'
 
 interface GoogleConnectionLinesProps {
     mapInstance: GoogleMapInstance | null
@@ -54,8 +55,8 @@ export const GoogleConnectionLines = ({ mapInstance, markers }: GoogleConnection
         // 获取当前缩放级别
         const currentZoom = mapInstance.map.getZoom()
         
-        // 当缩放级别小于13时，隐藏连接线
-        if (currentZoom < 13) {
+        // 当缩放级别小于阈值时，隐藏连接线
+        if (currentZoom < config.app.zoomThreshold) {
             // 清除现有的连接线
             connectionLinesRef.current.forEach((polyline, lineId) => {
                 try {
@@ -128,7 +129,7 @@ export const GoogleConnectionLines = ({ mapInstance, markers }: GoogleConnection
         const handleZoomChange = () => {
             const currentZoom = mapInstance.map.getZoom()
             
-            if (currentZoom < 13) {
+            if (currentZoom < config.app.zoomThreshold) {
                 // 立即隐藏所有连接线
                 connectionLinesRef.current.forEach((polyline) => {
                     try {

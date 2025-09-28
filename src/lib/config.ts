@@ -51,6 +51,8 @@ export const config = {
             longitude: 139.6917,
         },
         defaultZoom: 11,
+        // 缩放级别阈值：小于此值时隐藏连接线和显示简化标记
+        zoomThreshold: 12,
     },
     // 城市快速跳转配置
     cities: {
