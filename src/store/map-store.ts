@@ -112,13 +112,6 @@ const saveMarkerToDataset = async (marker: Marker) => {
         },
     }
 
-    // 调试日志
-    console.log('保存标记数据:', {
-        markerId: marker.id,
-        title: marker.content.title,
-        properties,
-        metadata: properties.metadata
-    })
 
     const response = await fetch(`/api/dataset?t=${Date.now()}`, {
         method: 'POST',
@@ -209,10 +202,13 @@ export const useMapStore = create<MapStore>()(
                 }), false, 'addMarker')
 
                 // 异步保存到 Dataset
-                get().saveMarkerToDataset(markerId).catch(error => {
-                    console.error('保存到 Dataset 失败:', error)
-                    set({ error: '保存标记失败，请稍后重试' })
-                })
+                const marker = get().markers.find(m => m.id === markerId)
+                if (marker) {
+                    get().saveMarkerToDataset(marker).catch(error => {
+                        console.error('保存到 Dataset 失败:', error)
+                        set({ error: '保存标记失败，请稍后重试' })
+                    })
+                }
 
                 return markerId
             },
@@ -275,7 +271,7 @@ export const useMapStore = create<MapStore>()(
                 // 异步更新到 Dataset
                 const updatedMarker = get().markers.find(m => m.id === markerId)
                 if (updatedMarker) {
-                    get().saveMarkerToDataset(markerId).catch(error => {
+                    get().saveMarkerToDataset(updatedMarker).catch(error => {
                         console.error('更新到 Dataset 失败:', error)
                     })
                 }
@@ -306,10 +302,13 @@ export const useMapStore = create<MapStore>()(
                 }), false, 'updateMarkerFromModal')
 
                 // 异步保存到 Dataset
-                get().saveMarkerToDataset(data.markerId).catch(error => {
-                    console.error('更新到 Dataset 失败:', error)
-                    set({ error: '更新标记失败，请稍后重试' })
-                })
+                const marker = get().markers.find(m => m.id === data.markerId)
+                if (marker) {
+                    get().saveMarkerToDataset(marker).catch(error => {
+                        console.error('更新到 Dataset 失败:', error)
+                        set({ error: '更新标记失败，请稍后重试' })
+                    })
+                }
             },
 
             deleteMarker: (markerId) => {
@@ -553,7 +552,6 @@ export const useMapStore = create<MapStore>()(
                     }
 
                     const result = await response.json()
-                    console.log('数据加载结果:', result)
                     if (result.success && result.data?.features && Array.isArray(result.data.features)) {
                         const loadedMarkers: Marker[] = result.data.features
                             .filter((feature: any) => {
@@ -574,14 +572,6 @@ export const useMapStore = create<MapStore>()(
                                     const properties = feature.properties
                                     const metadata = properties.metadata || {}
 
-                                    // 调试日志
-                                    console.log('加载标记数据:', {
-                                        featureId: feature.id,
-                                        properties,
-                                        metadata,
-                                        title: metadata.title,
-                                        next: properties.next
-                                    })
 
                                     // 优先使用feature.id，如果没有则使用metadata.id
                                     const markerId = feature.id || metadata.id || `marker-${Date.now()}-${Math.random()}`
@@ -610,7 +600,6 @@ export const useMapStore = create<MapStore>()(
                             })
                             .filter((marker: Marker | null): marker is Marker => marker !== null)
 
-                        console.log('成功加载标记数量:', loadedMarkers.length)
                         set({ markers: loadedMarkers, error: null })
                     } else {
                         console.warn('Dataset 返回数据格式不正确:', result)

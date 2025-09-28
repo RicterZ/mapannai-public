@@ -54,8 +54,11 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
 
     // 处理标记链中的标记点击
     const handleMarkerClick = useCallback((markerId: string) => {
+        console.log('Sidebar handleMarkerClick called with:', markerId)
+        console.log('Current selectedMarkerId before selectMarker:', interactionState.selectedMarkerId)
         selectMarker(markerId)
-    }, [selectMarker])
+        console.log('selectMarker called')
+    }, [selectMarker, interactionState.selectedMarkerId])
 
     // 处理添加标记到链中
     const handleAddToChain = useCallback((sourceMarkerId: string) => {
@@ -235,28 +238,46 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                     </div>
 
                     {selectedMarker && (
-                        <div className="flex items-center gap-2 mr-2">
+                        <div className="flex items-center gap-1 mr-2">
+                            {/* 编辑按钮 */}
                             <button
                                 onClick={() => openEditMarkerModal(selectedMarker.id)}
                                 className={cn(
-                                    'px-3 py-1.5 text-xs font-medium rounded-md',
-                                    'bg-blue-600 text-white hover:bg-blue-700',
-                                    'transition-colors duration-200',
-                                    'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                                    'p-2 rounded-lg text-gray-500 hover:text-blue-600',
+                                    'hover:bg-blue-50 transition-all duration-200',
+                                    'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                                    'min-h-[40px] min-w-[40px] flex items-center justify-center'
                                 )}
+                                title="编辑标记"
                             >
-                                编辑
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
                             </button>
+                            
+                            {/* 删除按钮 */}
                             <button
-                                onClick={() => deleteMarker(selectedMarker.id)}
+                                onClick={() => {
+                                    // 双重确认机制
+                                    const firstConfirm = confirm('⚠️ 警告：您即将删除这个标记')
+                                    if (firstConfirm) {
+                                        const secondConfirm = confirm('🗑️ 最后确认：删除后无法恢复，确定继续吗？')
+                                        if (secondConfirm) {
+                                            deleteMarker(selectedMarker.id)
+                                        }
+                                    }
+                                }}
                                 className={cn(
-                                    'px-3 py-1.5 text-xs font-medium rounded-md',
-                                    'bg-red-600 text-white hover:bg-red-700',
-                                    'transition-colors duration-200',
-                                    'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2'
+                                    'p-2 rounded-lg text-gray-500 hover:text-red-600',
+                                    'hover:bg-red-50 transition-all duration-200',
+                                    'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
+                                    'min-h-[40px] min-w-[40px] flex items-center justify-center'
                                 )}
+                                title="删除标记"
                             >
-                                删除
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
                             </button>
                         </div>
                     )}

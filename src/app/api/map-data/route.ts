@@ -95,7 +95,7 @@ export async function PUT(request: NextRequest) {
             name,
             description,
             markers,
-            createdAt
+            updatedAt: new Date().toISOString()
         })
 
         return NextResponse.json({

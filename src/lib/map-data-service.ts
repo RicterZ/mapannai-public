@@ -59,8 +59,8 @@ export class MapDataService {
                 createdAt: marker.content.createdAt.toISOString(),
                 updatedAt: marker.content.updatedAt.toISOString()
             },
-            createdAt: marker.createdAt.toISOString(),
-            updatedAt: marker.updatedAt.toISOString()
+            createdAt: marker.content.createdAt.toISOString(),
+            updatedAt: marker.content.updatedAt.toISOString()
         }
     }
 
@@ -78,9 +78,7 @@ export class MapDataService {
                 next: stored.content.next,
                 createdAt: new Date(stored.content.createdAt),
                 updatedAt: new Date(stored.content.updatedAt)
-            },
-            createdAt: new Date(stored.createdAt),
-            updatedAt: new Date(stored.updatedAt)
+            }
         }
     }
 
@@ -141,7 +139,7 @@ export class MapDataService {
         
         const fullMapData: MapData = {
             ...mapData,
-            createdAt: mapData.createdAt || now,
+            createdAt: now,
             updatedAt: now,
             version
         }
@@ -163,7 +161,7 @@ export class MapDataService {
                 name: mapData.name,
                 description: mapData.description,
                 markerCount: mapData.markers.length,
-                createdAt: mapData.createdAt || now,
+                createdAt: now,
                 updatedAt: now,
                 version,
                 dataUrl: dataResult.url
@@ -298,12 +296,10 @@ export class MapDataService {
             },
             properties: {
                 id: marker.id,
-                name: marker.content.name,
-                description: marker.content.description,
+                title: marker.content.title,
                 iconType: marker.content.iconType,
-                color: marker.content.color,
-                createdAt: marker.createdAt,
-                updatedAt: marker.updatedAt
+                createdAt: marker.content.createdAt,
+                updatedAt: marker.content.updatedAt
             }
         }))
 
@@ -328,21 +324,26 @@ export class MapDataService {
                 longitude: feature.geometry.coordinates[0]
             },
             content: {
-                name: feature.properties.name || `Marker ${index + 1}`,
-                description: feature.properties.description || '',
+                id: feature.id || `marker-${index}`,
+                title: feature.properties.title || `Marker ${index + 1}`,
+                headerImage: feature.properties.headerImage,
                 iconType: feature.properties.iconType || 'location',
-                color: feature.properties.color || '#ec4899'
-            },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+                markdownContent: feature.properties.markdownContent || '',
+                next: feature.properties.next || [],
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }
         }))
+
+        // 转换为StoredMarker
+        const storedMarkers = markers.map(marker => this.markerToStored(marker))
 
         const mapId = `map-${Date.now()}`
         return await this.saveMapData({
             id: mapId,
             name: mapName,
             description: mapDescription,
-            markers
+            markers: storedMarkers
         })
     }
 }

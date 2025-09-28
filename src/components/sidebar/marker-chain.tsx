@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useRef, useEffect } from 'react'
 import { useMapStore } from '@/store/map-store'
 import { Marker } from '@/types/marker'
 import { MARKER_ICONS } from '@/types/marker'
@@ -14,12 +14,19 @@ interface MarkerChainProps {
 
 export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: MarkerChainProps) => {
     const { markers, setHighlightedChain, clearHighlightedChain, updateMarkerContent } = useMapStore()
+    
+    
+    const handleMouseEnter = useCallback((chainIds: string[]) => {
+        setHighlightedChain(chainIds)
+    }, [setHighlightedChain])
+    
+    const handleMouseLeave = useCallback(() => {
+        clearHighlightedChain()
+    }, [clearHighlightedChain])
+    
 
     // 计算标记链：多行显示多个标记链
     const markerChains = useMemo(() => {
-        console.log('计算标记链，当前标记:', currentMarker.id, 'next字段:', currentMarker.content.next)
-        console.log('所有标记:', markers.map(m => ({ id: m.id, title: m.content.title, next: m.content.next })))
-        
         const chains: Marker[][] = []
         const visited = new Set<string>() // 防止循环引用
         const maxDepth = 3
@@ -114,16 +121,18 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
     // }
 
     return (
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200" data-marker-chain>
             <div className="flex items-center mb-2">
                 <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
                     <span className="text-sm font-medium text-gray-700">标记链</span>
                 </div>
             </div>
             
             {markerChains.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-3" style={{ overflow: 'visible' }}>
                     {/* 显示所有标记链 */}
                     {markerChains.map((chain, chainIndex) => {
                         // 获取当前链的所有标记ID（不包含当前标记，只包含链中的标记）
@@ -133,8 +142,9 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
                             <div 
                                 key={chainIndex} 
                                 className="flex items-center space-x-2 overflow-x-auto overflow-y-visible"
-                                onMouseEnter={() => setHighlightedChain(chainIds)}
-                                onMouseLeave={() => clearHighlightedChain()}
+                                onMouseEnter={() => handleMouseEnter(chainIds)}
+                                onMouseLeave={handleMouseLeave}
+                                style={{ overflow: 'visible', pointerEvents: 'auto' }}
                             >
                             {chain.map((marker, index) => {
                                 const iconType = marker.content.iconType || 'location'
@@ -152,7 +162,7 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
                                         )}
                                         
                                         {/* 标记信息容器 */}
-                                        <div className="relative group">
+                                        <div className="relative group" style={{ overflow: 'visible' }}>
                                             <button
                                                 onClick={() => {
                                                     onMarkerClick(marker.id)
@@ -164,6 +174,11 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
                                                         }
                                                     })
                                                     window.dispatchEvent(event)
+                                                    
+                                                    // 延迟清除高亮状态，确保选中状态先设置完成
+                                                    setTimeout(() => {
+                                                        clearHighlightedChain()
+                                                    }, 100)
                                                 }}
                                                 className={cn(
                                                     'flex items-center space-x-2 px-3 py-2 rounded-lg',
@@ -201,8 +216,10 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
                                                     'flex items-center justify-center',
                                                     'opacity-0 group-hover:opacity-100 transition-opacity duration-200',
                                                     'shadow-lg border border-white',
-                                                    'focus:outline-none'
+                                                    'focus:outline-none',
+                                                    'z-50'
                                                 )}
+                                                style={{ zIndex: 50 }}
                                                 title="从链中删除此标记"
                                             >
                                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
