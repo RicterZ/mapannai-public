@@ -28,55 +28,85 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
     // 计算标记链：多行显示多个标记链
     const markerChains = useMemo(() => {
         const chains: Marker[][] = []
-        const visited = new Set<string>() // 防止循环引用
         const maxDepth = 3
         
-        // 递归函数来构建单个标记链
-        const buildSingleChain = (currentId: string, depth: number, currentChain: Marker[]) => {
-            if (visited.has(currentId)) {
-                return
-            }
+        
+        // BFS构建标记链
+        const buildChains = () => {
+            const nextIds = currentMarker.content.next || []
             
-            const current = markers.find(m => m.id === currentId)
-            if (!current) return
-            
-            visited.add(currentId)
-            
-            // 获取当前标记的所有下一个标记
-            const nextIds = current.content.next || []
-            
-            if (nextIds.length > 0) {
-                // 为每个下一个标记创建新的链
-                nextIds.forEach(nextId => {
-                    if (!visited.has(nextId)) {
-                        const nextMarker = markers.find(m => m.id === nextId)
-                        if (nextMarker) {
-                            const newChain = [...currentChain, nextMarker]
-                            
-                            // 如果达到最大深度，保存当前链并停止递归
-                            if (depth >= maxDepth) {
-                                chains.push([...newChain])
-                            } else {
-                                // 继续递归构建这个链
-                                buildSingleChain(nextMarker.id, depth + 1, newChain)
+            nextIds.forEach(nextId => {
+                const nextMarker = markers.find(m => m.id === nextId)
+                if (!nextMarker) return
+                
+                // 为每个链创建独立的visited集合
+                const visited = new Set<string>()
+                const queue: { marker: Marker; chain: Marker[]; depth: number }[] = []
+                
+                // 初始化队列
+                queue.push({ marker: nextMarker, chain: [nextMarker], depth: 0 })
+                visited.add(nextMarker.id)
+                
+                while (queue.length > 0) {
+                    const { marker, chain, depth } = queue.shift()!
+                    
+                    // 保存当前链
+                    if (chain.length > 0) {
+                        chains.push([...chain])
+                    }
+                    
+                    // 获取下一个标记
+                    const nextIds = marker.content.next || []
+                    
+                    // 如果没有下一个标记，链结束
+                    if (nextIds.length === 0) {
+                        continue
+                    }
+                    
+                    // 继续扩展链
+                    nextIds.forEach(nextId => {
+                        if (!visited.has(nextId)) {
+                            const nextMarker = markers.find(m => m.id === nextId)
+                            if (nextMarker) {
+                                visited.add(nextId)
+                                queue.push({
+                                    marker: nextMarker,
+                                    chain: [...chain, nextMarker],
+                                    depth: depth + 1
+                                })
                             }
                         }
-                    }
-                })
-            } else {
-                // 如果没有下一个标记，当前链结束
-                if (currentChain.length > 0) {
-                    chains.push([...currentChain])
+                    })
                 }
-            }
-            
-            visited.delete(currentId)
+            })
         }
         
-        // 从当前标记开始构建所有链
-        buildSingleChain(currentMarker.id, 0, [])
+        buildChains()
         
-        return chains
+        // 去重：去掉子链
+        const deduplicatedChains = chains.filter((chain, index) => {
+            const chainIds = chain.map(m => m.id)
+            
+            // 检查当前链是否是其他链的子链
+            const isSubChain = chains.some((otherChain, otherIndex) => {
+                if (index === otherIndex) return false
+                const otherChainIds = otherChain.map(m => m.id)
+                
+                // 检查当前链是否是otherChain的子链
+                if (chainIds.length >= otherChainIds.length) return false
+                
+                // 检查当前链是否在otherChain中连续出现
+                for (let i = 0; i <= otherChainIds.length - chainIds.length; i++) {
+                    const isMatch = chainIds.every((id, j) => id === otherChainIds[i + j])
+                    if (isMatch) return true
+                }
+                return false
+            })
+            
+            return !isSubChain
+        })
+        
+        return deduplicatedChains
     }, [currentMarker.id, markers])
 
     // 删除标记链中的节点
@@ -94,6 +124,7 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
             const currentNext = currentMarker.content.next || []
             const updatedNext = currentNext.filter(id => id !== nextMarkerId)
             
+            
             updateMarkerContent(currentMarker.id, {
                 title: currentMarker.content.title,
                 headerImage: currentMarker.content.headerImage,
@@ -105,6 +136,7 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
             const prevMarker = chain[markerIndex - 1]
             const currentNext = prevMarker.content.next || []
             const updatedNext = currentNext.filter(id => id !== markerId)
+            
             
             updateMarkerContent(prevMarker.id, {
                 title: prevMarker.content.title,

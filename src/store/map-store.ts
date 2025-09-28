@@ -503,7 +503,7 @@ export const useMapStore = create<MapStore>()(
                                     title: content.title,
                                     headerImage: content.headerImage,
                                     markdownContent: content.markdownContent,
-                                    next: content.next || marker.content.next || [],
+                                    next: content.next !== undefined ? content.next : marker.content.next || [],
                                     updatedAt: new Date(),
                                 },
                             }
