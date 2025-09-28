@@ -1,4 +1,4 @@
-import { cosService } from './cos-client'
+import { cosService } from '../cos-client'
 import { Marker, MarkerCoordinates, MarkerIconType } from '@/types/marker'
 
 // JSON 存储中的标记接口（日期为字符串）

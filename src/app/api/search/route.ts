@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mapProviderFactory } from '@/lib/map-providers'
+import { mapProviderFactory } from '@/lib/map/providers'
 import { config } from '@/lib/config'
 
 export const dynamic = 'force-dynamic';
