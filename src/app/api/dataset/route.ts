@@ -23,8 +23,7 @@ function getDatasetId(): string | undefined {
  */
 export async function GET(request: NextRequest) {
     try {
-        const { searchParams } = new URL(request.url)
-        const datasetId = searchParams.get('datasetId') || getDatasetId()
+        const datasetId = request.nextUrl.searchParams.get('datasetId') || getDatasetId()
 
         if (!datasetId) {
             return NextResponse.json(
@@ -111,9 +110,8 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
     try {
-        const { searchParams } = new URL(request.url)
-        const featureId = searchParams.get('featureId')
-        const datasetId = searchParams.get('datasetId') || getDatasetId()
+        const featureId = request.nextUrl.searchParams.get('featureId')
+        const datasetId = request.nextUrl.searchParams.get('datasetId') || getDatasetId()
 
         if (!featureId || !datasetId) {
             return NextResponse.json(
