@@ -94,7 +94,7 @@ class GoogleDirectionsService {
             }
 
             return new Promise((resolve, reject) => {
-                directionsService.route(directionsRequest, (result, status) => {
+                directionsService.route(directionsRequest, (result: google.maps.DirectionsResult | null, status: google.maps.DirectionsStatus) => {
                     if (status === window.google.maps.DirectionsStatus.OK && result && result.routes && result.routes.length > 0) {
                         const route = result.routes[0]
                         const path = route.overview_path || []
@@ -122,7 +122,7 @@ class GoogleDirectionsService {
                             avoidTolls: false
                         }
                         
-                        directionsService.route(walkingRequest, (walkingResult, walkingStatus) => {
+                        directionsService.route(walkingRequest, (walkingResult: google.maps.DirectionsResult | null, walkingStatus: google.maps.DirectionsStatus) => {
                             if (walkingStatus === window.google.maps.DirectionsStatus.OK && walkingResult && walkingResult.routes && walkingResult.routes.length > 0) {
                                 const walkingRoute = walkingResult.routes[0]
                                 const walkingPath = walkingRoute.overview_path || []

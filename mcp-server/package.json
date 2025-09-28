@@ -1,0 +1,26 @@
+{
+  "name": "mapannai-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP Server for Mapannai - AI-powered travel planning",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "watch": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": ["mcp", "travel", "ai", "map", "planning"],
+  "author": "Mapannai Team",
+  "license": "MIT"
+}
