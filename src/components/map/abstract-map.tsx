@@ -709,13 +709,6 @@ export const AbstractMap = () => {
             )
             
             if (placeIdResult.placeId) {
-                console.log('✅ 找到 placeId:', placeIdResult.placeId)
-                console.log('📍 地点信息:', {
-                    placeId: placeIdResult.placeId,
-                    name: placeIdResult.name,
-                    address: placeIdResult.address,
-                    types: placeIdResult.types
-                })
                 
                 // 尝试获取更详细的信息
                 const detailedResult = await getPlaceDetailsFromCoordinates(
@@ -727,7 +720,6 @@ export const AbstractMap = () => {
                 let finalPlaceName = ''
                 
                 if (detailedResult.placeId) {
-                    console.log('🏢 详细地点信息:', detailedResult)
                     
                     // 优先使用详细的地点名称
                     if (detailedResult.name) {
