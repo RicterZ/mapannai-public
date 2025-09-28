@@ -432,7 +432,7 @@ export const AbstractMap = () => {
         }
         
         // 如果字符数少于3个，不进行搜索
-        if (trimmedQuery.length < 3) {
+        if (trimmedQuery.length < 2) {
             setFabResults([])
             setFabQueryError('')
             setIsSearching(false)
@@ -1399,7 +1399,7 @@ export const AbstractMap = () => {
                                             onKeyDown={(e) => { 
                                                 if (e.key === 'Enter') handleFabSearch() 
                                             }} 
-                                            placeholder="输入关键字，如：东京（3个字符以上自动搜索）" 
+                                            placeholder="输入关键字，如：东京" 
                                             className={cn(
                                                 'w-full h-9 pl-9 pr-4 border rounded-md text-sm',
                                                 fabQueryError ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500',
