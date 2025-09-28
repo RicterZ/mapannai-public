@@ -7,7 +7,50 @@ import { mapProviderFactory } from '@/lib/map-providers'
 import { config } from '@/lib/config'
 import { searchService } from '@/lib/api/search-service'
 import { getPlaceIdFromCoordinates, getPlaceDetailsFromCoordinates } from '@/lib/google-places-reverse-geocoding'
-import { loadGoogleMapsForSearch } from '@/lib/google-maps-loader'
+// 内联的 Google Maps 加载函数
+const loadGoogleMapsForSearch = async (apiKey: string): Promise<void> => {
+    return new Promise<void>((resolve, reject) => {
+        if (window.google && window.google.maps) {
+            resolve()
+            return
+        }
+
+        // 检查是否已有脚本正在加载
+        const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
+        if (existingScript) {
+            const checkLoaded = () => {
+                if (window.google && window.google.maps) {
+                    resolve()
+                } else {
+                    setTimeout(checkLoaded, 100)
+                }
+            }
+            checkLoaded()
+            return
+        }
+
+        // 创建脚本元素
+        const script = document.createElement('script')
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`
+        script.async = true
+        script.defer = true
+        script.crossOrigin = 'anonymous'
+        script.onload = () => {
+            const checkAPIReady = () => {
+                if (window.google && window.google.maps && window.google.maps.Map) {
+                    resolve()
+                } else {
+                    setTimeout(checkAPIReady, 50)
+                }
+            }
+            setTimeout(checkAPIReady, 100)
+        }
+        script.onerror = () => {
+            reject(new Error('Failed to load Google Maps API'))
+        }
+        document.head.appendChild(script)
+    })
+}
 import { useMapStore } from '@/store/map-store'
 import { MarkerCoordinates } from '@/types/marker'
 import { MapMarker } from './common/map-marker'

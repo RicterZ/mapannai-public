@@ -152,7 +152,7 @@ export const MapPopup = ({
                                         {placeName}
                                     </h3>
                                 ) : (
-                                    <div className="h-[22px] bg-gray-200 rounded animate-pulse mb-1 w-4/5"></div>
+                                    <div className="h-5 bg-gray-200 rounded animate-pulse mb-1 w-4/5"></div>
                                 )}
                                 
                                 {placeAddress ? (
@@ -160,7 +160,7 @@ export const MapPopup = ({
                                         {placeAddress}
                                     </p>
                                 ) : (
-                                    <div className="h-4 bg-gray-200 rounded animate-pulse w-full"></div>
+                                    <div className="h-[19.5px] bg-gray-200 rounded animate-pulse w-full mt-1"></div>
                                 )}
                             </div>
                         </div>
