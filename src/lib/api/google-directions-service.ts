@@ -94,13 +94,13 @@ class GoogleDirectionsService {
             }
 
             return new Promise((resolve, reject) => {
-                directionsService.route(directionsRequest, (result: google.maps.DirectionsResult | null, status: google.maps.DirectionsStatus) => {
+                directionsService.route(directionsRequest, (result: any, status: any) => {
                     if (status === window.google.maps.DirectionsStatus.OK && result && result.routes && result.routes.length > 0) {
                         const route = result.routes[0]
                         const path = route.overview_path || []
                         
                         // 转换坐标格式
-                        const coordinates = path.map(point => ({
+                        const coordinates = path.map((point: any) => ({
                             lat: point.lat(),
                             lng: point.lng()
                         }))
@@ -122,12 +122,12 @@ class GoogleDirectionsService {
                             avoidTolls: false
                         }
                         
-                        directionsService.route(walkingRequest, (walkingResult: google.maps.DirectionsResult | null, walkingStatus: google.maps.DirectionsStatus) => {
+                        directionsService.route(walkingRequest, (walkingResult: any, walkingStatus: any) => {
                             if (walkingStatus === window.google.maps.DirectionsStatus.OK && walkingResult && walkingResult.routes && walkingResult.routes.length > 0) {
                                 const walkingRoute = walkingResult.routes[0]
                                 const walkingPath = walkingRoute.overview_path || []
                                 
-                                const walkingCoordinates = walkingPath.map(point => ({
+                                const walkingCoordinates = walkingPath.map((point: any) => ({
                                     lat: point.lat(),
                                     lng: point.lng()
                                 }))
