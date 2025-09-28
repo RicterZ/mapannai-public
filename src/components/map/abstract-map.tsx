@@ -185,6 +185,7 @@ export const AbstractMap = () => {
     const [fabQueryError, setFabQueryError] = useState('')
     const [fabCoordInput, setFabCoordInput] = useState('')
     const [fabCoordError, setFabCoordError] = useState('')
+    const [isSearching, setIsSearching] = useState(false)
 
     const {
         markers,
@@ -415,6 +416,47 @@ export const AbstractMap = () => {
             setFabResults(results)
         } catch (e) {
             setFabQueryError('搜索失败，请稍后再试')
+        }
+    }, [fabQuery])
+
+    // 自动搜索：防抖处理，当输入字符数>=3时自动搜索
+    useEffect(() => {
+        const trimmedQuery = fabQuery.trim()
+        
+        // 如果查询为空，清除结果
+        if (!trimmedQuery) {
+            setFabResults([])
+            setFabQueryError('')
+            setIsSearching(false)
+            return
+        }
+        
+        // 如果字符数少于3个，不进行搜索
+        if (trimmedQuery.length < 3) {
+            setFabResults([])
+            setFabQueryError('')
+            setIsSearching(false)
+            return
+        }
+        
+        // 防抖：延迟500ms后执行搜索
+        const searchTimeout = setTimeout(async () => {
+            try {
+                setIsSearching(true)
+                setFabQueryError('')
+                const results = await searchService.searchPlaces(trimmedQuery, 10, 'zh-CN')
+                setFabResults(results)
+            } catch (e) {
+                setFabQueryError('搜索失败，请稍后再试')
+                setFabResults([])
+            } finally {
+                setIsSearching(false)
+            }
+        }, 500)
+        
+        // 清理定时器
+        return () => {
+            clearTimeout(searchTimeout)
         }
     }, [fabQuery])
 
@@ -1346,13 +1388,42 @@ export const AbstractMap = () => {
                                         地点搜索
                                     </h4>
                                     <div className="relative">
-                                        <input type="text" value={fabQuery} onChange={(e) => { setFabQuery(e.target.value); if (fabQueryError) setFabQueryError(''); if (e.target.value.trim() === '') setFabResults([]) }} onKeyDown={(e) => { if (e.key === 'Enter') handleFabSearch() }} placeholder="输入关键字，如：东京" className={cn('w-full h-9 pl-9 pr-12 border rounded-md text-sm', fabQueryError ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500', 'focus:outline-none transition-colors duration-200')} />
+                                        <input 
+                                            type="text" 
+                                            value={fabQuery} 
+                                            onChange={(e) => { 
+                                                setFabQuery(e.target.value); 
+                                                if (fabQueryError) setFabQueryError(''); 
+                                                if (e.target.value.trim() === '') setFabResults([]) 
+                                            }} 
+                                            onKeyDown={(e) => { 
+                                                if (e.key === 'Enter') handleFabSearch() 
+                                            }} 
+                                            placeholder="输入关键字，如：东京（3个字符以上自动搜索）" 
+                                            className={cn(
+                                                'w-full h-9 pl-9 pr-4 border rounded-md text-sm',
+                                                fabQueryError ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500',
+                                                'focus:outline-none transition-colors duration-200'
+                                            )} 
+                                        />
                                         <div className="absolute left-3 top-1/2 -translate-y-1/2">
                                             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                             </svg>
                                         </div>
-                                        <button onClick={handleFabSearch} className={cn('absolute right-2 top-1/2 -translate-y-1/2', 'px-2 py-1 text-xs font-medium rounded', 'bg-blue-600 text-white hover:bg-blue-700', 'focus:outline-none', 'transition-colors duration-200')}>搜索</button>
+                                        {/* 搜索状态指示器 */}
+                                        {isSearching && (
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                            </div>
+                                        )}
+                                        {!isSearching && fabQuery.trim().length >= 3 && fabResults.length > 0 && (
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            </div>
+                                        )}
                                     </div>
                                     {fabQueryError && <div className="text-xs text-red-600 bg-red-50 p-2 rounded-md">{fabQueryError}</div>}
                                     {fabResults.length > 0 && (
