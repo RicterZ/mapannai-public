@@ -6,8 +6,7 @@ import { mapDataService } from '@/lib/map-data-service'
  */
 export async function GET(request: NextRequest) {
     try {
-        const { searchParams } = new URL(request.url)
-        const mapId = searchParams.get('mapId')
+        const mapId = request.nextUrl.searchParams.get('mapId')
 
         if (mapId) {
             // 获取特定地图数据
@@ -116,8 +115,7 @@ export async function PUT(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
     try {
-        const { searchParams } = new URL(request.url)
-        const mapId = searchParams.get('mapId')
+        const mapId = request.nextUrl.searchParams.get('mapId')
 
         if (!mapId) {
             return NextResponse.json(
