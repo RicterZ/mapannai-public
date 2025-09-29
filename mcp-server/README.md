@@ -100,17 +100,31 @@ Content-Type: application/json
 ## 支持的工具
 
 1. **create_marker** - 创建地图标记
-2. **update_marker_content** - 更新标记内容
-3. **create_travel_chain** - 创建旅游行程链
-4. **search_places** - 搜索地点
-5. **get_markers** - 获取所有标记
-6. **get_marker** - 获取特定标记
-7. **delete_marker** - 删除标记
+2. **create_marker_v2** - 通过地名创建标记（内部搜索坐标）。为提高准确度，请尽量提供更具体的查询，例如“函馆山附近 炸猪排店”。
+3. **update_marker_content** - 更新标记内容
+4. **create_travel_chain** - 创建旅游行程链
+5. **search_places** - 搜索地点
+6. **get_markers** - 获取所有标记
+7. **get_marker** - 获取特定标记
 8. **create_travel_plan** - 创建旅游计划（MCP 服务器内部实现）
 
 ## 使用示例
 
 ### 完整旅游规划
+```
+### 通过地名创建标记（v2）
+```http
+POST /tools/call
+Content-Type: application/json
+
+{
+  "toolName": "create_marker_v2",
+  "arguments": {
+    "name": "函馆山附近 炸猪排店",
+    "iconType": "food",
+    "content": "招牌猪排，夜景视野好"
+  }
+}
 ```
 用户：请为我规划一个京都一日游，包含经典景点、美食推荐和合理的游览路线
 

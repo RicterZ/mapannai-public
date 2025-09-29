@@ -21,10 +21,12 @@ export const MapMarker = ({
 }: MapMarkerProps) => {
     const [isHovered, setIsHovered] = useState(false)
     const iconType = marker.content.iconType || 'location'
-    const iconConfig = MARKER_ICONS[iconType]
+    
+    // 安全获取图标配置，如果不存在则使用默认的 location 配置
+    const iconConfig = MARKER_ICONS[iconType] || MARKER_ICONS['location']
 
     // 从配置中读取背景色类
-    const markerColor = `${MARKER_ICONS[iconType].bgClass} ${MARKER_ICONS[iconType].hoverBgClass}`
+    const markerColor = `${iconConfig.bgClass} ${iconConfig.hoverBgClass}`
 
     // 当缩放级别较小时，仅显示纯色小点
     const shouldRenderAsDot = typeof zoom === 'number' && zoom < config.app.zoomThreshold

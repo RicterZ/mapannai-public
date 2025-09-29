@@ -1,12 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { useMapStore } from '@/store/map-store';
 import { v4 as uuidv4 } from 'uuid';
+import { datasetService } from '@/lib/api/dataset-service';
+import { config } from '@/lib/config';
 
 // 获取所有行程链
 export async function GET() {
   try {
-    const store = useMapStore.getState();
-    const markers = store.markers;
+    // 直接从数据集获取标记数据
+    const datasetId = config.map.mapbox.dataset?.datasetId;
+    if (!datasetId) {
+      return NextResponse.json(
+        { error: '未配置数据集ID' },
+        { status: 500 }
+      );
+    }
+
+    const featureCollection = await datasetService.getAllFeatures(datasetId);
+    const markers = featureCollection.features.map((feature: any) => {
+      const coordinates = feature.geometry.coordinates;
+      const properties = feature.properties;
+      const metadata = properties.metadata || {};
+
+      return {
+        id: feature.id || metadata.id,
+        content: {
+          title: metadata.title || '未命名标记',
+          next: properties.next || [],
+        },
+      };
+    });
     
     // 从标记中提取行程链信息
     const chains = markers
@@ -42,21 +65,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const store = useMapStore.getState();
+    const datasetId = config.map.mapbox.dataset?.datasetId;
+    if (!datasetId) {
+      return NextResponse.json(
+        { error: '未配置数据集ID' },
+        { status: 500 }
+      );
+    }
+
     const chainId = uuidv4();
+    
+    // 直接更新数据集中的标记
+    const featureCollection = await datasetService.getAllFeatures(datasetId);
     
     // 更新标记的next字段来创建链式连接
     for (let i = 0; i < markerIds.length - 1; i++) {
       const currentMarkerId = markerIds[i];
       const nextMarkerId = markerIds[i + 1];
       
-      const marker = store.markers.find(m => m.id === currentMarkerId);
-      if (marker) {
-        const updatedNext = [...(marker.content.next || []), nextMarkerId];
-        store.updateMarkerContent(currentMarkerId, {
-          markdownContent: marker.content.markdownContent,
-          next: updatedNext,
-        });
+      const feature = featureCollection.features.find(f => f.id === currentMarkerId);
+      if (feature) {
+        const coordinates = { 
+          latitude: feature.geometry.coordinates[1], 
+          longitude: feature.geometry.coordinates[0] 
+        };
+        const properties = { ...feature.properties };
+        const updatedNext = [...(properties.next || []), nextMarkerId];
+        properties.next = updatedNext;
+        
+        // 更新数据集中的特征
+        await datasetService.upsertFeature(datasetId, currentMarkerId, coordinates, properties);
       }
     }
 

@@ -35,7 +35,7 @@ export const LeftSidebar = ({ onFlyTo }: LeftSidebarProps) => {
         return markers.filter(marker => {
             const title = marker.content.title?.toLowerCase() || ''
             const iconType = marker.content.iconType || 'location'
-            const iconName = MARKER_ICONS[iconType].name.toLowerCase()
+            const iconName = (MARKER_ICONS[iconType] || MARKER_ICONS['location']).name.toLowerCase()
 
             return title.includes(query) || iconName.includes(query)
         })
@@ -337,7 +337,7 @@ export const LeftSidebar = ({ onFlyTo }: LeftSidebarProps) => {
                                                 {/* 分组内容 */}
                                                 <div className={cn(
                                                     'overflow-hidden transition-all duration-300 ease-in-out',
-                                                    isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                                                    isExpanded ? 'max-h-none opacity-100' : 'max-h-0 opacity-0'
                                                 )}>
                                                     <div className="p-2 space-y-2">
                                                         {group.map((marker) => {
@@ -360,7 +360,7 @@ export const LeftSidebar = ({ onFlyTo }: LeftSidebarProps) => {
                                                                                 <h4 className="text-sm font-medium text-gray-900 truncate">
                                                                                     {marker.content.title || '未命名标记'}
                                                                                 </h4>
-                                                                                <span className="text-xs text-gray-500">{MARKER_ICONS[type as keyof typeof MARKER_ICONS].name}</span>
+                                                                                <span className="text-xs text-gray-500">{(MARKER_ICONS[type as keyof typeof MARKER_ICONS] || MARKER_ICONS['location']).name}</span>
                                                                             </div>
                                                                             <p className="text-xs text-gray-500 mt-1">
                                                                                 {marker.coordinates.latitude.toFixed(6)}, {marker.coordinates.longitude.toFixed(6)}

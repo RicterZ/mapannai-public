@@ -14,7 +14,8 @@ import {
   CreateChainRequest,
   TravelPlanRequest,
   TravelPlanResponse,
-  MarkerIconType 
+  MarkerIconType,
+  CreateMarkerV2Request 
 } from './types.js';
 import dotenv from 'dotenv';
 
@@ -74,6 +75,23 @@ class MapannaiMCPServer {
                 content: { type: 'string', description: '标记内容（可选）' }
               },
               required: ['coordinates', 'title', 'iconType']
+            }
+          },
+          {
+            name: 'create_marker_v2',
+            description: '通过地名创建标记：内部搜索坐标并创建，若无结果则报错。为提高准确度，请尽量提供更具体的查询，例如“函馆山附近 炸猪排店”。',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                name: { type: 'string', description: '地名或搜索关键词' },
+                iconType: { 
+                  type: 'string', 
+                  enum: ['activity', 'location', 'hotel', 'shopping', 'food', 'landmark', 'park', 'natural', 'culture'],
+                  description: '标记图标类型'
+                },
+                content: { type: 'string', description: '标记内容（可选）' },
+              },
+              required: ['name', 'iconType']
             }
           },
           {
@@ -146,17 +164,6 @@ class MapannaiMCPServer {
             }
           },
           {
-            name: 'delete_marker',
-            description: '删除标记',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                markerId: { type: 'string', description: '标记ID' }
-              },
-              required: ['markerId']
-            }
-          },
-          {
             name: 'create_travel_plan',
             description: 'AI智能创建完整的旅游计划，包括标记和行程链',
             inputSchema: {
@@ -188,6 +195,8 @@ class MapannaiMCPServer {
         switch (name) {
           case 'create_marker':
             return await this.handleCreateMarker(args as unknown as CreateMarkerRequest);
+          case 'create_marker_v2':
+            return await this.handleCreateMarkerV2(args as unknown as CreateMarkerV2Request);
           
           case 'update_marker_content':
             return await this.handleUpdateMarkerContent(args as unknown as UpdateMarkerContentRequest);
@@ -204,8 +213,6 @@ class MapannaiMCPServer {
           case 'get_marker':
             return await this.handleGetMarker(args as { markerId: string });
           
-          case 'delete_marker':
-            return await this.handleDeleteMarker(args as { markerId: string });
           
           case 'create_travel_plan':
             return await this.handleCreateTravelPlan(args as unknown as TravelPlanRequest);
@@ -229,6 +236,21 @@ class MapannaiMCPServer {
 
   private async handleCreateMarker(args: CreateMarkerRequest) {
     const marker = await this.apiClient.createMarker(args);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `✅ 成功创建标记: ${marker.content.title}\n` +
+                `📍 位置: ${marker.coordinates.latitude}, ${marker.coordinates.longitude}\n` +
+                `🏷️ 类型: ${marker.content.iconType}\n` +
+                `🆔 标记ID: ${marker.id}`
+        }
+      ]
+    };
+  }
+
+  private async handleCreateMarkerV2(args: CreateMarkerV2Request) {
+    const marker = await this.apiClient.createMarkerFromPlaceName(args);
     return {
       content: [
         {
@@ -316,17 +338,7 @@ class MapannaiMCPServer {
     };
   }
 
-  private async handleDeleteMarker(args: { markerId: string }) {
-    await this.apiClient.deleteMarker(args.markerId);
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `✅ 成功删除标记 ID: ${args.markerId}`
-        }
-      ]
-    };
-  }
+  
 
   private async handleCreateTravelPlan(args: TravelPlanRequest): Promise<any> {
     // 这是一个智能旅游计划创建的示例实现

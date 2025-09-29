@@ -42,8 +42,8 @@ export const IconSelector = ({ selectedIcon = 'location', onSelect, className }:
                 className="w-full flex items-center justify-between px-3 py-2.5 border border-gray-300 rounded-xl bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
             >
                 <div className="flex items-center space-x-2">
-                    <span className="text-lg">{MARKER_ICONS[selectedIcon].emoji}</span>
-                    <span className="text-sm text-gray-700">{MARKER_ICONS[selectedIcon].name}</span>
+                    <span className="text-lg">{(MARKER_ICONS[selectedIcon] || MARKER_ICONS['location']).emoji}</span>
+                    <span className="text-sm text-gray-700">{(MARKER_ICONS[selectedIcon] || MARKER_ICONS['location']).name}</span>
                 </div>
                 <svg
                     className={cn('w-4 h-4 text-gray-400 transition-transform', isOpen && 'rotate-180')}
