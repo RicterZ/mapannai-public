@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Marker, CreateMarkerRequest, UpdateMarkerContentRequest, CreateChainRequest } from './types.js';
+import { Marker, CreateMarkerRequest, UpdateMarkerContentRequest, CreateChainRequest, CreateMarkerV2Request } from './types.js';
 
 export class MapannaiApiClient {
   private client: any;
@@ -70,15 +70,7 @@ export class MapannaiApiClient {
     }
   }
 
-  // 删除标记
-  async deleteMarker(markerId: string): Promise<void> {
-    try {
-      await this.client.delete(`/api/markers/${markerId}`);
-    } catch (error) {
-      console.error('删除标记失败:', error);
-      throw new Error(`删除标记失败: ${error instanceof Error ? error.message : '未知错误'}`);
-    }
-  }
+  
 
   // 创建行程链
   async createChain(request: CreateChainRequest): Promise<{ id: string; name: string; markerIds: string[] }> {
@@ -136,5 +128,30 @@ export class MapannaiApiClient {
       console.error('获取地点详情失败:', error);
       throw new Error(`获取地点详情失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
+  }
+
+  // v2: 通过地名创建标记
+  async createMarkerFromPlaceName(request: CreateMarkerV2Request): Promise<Marker> {
+    // 1) 搜索地点
+    const results = await this.searchPlaces(request.name);
+    if (!Array.isArray(results) || results.length === 0) {
+      throw new Error('地点未搜索到');
+    }
+
+    // 2) 从结果中选择最贴近的：当前无参，直接取第一个
+    const chosen = results[0];
+
+    // 3) 调用 createMarker
+    const marker = await this.createMarker({
+      coordinates: {
+        latitude: chosen.coordinates.latitude,
+        longitude: chosen.coordinates.longitude
+      },
+      title: request.name,
+      iconType: request.iconType,
+      content: request.content || ''
+    });
+
+    return marker;
   }
 }

@@ -13,136 +13,146 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f5f5f5;
             min-height: 100vh;
-            padding: 20px;
+            padding: 16px;
+            font-size: 14px;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             overflow: hidden;
         }
 
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #2c3e50;
             color: white;
-            padding: 30px;
-            text-align: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid #34495e;
         }
 
         .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
+            font-size: 1.5rem;
+            margin: 0 0 4px 0;
+            font-weight: 600;
         }
 
         .header p {
-            opacity: 0.9;
-            font-size: 1.1rem;
+            margin: 0;
+            font-size: 0.875rem;
+            opacity: 0.8;
         }
 
         .main-content {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 0;
-            min-height: 600px;
+            min-height: 700px;
         }
 
         .chat-section {
-            padding: 30px;
-            border-right: 1px solid #eee;
+            padding: 24px;
+            border-right: 1px solid #e1e5e9;
         }
 
         .tools-section {
-            padding: 30px;
-            background: #f8f9fa;
+            padding: 24px;
+            background: #fafbfc;
         }
 
         .tools-section h3 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 1.2rem;
+            color: #2c3e50;
+            margin: 0 0 16px 0;
+            font-size: 1rem;
+            font-weight: 600;
         }
 
         .tool-log {
-            height: 500px;
-            border: 1px solid #ddd;
-            border-radius: 10px;
+            height: 580px;
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
             overflow-y: auto;
-            padding: 15px;
-            background: #fafafa;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9rem;
+            padding: 16px;
+            background: white;
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+            font-size: 0.8rem;
+            line-height: 1.4;
         }
 
         .tool-log-item {
-            margin-bottom: 10px;
-            padding: 8px 12px;
-            border-radius: 6px;
-            border-left: 3px solid #667eea;
-            background: white;
+            margin-bottom: 8px;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 3px solid #3498db;
+            background: #f8f9fa;
+            font-size: 0.8rem;
         }
 
         .tool-log-item.success {
-            border-left-color: #4caf50;
+            border-left-color: #27ae60;
         }
 
         .tool-log-item.error {
-            border-left-color: #f44336;
+            border-left-color: #e74c3c;
         }
 
         .tool-log-item .tool-name {
-            font-weight: bold;
-            color: #667eea;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.8rem;
         }
 
         .tool-log-item .timestamp {
-            font-size: 0.8rem;
-            color: #666;
+            font-size: 0.75rem;
+            color: #7f8c8d;
             float: right;
         }
 
         .chat-container {
-            height: 500px;
-            border: 1px solid #ddd;
-            border-radius: 10px;
+            height: 520px;
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
             overflow-y: auto;
-            padding: 20px;
-            background: #fafafa;
-            margin-bottom: 20px;
+            padding: 16px;
+            background: white;
+            margin-bottom: 16px;
         }
 
         .message {
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             padding: 12px 16px;
-            border-radius: 12px;
-            max-width: 80%;
+            border-radius: 6px;
+            max-width: 85%;
+            font-size: 0.875rem;
+            line-height: 1.5;
         }
 
         .message.user {
-            background: #667eea;
+            background: #3498db;
             color: white;
             margin-left: auto;
         }
 
         .message.assistant {
-            background: white;
-            border: 1px solid #ddd;
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
         }
 
         .message.system {
-            background: #e3f2fd;
-            border: 1px solid #2196f3;
-            font-size: 0.9rem;
+            background: #ecf0f1;
+            border: 1px solid #bdc3c7;
+            font-size: 0.8rem;
         }
 
         .message.thinking {
-            background: #fff3e0;
-            border: 1px solid #ff9800;
+            background: #fef9e7;
+            border: 1px solid #f39c12;
             font-style: italic;
+            font-size: 0.8rem;
         }
 
         .message.thinking::before {
@@ -150,36 +160,57 @@
             font-size: 1.2em;
         }
 
+        /* AI消息中的代码块样式 */
+        .message.assistant pre {
+            margin: 8px 0 0 0;
+            padding: 12px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #e1e5e9;
+            overflow-x: auto;
+        }
+
+        .message.assistant code {
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+            font-size: 0.8em;
+            line-height: 1.4;
+            color: #2c3e50;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
         .input-group {
             display: flex;
-            gap: 10px;
+            gap: 8px;
         }
 
         .input-group input {
             flex: 1;
             padding: 12px 16px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            background: white;
         }
 
         .input-group button {
-            padding: 12px 24px;
-            background: #667eea;
+            padding: 12px 20px;
+            background: #3498db;
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
-            font-weight: 600;
-            transition: background 0.3s;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: background 0.2s;
         }
 
         .input-group button:hover {
-            background: #5a6fd8;
+            background: #2980b9;
         }
 
         .input-group button:disabled {
-            background: #ccc;
+            background: #bdc3c7;
             cursor: not-allowed;
         }
 
@@ -235,8 +266,9 @@
         .loading {
             display: none;
             text-align: center;
-            padding: 20px;
-            color: #666;
+            padding: 16px;
+            color: #7f8c8d;
+            font-size: 0.875rem;
         }
 
         .loading.show {
@@ -244,13 +276,13 @@
         }
 
         .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            border: 2px solid #ecf0f1;
+            border-top: 2px solid #3498db;
             border-radius: 50%;
-            width: 30px;
-            height: 30px;
+            width: 20px;
+            height: 20px;
             animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
+            margin: 0 auto 8px;
         }
 
         @keyframes spin {
@@ -303,6 +335,8 @@
                 <div class="input-group">
                     <input type="text" id="messageInput" placeholder="输入您的消息..." autocomplete="off">
                     <button id="sendButton">发送</button>
+                    <button id="clearButton" style="background: #e74c3c; margin-left: 8px;">清除历史</button>
+                    <button id="refreshButton" style="background: #f39c12; margin-left: 8px;">刷新页面</button>
                 </div>
             </div>
 
@@ -321,10 +355,12 @@
     <script>
         const API_BASE = '';
         let conversation = [];
+        let sessionId = null;
 
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
             setupEventListeners();
+            console.log('页面初始化 - conversation长度:', conversation.length, 'sessionId:', sessionId);
         });
 
         // 添加工具调用日志
@@ -350,13 +386,61 @@
         function setupEventListeners() {
             const messageInput = document.getElementById('messageInput');
             const sendButton = document.getElementById('sendButton');
+            const clearButton = document.getElementById('clearButton');
+            const refreshButton = document.getElementById('refreshButton');
 
             sendButton.addEventListener('click', sendMessage);
+            clearButton.addEventListener('click', clearHistory);
+            refreshButton.addEventListener('click', function() {
+                if (confirm('确定要刷新页面吗？这将清除所有对话历史。')) {
+                    window.location.reload();
+                }
+            });
             messageInput.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     sendMessage();
                 }
             });
+        }
+
+        // 清除对话历史
+        async function clearHistory() {
+            if (confirm('确定要清除对话历史吗？这将开始全新的对话。')) {
+                try {
+                    // 清除前端对话历史
+                    conversation = [];
+                    sessionId = null;
+                    
+                    // 清除聊天容器
+                    const chatContainer = document.getElementById('chatContainer');
+                    chatContainer.innerHTML = '<div class="message system"><strong>系统:</strong> 欢迎使用 Mapannai AI 控制台！我可以帮您规划旅游行程、创建地图标记、搜索地点等。请告诉我您想要什么帮助。</div>';
+                    
+                    // 清除工具日志
+                    const toolLog = document.getElementById('toolLog');
+                    toolLog.innerHTML = '';
+                    
+                    // 通知后端清除session历史
+                    if (sessionId) {
+                        try {
+                            await fetch(`${API_BASE}/chat/clear`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    sessionId: sessionId
+                                })
+                            });
+                        } catch (error) {
+                            console.log('后端清除session失败，但前端已清除:', error);
+                        }
+                    }
+                    
+                    console.log('对话历史已清除，conversation数组长度:', conversation.length);
+                } catch (error) {
+                    console.error('清除对话历史失败:', error);
+                }
+            }
         }
 
         // 发送消息
@@ -366,9 +450,18 @@
             
             if (!message) return;
 
-            // 显示用户消息
+            // 显示用户消息并添加到对话历史
             addMessage('user', message);
+            conversation.push({ role: 'user', content: message });
             messageInput.value = '';
+            
+            // 生成sessionId（如果还没有）
+            if (!sessionId) {
+                sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                console.log('生成新的sessionId:', sessionId);
+            }
+            
+            console.log('发送消息时的conversation长度:', conversation.length);
             
             // 显示加载状态
             showLoading(true);
@@ -383,7 +476,8 @@
                     },
                     body: JSON.stringify({
                         message: message,
-                        conversation: conversation
+                        sessionId: sessionId,
+                        clearHistory: false
                     })
                 });
 
@@ -394,17 +488,26 @@
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 
-                // 创建 AI 回复容器
+                // 思考容器已移除，所有内容统一输出到 AI 容器
+                // 创建 AI 回复容器（初始隐藏，在思考容器之后）
                 const aiMessageDiv = document.createElement('div');
                 aiMessageDiv.className = 'message assistant';
-                aiMessageDiv.innerHTML = '<strong>AI:</strong> ';
+                aiMessageDiv.innerHTML = '<strong>AI:</strong><br><pre><code>';
+                aiMessageDiv.style.display = 'none';
                 document.getElementById('chatContainer').appendChild(aiMessageDiv);
-
-                // 创建思考容器（初始隐藏）
-                const thinkingDiv = document.createElement('div');
-                thinkingDiv.className = 'message thinking';
-                thinkingDiv.style.display = 'none';
-                document.getElementById('chatContainer').appendChild(thinkingDiv);
+                
+                // 创建代码内容容器
+                const codeContainer = aiMessageDiv.querySelector('code');
+                
+                let fullResponse = '';
+                let aiResponse = '';
+                
+                // HTML转义函数
+                function escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                }
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -419,34 +522,40 @@
                                 const data = JSON.parse(line.slice(6));
                                 
                                 if (data.type === 'chunk') {
-                                    // 检查是否是思考内容
-                                    if (data.content.includes('💭 **思考**:') || data.content.includes('💭 思考:')) {
-                                        // 显示思考容器并提取思考内容
-                                        thinkingDiv.style.display = 'block';
-                                        const thinkingMatch = data.content.match(/💭 \*\*思考\*\*: (.+)/) || 
-                                                           data.content.match(/💭 思考: (.+)/);
-                                        if (thinkingMatch) {
-                                            thinkingDiv.innerHTML = `<strong>思考:</strong> ${thinkingMatch[1]}`;
+                                    // 累积完整响应和AI回复
+                                    fullResponse += data.content;
+                                    aiResponse += data.content;
+                                    
+                                    // 实时将所有内容写入 AI 代码容器（思考与执行统一输出）
+                                    {
+                                        // 转义HTML标签但保持换行符（pre会保持格式）
+                                        const escapedContent = escapeHtml(data.content);
+                                        // 直接追加到代码容器，不需要替换换行符
+                                        const currentContent = codeContainer.textContent || '';
+                                        codeContainer.textContent = currentContent + data.content;
+                                        
+                                        // 有内容时显示AI回复容器
+                                        if (data.content.trim() && aiMessageDiv.style.display === 'none') {
+                                            aiMessageDiv.style.display = 'block';
                                         }
-                                    } else if (data.content.includes('TOOL_CALL_START')) {
-                                        // 工具调用开始，隐藏思考容器
-                                        thinkingDiv.style.display = 'none';
-                                    } else if (!data.content.includes('TOOL_CALL_') && !data.content.includes('💭')) {
-                                        // 普通内容追加到 AI 消息
-                                        aiMessageDiv.innerHTML += data.content;
                                     }
+                                    
                                     document.getElementById('chatContainer').scrollTop = document.getElementById('chatContainer').scrollHeight;
                                 } else if (data.type === 'tool_call') {
                                     addToolCall(data.tool, data.result);
                                 } else if (data.type === 'tool_error') {
                                     addToolLog(data.tool, data.error, true);
                                 } else if (data.type === 'done') {
-                                    // 完成时隐藏思考容器
-                                    thinkingDiv.style.display = 'none';
+                                    // 完成时关闭代码标签
+                                    aiMessageDiv.innerHTML += '</code></pre>';
+                                    
+                                    // 将AI回复添加到对话历史
+                                    conversation.push({ role: 'assistant', content: aiResponse });
+                                    console.log('对话历史已更新:', conversation);
+                                    
                                     showLoading(false);
                                     document.getElementById('sendButton').disabled = false;
                                 } else if (data.type === 'error') {
-                                    thinkingDiv.style.display = 'none';
                                     addMessage('assistant', `错误: ${data.error}`);
                                     showLoading(false);
                                     document.getElementById('sendButton').disabled = false;
@@ -470,14 +579,19 @@
             const chatContainer = document.getElementById('chatContainer');
             const messageDiv = document.createElement('div');
             
-            // 检查是否是思考过程
-            if (content.includes('💭 **思考**:') || content.includes('💭 思考:')) {
-                messageDiv.className = 'message thinking';
-                messageDiv.innerHTML = content.replace(/💭 \*\*思考\*\*:/g, '<strong>思考:</strong>').replace(/💭 思考:/g, '<strong>思考:</strong>');
-            } else {
-                messageDiv.className = `message ${type}`;
-                messageDiv.innerHTML = `<strong>${type === 'user' ? '您' : 'AI'}:</strong> ${content}`;
+            // HTML转义函数
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
             }
+            
+            // 转义HTML标签并转换换行符
+            const escapedContent = escapeHtml(content).replace(/\n/g, '<br>');
+            
+            // 统一渲染消息（不再单独识别思考容器）
+            messageDiv.className = `message ${type}`;
+            messageDiv.innerHTML = `<strong>${type === 'user' ? '您' : 'AI'}:</strong> ${escapedContent}`;
             
             chatContainer.appendChild(messageDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;

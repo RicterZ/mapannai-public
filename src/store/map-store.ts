@@ -94,8 +94,19 @@ interface MapStore {
     setLoading: (loading: boolean) => void
 }
 
-// 保存标记到 Mapbox Dataset
+// 检查是否在服务器端API路由中运行
+const isServerSideAPIRoute = (): boolean => {
+    return typeof window === 'undefined'
+}
+
+// 保存标记到 Dataset
 const saveMarkerToDataset = async (marker: Marker) => {
+    // 如果在服务器端API路由中运行，跳过保存以避免循环调用
+    if (isServerSideAPIRoute()) {
+        console.log('跳过服务器端的Dataset保存，避免循环调用')
+        return
+    }
+
     const properties = {
         markdownContent: marker.content.markdownContent,
         headerImage: marker.content.headerImage || null,
@@ -110,7 +121,6 @@ const saveMarkerToDataset = async (marker: Marker) => {
             isPublished: true,
         },
     }
-
 
     const response = await fetch(`/api/dataset?t=${Date.now()}`, {
         method: 'POST',

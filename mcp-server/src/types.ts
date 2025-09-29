@@ -52,6 +52,13 @@ export interface CreateChainRequest {
   description?: string;
 }
 
+// v2: 通过地名创建标记所需的入参与可选位置信息
+export interface CreateMarkerV2Request {
+  name: string;
+  iconType: MarkerIconType;
+  content?: string;
+}
+
 export interface TravelPlanRequest {
   destination: string;
   startDate?: string;
