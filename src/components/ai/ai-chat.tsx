@@ -65,16 +65,11 @@ export const AiChat = ({ onClose }: AiChatProps) => {
         body: JSON.stringify({ message: userMessage.content })
       })
 
-      console.log('AI API响应状态:', response.status);
-      console.log('AI API响应头:', Object.fromEntries(response.headers.entries()));
-
       if (!response.ok) {
         const errorText = await response.text();
         console.error('AI API错误:', response.status, errorText);
         throw new Error(`AI服务暂时不可用: ${response.status} - ${errorText}`)
       }
-
-      console.log('AI API响应体:', response.body);
 
       // 创建AI消息占位符
       const aiMessageId = (Date.now() + 1).toString()
