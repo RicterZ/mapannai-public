@@ -224,49 +224,79 @@ export const useMapStore = create<MapStore>()(
             },
 
             createMarkerFromModal: async (data) => {
-                const markerId = uuidv4()
-                const now = new Date()
-
-                const newMarker: Marker = {
-                    id: markerId,
-                    coordinates: data.coordinates,
-                    content: {
-                        id: uuidv4(),
-                        title: data.name,
-                        iconType: data.iconType,
-                        markdownContent: '',
-                        next: [], // 默认为空数组
-                        createdAt: now,
-                        updatedAt: now,
-                    },
-                }
-
-                // 添加到本地状态
-                set(state => ({
-                    markers: [...state.markers, newMarker],
-                    addMarkerModal: {
-                        isOpen: false,
-                        coordinates: null,
-                        placeName: null,
-                    },
-                    interactionState: {
-                        ...state.interactionState,
-                        selectedMarkerId: markerId,
-                        isSidebarOpen: false, // 不自动打开sidebar
-                        isPopupOpen: false,
-                        pendingCoordinates: null,
-                    },
-                }), false, 'createMarkerFromModal')
-
-                // 异步保存到 Dataset
                 try {
-                    await get().saveMarkerToDataset(newMarker)
-                } catch (error) {
-                    console.error('保存到 Dataset 失败:', error)
-                    set({ error: '保存标记失败，请稍后重试' })
-                }
+                    // 使用新的 /api/markers 端点，支持距离检查
+                    const response = await fetch('/api/markers', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            coordinates: data.coordinates,
+                            title: data.name,
+                            iconType: data.iconType,
+                            content: '',
+                        }),
+                    })
 
-                return markerId
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}))
+                        throw new Error(`创建标记失败: ${errorData.error || response.status}`)
+                    }
+
+                    const result = await response.json()
+
+                    // 检查标记是否已存在（通过ID检查）
+                    const existingMarker = get().markers.find(m => m.id === result.id)
+                    
+                    if (existingMarker) {
+                        // 标记已存在，选择现有标记
+                        set(state => ({
+                            addMarkerModal: {
+                                isOpen: false,
+                                coordinates: null,
+                                placeName: null,
+                            },
+                            interactionState: {
+                                ...state.interactionState,
+                                selectedMarkerId: result.id,
+                                isSidebarOpen: false,
+                                isPopupOpen: false,
+                                pendingCoordinates: null,
+                            },
+                        }), false, 'createMarkerFromModal')
+                    } else {
+                        // 新标记，添加到本地状态
+                        set(state => ({
+                            markers: [...state.markers, result],
+                            addMarkerModal: {
+                                isOpen: false,
+                                coordinates: null,
+                                placeName: null,
+                            },
+                            interactionState: {
+                                ...state.interactionState,
+                                selectedMarkerId: result.id,
+                                isSidebarOpen: false, // 不自动打开sidebar
+                                isPopupOpen: false,
+                                pendingCoordinates: null,
+                            },
+                        }), false, 'createMarkerFromModal')
+                    }
+
+                    return result.id
+                } catch (error) {
+                    console.error('创建标记失败:', error)
+                    set({ 
+                        error: error instanceof Error ? error.message : '创建标记失败，请稍后重试',
+                        addMarkerModal: {
+                            isOpen: false,
+                            coordinates: null,
+                            placeName: null,
+                        }
+                    })
+                    throw error
+                }
             },
 
             updateMarker: (markerId, updates) => {

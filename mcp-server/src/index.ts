@@ -235,30 +235,32 @@ class MapannaiMCPServer {
   }
 
   private async handleCreateMarker(args: CreateMarkerRequest) {
-    const marker = await this.apiClient.createMarker(args);
+    const response = await this.apiClient.createMarker(args);
+    
     return {
       content: [
         {
           type: 'text',
-          text: `✅ 成功创建标记: ${marker.content.title}\n` +
-                `📍 位置: ${marker.coordinates.latitude}, ${marker.coordinates.longitude}\n` +
-                `🏷️ 类型: ${marker.content.iconType}\n` +
-                `🆔 标记ID: ${marker.id}`
+          text: `✅ 成功创建标记: ${response.content.title}\n` +
+                `📍 位置: ${response.coordinates.latitude}, ${response.coordinates.longitude}\n` +
+                `🏷️ 类型: ${response.content.iconType}\n` +
+                `🆔 标记ID: ${response.id}`
         }
       ]
     };
   }
 
   private async handleCreateMarkerV2(args: CreateMarkerV2Request) {
-    const marker = await this.apiClient.createMarkerFromPlaceName(args);
+    const response = await this.apiClient.createMarkerFromPlaceName(args);
+    
     return {
       content: [
         {
           type: 'text',
-          text: `✅ 成功创建标记: ${marker.content.title}\n` +
-                `📍 位置: ${marker.coordinates.latitude}, ${marker.coordinates.longitude}\n` +
-                `🏷️ 类型: ${marker.content.iconType}\n` +
-                `🆔 标记ID: ${marker.id}`
+          text: `✅ 成功创建标记: ${response.content.title}\n` +
+                `📍 位置: ${response.coordinates.latitude}, ${response.coordinates.longitude}\n` +
+                `🏷️ 类型: ${response.content.iconType}\n` +
+                `🆔 标记ID: ${response.id}`
         }
       ]
     };
