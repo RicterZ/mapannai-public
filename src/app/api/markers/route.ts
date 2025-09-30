@@ -4,7 +4,7 @@ import { Marker, MarkerIconType } from '@/types/marker';
 import { v4 as uuidv4 } from 'uuid';
 import { datasetService } from '@/lib/api/dataset-service';
 import { config } from '@/lib/config';
-import { isWithinDistance } from '@/utils/distance';
+import { isWithinDistance, calculateDistance } from '@/utils/distance';
 
 // 获取所有标记
 export async function GET() {
@@ -80,13 +80,27 @@ export async function POST(request: NextRequest) {
 
     // 检查是否存在相近的标记（10米范围内）
     const datasetId = config.map.mapbox.dataset?.datasetId;
+    console.log('🔍 检查重复标记 - 数据集ID:', datasetId);
+    console.log('🔍 新标记坐标:', coordinates);
+    
     if (datasetId) {
       try {
         const existingFeatures = await datasetService.getAllFeatures(datasetId);
+        console.log('🔍 现有标记数量:', existingFeatures.features?.length || 0);
+        
         const nearbyMarker = existingFeatures.features.find(feature => {
           if (!feature.geometry || !feature.geometry.coordinates) return false;
           
           const [lng, lat] = feature.geometry.coordinates;
+          const distance = calculateDistance(
+            coordinates.latitude,
+            coordinates.longitude,
+            lat,
+            lng
+          );
+          
+          console.log(`🔍 检查标记 ${feature.id}: 距离 ${distance.toFixed(2)}米`);
+          
           return isWithinDistance(
             coordinates.latitude,
             coordinates.longitude,
@@ -97,6 +111,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (nearbyMarker) {
+          console.log('✅ 找到相近标记，返回现有标记:', nearbyMarker.id);
           // 找到相近标记，直接返回现有标记信息，客户端无感知
           const existingMarker = {
             id: nearbyMarker.id,
@@ -120,10 +135,14 @@ export async function POST(request: NextRequest) {
           };
 
           return NextResponse.json(existingMarker);
+        } else {
+          console.log('❌ 未找到相近标记，将创建新标记');
         }
       } catch (error) {
         console.warn('检查相近标记时出错，继续创建新标记:', error);
       }
+    } else {
+      console.warn('❌ 数据集ID未配置，跳过重复检查');
     }
 
     // 创建标记对象
