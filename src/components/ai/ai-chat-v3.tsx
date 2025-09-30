@@ -81,6 +81,8 @@ export const AiChatV3 = ({ className }: AiChatV3Props) => {
       let assistantMessageId = `msg_${Date.now()}_assistant`
       let assistantContent = ''
       
+      console.log('🔄 开始处理流式响应...')
+      
       // 先添加空的助手消息
       const assistantMessage: Message = {
         id: assistantMessageId,
@@ -91,24 +93,40 @@ export const AiChatV3 = ({ className }: AiChatV3Props) => {
       setMessages(prev => [...prev, assistantMessage])
 
       if (reader) {
+        let chunkCount = 0
         while (true) {
           const { done, value } = await reader.read()
-          if (done) break
+          chunkCount++
+          
+          console.log(`📦 收到chunk ${chunkCount}, done: ${done}, value长度: ${value?.length || 0}`)
+          
+          if (done) {
+            console.log('✅ 流式响应完成')
+            break
+          }
 
           const chunk = decoder.decode(value)
+          console.log('📝 解码后的chunk:', chunk)
+          
           const lines = chunk.split('\n')
+          console.log(`📄 分割成 ${lines.length} 行`)
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               const data = line.slice(6)
+              console.log('📊 SSE数据:', data)
+              
               if (data === '{"type":"done","content":""}') {
+                console.log('🏁 收到完成信号')
                 break
               }
 
               try {
                 const parsed = JSON.parse(data)
+                console.log('✅ 解析成功:', parsed)
                 
                 if (parsed.type === 'message') {
+                  console.log('💬 收到消息chunk:', parsed.content)
                   // 累积消息内容
                   assistantContent += parsed.content
                   
@@ -119,6 +137,7 @@ export const AiChatV3 = ({ className }: AiChatV3Props) => {
                       : msg
                   ))
                 } else if (parsed.type === 'plan' && parsed.plan) {
+                  console.log('📋 收到执行计划:', parsed.plan.title)
                   // 添加执行计划消息
                   const planMessage: Message = {
                     id: `msg_${Date.now()}_plan`,
@@ -133,6 +152,7 @@ export const AiChatV3 = ({ className }: AiChatV3Props) => {
                   setCurrentPlan(parsed.plan)
                   setShowExecutionPanel(true)
                 } else if (parsed.type === 'error') {
+                  console.log('❌ 收到错误:', parsed.content)
                   // 处理错误
                   const errorMessage: Message = {
                     id: `msg_${Date.now()}_error`,
@@ -141,13 +161,19 @@ export const AiChatV3 = ({ className }: AiChatV3Props) => {
                     timestamp: new Date()
                   }
                   setMessages(prev => [...prev, errorMessage])
+                } else {
+                  console.log('❓ 未知消息类型:', parsed.type)
                 }
               } catch (parseError) {
-                console.warn('解析流式数据失败:', parseError)
+                console.error('❌ 解析流式数据失败:', parseError, '原始数据:', data)
               }
+            } else if (line.trim()) {
+              console.log('📝 非SSE行:', line)
             }
           }
         }
+      } else {
+        console.error('❌ 无法获取响应流reader')
       }
 
     } catch (error) {
