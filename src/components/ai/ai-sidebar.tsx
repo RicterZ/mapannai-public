@@ -2,8 +2,6 @@
 
 import React from 'react'
 import { AIChat } from './ai-chat'
-import { X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 
 interface ExecutionPlan {
   id: string
@@ -64,15 +62,8 @@ export function AiSidebar({ isOpen, onToggle }: AiSidebarProps) {
       {/* 侧边栏 */}
       <div className="relative ml-auto w-full max-w-md bg-white shadow-xl">
         {/* 头部 */}
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center p-4 border-b">
           <h2 className="text-lg font-semibold">AI旅游助手</h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggle}
-          >
-            <X className="h-4 w-4" />
-          </Button>
         </div>
         
         {/* 聊天区域 */}
