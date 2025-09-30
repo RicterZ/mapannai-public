@@ -60,28 +60,10 @@ export const AiChatV3 = ({ className }: AiChatV3Props) => {
     setIsLoading(true)
 
     try {
-      // 使用流式API获取AI响应
-      const response = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMessage.content,
-          conversationId
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      // 处理流式响应
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
+      console.log('🚀 发起AI请求...')
       
       let assistantMessageId = `msg_${Date.now()}_assistant`
       let assistantContent = ''
-      
-      console.log('🔄 开始处理流式响应...')
       
       // 先添加空的助手消息
       const assistantMessage: Message = {
@@ -92,89 +74,97 @@ export const AiChatV3 = ({ className }: AiChatV3Props) => {
       }
       setMessages(prev => [...prev, assistantMessage])
 
-      if (reader) {
-        let chunkCount = 0
-        while (true) {
-          const { done, value } = await reader.read()
-          chunkCount++
-          
-          console.log(`📦 收到chunk ${chunkCount}, done: ${done}, value长度: ${value?.length || 0}`)
-          
-          if (done) {
-            console.log('✅ 流式响应完成')
-            break
-          }
+      // 使用EventSource进行流式处理
+      const eventSource = new EventSource('/api/ai/chat?' + new URLSearchParams({
+        message: userMessage.content,
+        conversationId: conversationId
+      }))
 
-          const chunk = decoder.decode(value)
-          console.log('📝 解码后的chunk:', chunk)
-          
-          const lines = chunk.split('\n')
-          console.log(`📄 分割成 ${lines.length} 行`)
+      console.log('📡 EventSource创建成功')
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6)
-              console.log('📊 SSE数据:', data)
-              
-              if (data === '{"type":"done","content":""}') {
-                console.log('🏁 收到完成信号')
-                break
-              }
-
-              try {
-                const parsed = JSON.parse(data)
-                console.log('✅ 解析成功:', parsed)
-                
-                if (parsed.type === 'message') {
-                  console.log('💬 收到消息chunk:', parsed.content)
-                  // 累积消息内容
-                  assistantContent += parsed.content
-                  
-                  // 更新助手消息
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === assistantMessageId 
-                      ? { ...msg, content: assistantContent }
-                      : msg
-                  ))
-                } else if (parsed.type === 'plan' && parsed.plan) {
-                  console.log('📋 收到执行计划:', parsed.plan.title)
-                  // 添加执行计划消息
-                  const planMessage: Message = {
-                    id: `msg_${Date.now()}_plan`,
-                    type: 'plan',
-                    content: `已生成执行计划：${parsed.plan.title}`,
-                    timestamp: new Date(),
-                    plan: parsed.plan
-                  }
-                  setMessages(prev => [...prev, planMessage])
-                  
-                  // 设置当前计划并显示执行面板
-                  setCurrentPlan(parsed.plan)
-                  setShowExecutionPanel(true)
-                } else if (parsed.type === 'error') {
-                  console.log('❌ 收到错误:', parsed.content)
-                  // 处理错误
-                  const errorMessage: Message = {
-                    id: `msg_${Date.now()}_error`,
-                    type: 'system',
-                    content: `❌ ${parsed.content}`,
-                    timestamp: new Date()
-                  }
-                  setMessages(prev => [...prev, errorMessage])
-                } else {
-                  console.log('❓ 未知消息类型:', parsed.type)
-                }
-              } catch (parseError) {
-                console.error('❌ 解析流式数据失败:', parseError, '原始数据:', data)
-              }
-            } else if (line.trim()) {
-              console.log('📝 非SSE行:', line)
-            }
-          }
-        }
-      } else {
-        console.error('❌ 无法获取响应流reader')
+      eventSource.onopen = () => {
+        console.log('✅ EventSource连接已打开')
       }
+
+      eventSource.onmessage = (event) => {
+        console.log('📦 收到SSE消息:', event.data)
+        
+        try {
+          const parsed = JSON.parse(event.data)
+          console.log('✅ 解析成功:', parsed)
+          
+          if (parsed.type === 'message') {
+            console.log('💬 收到消息chunk:', parsed.content)
+            // 累积消息内容
+            assistantContent += parsed.content
+            
+            // 更新助手消息
+            setMessages(prev => prev.map(msg => 
+              msg.id === assistantMessageId 
+                ? { ...msg, content: assistantContent }
+                : msg
+            ))
+          } else if (parsed.type === 'plan' && parsed.plan) {
+            console.log('📋 收到执行计划:', parsed.plan.title)
+            // 添加执行计划消息
+            const planMessage: Message = {
+              id: `msg_${Date.now()}_plan`,
+              type: 'plan',
+              content: `已生成执行计划：${parsed.plan.title}`,
+              timestamp: new Date(),
+              plan: parsed.plan
+            }
+            setMessages(prev => [...prev, planMessage])
+            
+            // 设置当前计划并显示执行面板
+            setCurrentPlan(parsed.plan)
+            setShowExecutionPanel(true)
+          } else if (parsed.type === 'error') {
+            console.log('❌ 收到错误:', parsed.content)
+            // 处理错误
+            const errorMessage: Message = {
+              id: `msg_${Date.now()}_error`,
+              type: 'system',
+              content: `❌ ${parsed.content}`,
+              timestamp: new Date()
+            }
+            setMessages(prev => [...prev, errorMessage])
+            eventSource.close()
+            setIsLoading(false)
+          } else if (parsed.type === 'done') {
+            console.log('🏁 收到完成信号')
+            eventSource.close()
+            setIsLoading(false)
+          } else {
+            console.log('❓ 未知消息类型:', parsed.type)
+          }
+        } catch (parseError) {
+          console.error('❌ 解析SSE数据失败:', parseError, '原始数据:', event.data)
+        }
+      }
+
+      eventSource.onerror = (error) => {
+        console.error('❌ EventSource错误:', error)
+        eventSource.close()
+        setIsLoading(false)
+        
+        const errorMessage: Message = {
+          id: `msg_${Date.now()}_error`,
+          type: 'system',
+          content: '❌ 连接AI服务失败，请重试',
+          timestamp: new Date()
+        }
+        setMessages(prev => [...prev, errorMessage])
+      }
+
+      // 设置超时
+      setTimeout(() => {
+        if (eventSource.readyState !== EventSource.CLOSED) {
+          console.log('⏰ EventSource超时，关闭连接')
+          eventSource.close()
+          setIsLoading(false)
+        }
+      }, 60000) // 60秒超时
 
     } catch (error) {
       console.error('AI请求失败:', error)
