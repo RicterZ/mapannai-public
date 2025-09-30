@@ -881,14 +881,13 @@ export const AbstractMap = () => {
                             'w-12 h-12 rounded-full shadow-lg border border-gray-200 bg-white',
                             'flex items-center justify-center',
                             'hover:bg-blue-50 hover:border-blue-300 transition-all duration-200',
-                            'focus:outline-none',
-                            interactionState.isAiSidebarOpen && 'bg-red-50 border-red-300 hover:bg-red-100'
+                            'focus:outline-none'
                         )}
                         aria-label={interactionState.isAiSidebarOpen ? '关闭AI助手' : '打开AI助手'}
                         title={interactionState.isAiSidebarOpen ? '关闭AI助手' : '打开AI助手'}
                     >
                         {interactionState.isAiSidebarOpen ? (
-                            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         ) : (
