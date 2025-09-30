@@ -31,6 +31,7 @@ export const AiChat = ({ onClose }: AiChatProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const isMountedRef = useRef(true)
+  const processedToolCalls = useRef<Set<string>>(new Set())
   
   // 获取store函数
   const { addMarkerToStore, selectMarker } = useMapStore()
@@ -44,6 +45,18 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       if (jsonMatch) {
         const toolCall = JSON.parse(jsonMatch[0]);
         console.log('🔍 解析到的工具调用:', toolCall);
+        
+        // 生成工具调用的唯一标识
+        const toolCallId = `${toolCall.tool}_${JSON.stringify(toolCall.arguments)}`;
+        
+        // 检查是否已经处理过这个工具调用
+        if (processedToolCalls.current.has(toolCallId)) {
+          console.log('🔍 工具调用已处理过，跳过:', toolCallId);
+          return;
+        }
+        
+        // 标记为已处理
+        processedToolCalls.current.add(toolCallId);
         
         // 执行工具调用
         const result = await executeToolCall(toolCall);

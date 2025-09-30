@@ -230,9 +230,19 @@ export const useMapStore = create<MapStore>()(
             },
 
             addMarkerToStore: (marker) => {
-                set(state => ({
-                    markers: [...state.markers, marker],
-                }), false, 'addMarkerToStore')
+                set(state => {
+                    // 检查是否已存在相同ID的标记
+                    const existingIndex = state.markers.findIndex(m => m.id === marker.id);
+                    if (existingIndex !== -1) {
+                        // 如果存在，更新现有标记
+                        const updatedMarkers = [...state.markers];
+                        updatedMarkers[existingIndex] = marker;
+                        return { markers: updatedMarkers };
+                    } else {
+                        // 如果不存在，添加新标记
+                        return { markers: [...state.markers, marker] };
+                    }
+                }, false, 'addMarkerToStore')
             },
 
             createMarkerFromModal: async (data) => {
