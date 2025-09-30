@@ -116,14 +116,17 @@ export const AiChat = ({ onClose }: AiChatProps) => {
 
       while (true) {
         if (!isMountedRef.current) {
-          // 组件已卸载，停止读取
-          await reader?.cancel()
+          // 组件已卸载，停止读取但不取消reader
+          console.log('组件已卸载，停止读取流')
           break
         }
 
         const { done, value } = await reader.read()
         
-        if (done) break
+        if (done) {
+          console.log('流读取完成')
+          break
+        }
 
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split('\n')
@@ -212,14 +215,15 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       if (isMountedRef.current) {
         setIsLoading(false)
       }
-      // 确保reader被关闭
-      if (reader) {
-        try {
-          await reader.cancel()
-        } catch (e) {
-          // 忽略取消时的错误
-        }
-      }
+       // 确保reader被关闭
+       if (reader) {
+         try {
+           // 不主动取消reader，让流自然结束
+           console.log('流处理完成')
+         } catch (e) {
+           // 忽略取消时的错误
+         }
+       }
     }
   }
 

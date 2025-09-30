@@ -302,7 +302,19 @@ export class AiService {
                     // 转换为前端期望的格式
                     const responseData = JSON.stringify({ response: data.response }) + '\n';
                     console.log('发送到前端:', responseData);
-                    controller.enqueue(new TextEncoder().encode(responseData));
+                    
+                    // 检查controller状态
+                    if (controller.desiredSize !== null) {
+                      try {
+                        controller.enqueue(new TextEncoder().encode(responseData));
+                      } catch (e) {
+                        console.log('Controller enqueue失败:', e);
+                        break;
+                      }
+                    } else {
+                      console.log('Controller已关闭，停止发送');
+                      break;
+                    }
                   }
                 } catch (e) {
                   console.log('JSON解析失败:', line, e);
