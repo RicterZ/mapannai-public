@@ -277,8 +277,45 @@ export class AiService {
       throw new Error(`Ollama API错误: ${response.status} - ${errorText}`);
     }
 
-    // 直接返回Ollama的流式响应
-    return response.body!;
+    // 转换Ollama流格式为前端期望的JSON格式
+    return new ReadableStream({
+      start: async (controller) => {
+        try {
+          const reader = response.body!.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (line.trim()) {
+                try {
+                  const data = JSON.parse(line);
+                  if (data.response) {
+                    // 转换为前端期望的格式
+                    const responseData = JSON.stringify({ response: data.response }) + '\n';
+                    controller.enqueue(new TextEncoder().encode(responseData));
+                  }
+                } catch (e) {
+                  // 忽略解析错误
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('流处理错误:', error);
+          controller.error(error);
+        } finally {
+          controller.close();
+        }
+      }
+    });
   }
 
   private async callOllama(message: string): Promise<string> {
