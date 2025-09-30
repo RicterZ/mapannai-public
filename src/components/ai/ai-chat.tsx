@@ -78,7 +78,6 @@ export const AiChat = ({ onClose }: AiChatProps) => {
     let aiMessageId = ''
 
     try {
-      console.log('发送消息到AI API:', userMessage.content)
       
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -123,7 +122,6 @@ export const AiChat = ({ onClose }: AiChatProps) => {
         const { done, value } = await reader.read()
         
         if (done) {
-          console.log('流读取完成')
           break
         }
 
@@ -136,7 +134,6 @@ export const AiChat = ({ onClose }: AiChatProps) => {
 
           try {
             const data = JSON.parse(line)
-            console.log('前端接收到的数据:', data)
             
             // 处理不同类型的响应数据
             if (data.response) {
@@ -176,16 +173,12 @@ export const AiChat = ({ onClose }: AiChatProps) => {
             }
           } catch (e) {
             // 忽略JSON解析错误，继续处理下一行
-            console.warn('JSON解析失败，跳过该行:', line)
             continue
           }
         }
       }
 
-      // 流式响应完成后，检查是否有工具调用
-      if (fullResponse && (fullResponse.includes('<execute>') || fullResponse.includes('"tool":'))) {
-        await handleToolCalls(fullResponse, aiMessageId)
-      }
+      // 工具调用现在由后端实时处理，无需前端处理
 
         // 完成流式输出
         setMessages(prev => prev.map(msg => 
@@ -206,15 +199,14 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       setMessages(prev => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
-       // 确保reader被关闭
-       if (reader) {
-         try {
-           // 不主动取消reader，让流自然结束
-           console.log('流处理完成')
-         } catch (e) {
-           // 忽略取消时的错误
-         }
-       }
+        // 确保reader被关闭
+        if (reader) {
+          try {
+            // 不主动取消reader，让流自然结束
+          } catch (e) {
+            // 忽略取消时的错误
+          }
+        }
     }
   }
 
@@ -287,10 +279,8 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       )
 
        for (const toolCall of uniqueToolCalls) {
-         try {
-           console.log(`[MCP CALL] ${toolCall.tool} args:`, JSON.stringify(toolCall.arguments, null, 2))
-           const result = await executeToolCall(toolCall)
-           console.log(`[MCP RESULT] ${toolCall.tool} result:`, JSON.stringify(result, null, 2))
+        try {
+          const result = await executeToolCall(toolCall)
            
            // 添加工具调用摘要到消息
            const argsSummary = JSON.stringify(toolCall.arguments, null, 2)
@@ -346,13 +336,12 @@ export const AiChat = ({ onClose }: AiChatProps) => {
             jsonStr = jsonStr.substring(0, endIndex + 1)
           }
           
-          console.log('尝试解析JSON:', jsonStr)
-          const toolCall = JSON.parse(jsonStr)
-          if (toolCall.tool && toolCall.arguments) {
-            toolCalls.push(toolCall)
-          }
-        } catch (e) {
-          console.warn('JSON解析失败:', e, '原始内容:', executeBlock)
+            const toolCall = JSON.parse(jsonStr)
+            if (toolCall.tool && toolCall.arguments) {
+              toolCalls.push(toolCall)
+            }
+          } catch (e) {
+            // JSON解析失败，跳过
         }
       }
 
@@ -394,13 +383,12 @@ export const AiChat = ({ onClose }: AiChatProps) => {
             jsonStr = jsonStr.substring(0, endIndex + 1)
           }
           
-          console.log('提取JSON工具调用:', jsonStr)
-          const toolCall = JSON.parse(jsonStr)
-          if (toolCall.tool && toolCall.arguments) {
-            toolCalls.push(toolCall)
-          }
-        } catch (e) {
-          console.warn('JSON解析失败:', e, '匹配内容:', match)
+            const toolCall = JSON.parse(jsonStr)
+            if (toolCall.tool && toolCall.arguments) {
+              toolCalls.push(toolCall)
+            }
+          } catch (e) {
+            // JSON解析失败，跳过
         }
       }
 

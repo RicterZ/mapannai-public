@@ -277,12 +277,14 @@ export class AiService {
       throw new Error(`Ollama API错误: ${response.status} - ${errorText}`);
     }
 
-    // 转换Ollama流格式为前端期望的JSON格式
+    // 转换Ollama流格式为前端期望的JSON格式，并实时处理工具调用
     return new ReadableStream({
       start: async (controller) => {
         const reader = response.body!.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
+        let fullResponse = '';
+        let processedExecuteBlocks = new Set<string>();
 
         try {
           while (true) {
@@ -297,27 +299,61 @@ export class AiService {
               if (line.trim()) {
                 try {
                   const data = JSON.parse(line);
-                  console.log('Ollama原始数据:', data);
                   if (data.response) {
-                    // 转换为前端期望的格式
-                    const responseData = JSON.stringify({ response: data.response }) + '\n';
-                    console.log('发送到前端:', responseData);
+                    const content = data.response;
+                    fullResponse += content;
                     
-                    // 检查controller状态
+                    // 检查是否有新的execute块
+                    const executeRegex = /<execute>([\s\S]*?)<\/execute>/g;
+                    let match;
+                    while ((match = executeRegex.exec(fullResponse)) !== null) {
+                      const executeBlockContent = match[1].trim();
+                      const blockHash = this.generateBlockHash(executeBlockContent);
+                      
+                      if (!processedExecuteBlocks.has(blockHash)) {
+                        processedExecuteBlocks.add(blockHash);
+                        
+                        // 解析并执行工具调用
+                        const toolCalls = this.parseToolCalls(executeBlockContent);
+                        for (const toolCall of toolCalls) {
+                          try {
+                            const result = await this.executeToolCall(toolCall);
+                            // 将工具调用结果添加到响应中
+                            const toolResult = `\n\n[工具调用结果]\n${JSON.stringify(result, null, 2)}\n`;
+                            fullResponse += toolResult;
+                            
+                            // 发送工具调用结果到前端
+                            const toolResponseData = JSON.stringify({ response: toolResult }) + '\n';
+                            if (controller.desiredSize !== null) {
+                              controller.enqueue(new TextEncoder().encode(toolResponseData));
+                            }
+                          } catch (error) {
+                            const errorResult = `\n\n[工具调用失败]\n${error instanceof Error ? error.message : '未知错误'}\n`;
+                            fullResponse += errorResult;
+                            
+                            const errorResponseData = JSON.stringify({ response: errorResult }) + '\n';
+                            if (controller.desiredSize !== null) {
+                              controller.enqueue(new TextEncoder().encode(errorResponseData));
+                            }
+                          }
+                        }
+                      }
+                    }
+                    
+                    // 发送原始内容到前端
+                    const responseData = JSON.stringify({ response: content }) + '\n';
                     if (controller.desiredSize !== null) {
                       try {
                         controller.enqueue(new TextEncoder().encode(responseData));
                       } catch (e) {
-                        console.log('Controller enqueue失败:', e);
                         break;
                       }
                     } else {
-                      console.log('Controller已关闭，停止发送');
                       break;
                     }
                   }
                 } catch (e) {
-                  console.log('JSON解析失败:', line, e);
+                  // JSON解析失败，跳过
                 }
               }
             }
@@ -430,25 +466,6 @@ export class AiService {
     return blocks;
   }
 
-  private parseToolCalls(executeBlock: string): Array<{tool: string, arguments: any}> {
-    try {
-      const toolCalls: Array<{tool: string, arguments: any}> = [];
-      
-      // 尝试解析JSON格式的工具调用
-      const jsonMatch = executeBlock.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const toolCall = JSON.parse(jsonMatch[0]);
-        if (toolCall.tool && toolCall.arguments) {
-          toolCalls.push(toolCall);
-        }
-      }
-
-      return toolCalls;
-    } catch (error) {
-      console.error('解析工具调用失败:', error);
-      return [];
-    }
-  }
 
   private async callTool(toolName: string, args: any): Promise<any> {
     try {
@@ -498,6 +515,182 @@ export class AiService {
     // 这里可以添加逻辑来生成下一步的响应
     // 目前返回null表示不需要继续处理
     return null;
+  }
+
+  // 生成块哈希用于去重
+  private generateBlockHash(content: string): string {
+    return content.replace(/\s+/g, ' ').trim();
+  }
+
+  // 解析工具调用
+  private parseToolCalls(executeBlock: string): Array<{tool: string, arguments: any}> {
+    try {
+      const toolCalls: Array<{tool: string, arguments: any}> = [];
+      
+      // 尝试解析JSON格式的工具调用
+      const jsonMatch = executeBlock.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          let jsonStr = jsonMatch[0].trim();
+          
+          // 尝试找到完整的JSON对象
+          let braceCount = 0;
+          let endIndex = -1;
+          
+          for (let i = 0; i < jsonStr.length; i++) {
+            if (jsonStr[i] === '{') braceCount++;
+            if (jsonStr[i] === '}') braceCount--;
+            if (braceCount === 0) {
+              endIndex = i;
+              break;
+            }
+          }
+          
+          if (endIndex !== -1) {
+            jsonStr = jsonStr.substring(0, endIndex + 1);
+          }
+          
+          const toolCall = JSON.parse(jsonStr);
+          if (toolCall.tool && toolCall.arguments) {
+            toolCalls.push(toolCall);
+          }
+        } catch (e) {
+          // JSON解析失败，跳过
+        }
+      }
+
+      return toolCalls;
+    } catch (error) {
+      return [];
+    }
+  }
+
+  // 执行工具调用
+  private async executeToolCall(toolCall: {tool: string, arguments: any}): Promise<any> {
+    const { tool, arguments: args } = toolCall;
+    
+    if (!tool || !args) {
+      throw new Error('工具调用参数不完整');
+    }
+
+    switch (tool) {
+      case 'create_marker_v2':
+        // 支持两种格式：places 和 markers
+        const batchData = args.places || args.markers;
+        if (batchData && Array.isArray(batchData)) {
+          const results = [];
+          for (const item of batchData) {
+            try {
+              if (!item || typeof item !== 'object') {
+                results.push({ error: '无效的地点数据格式' });
+                continue;
+              }
+
+              // 处理不同的参数格式
+              const placeData = {
+                name: item.name || item.title || '未命名地点',
+                iconType: item.iconType || 'default',
+                content: item.content || item.description || ''
+              };
+
+              if (!placeData.name) {
+                results.push({ error: '地点名称不能为空' });
+                continue;
+              }
+
+              // 使用API客户端的方法，它会自动处理地理编码
+              const response = await fetch('/api/markers/v2', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  name: placeData.name,
+                  iconType: placeData.iconType,
+                  content: placeData.content
+                })
+              });
+
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+              }
+
+              const marker = await response.json();
+              results.push(marker);
+            } catch (error) {
+              const itemName = item.name || item.title || '未知地点';
+              results.push({ 
+                error: error instanceof Error ? error.message : '创建失败', 
+                place: itemName 
+              });
+            }
+          }
+          return { type: 'batch', results };
+        } else {
+          // 单个地点创建
+          if (!args.name) {
+            throw new Error('地点名称不能为空');
+          }
+
+          const response = await fetch('/api/markers/v2', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: args.name,
+              iconType: args.iconType || 'default',
+              content: args.content || ''
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+          }
+
+          return await response.json();
+        }
+
+      case 'update_marker_content':
+        if (!args.markerId) {
+          throw new Error('标记ID不能为空');
+        }
+
+        const updateResponse = await fetch(`/api/markers/${args.markerId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: args.title,
+            markdownContent: args.markdownContent
+          })
+        });
+
+        if (!updateResponse.ok) {
+          throw new Error(`HTTP ${updateResponse.status}: ${await updateResponse.text()}`);
+        }
+
+        return await updateResponse.json();
+
+      case 'create_travel_chain':
+        if (!args.markerIds || !Array.isArray(args.markerIds)) {
+          throw new Error('标记ID列表不能为空');
+        }
+
+        const chainResponse = await fetch('/api/chains', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            markerIds: args.markerIds,
+            name: args.chainName || '未命名行程',
+            description: args.description || ''
+          })
+        });
+
+        if (!chainResponse.ok) {
+          throw new Error(`HTTP ${chainResponse.status}: ${await chainResponse.text()}`);
+        }
+
+        return await chainResponse.json();
+
+      default:
+        throw new Error(`未知工具: ${tool}`);
+    }
   }
 
 }
