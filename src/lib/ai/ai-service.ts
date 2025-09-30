@@ -240,20 +240,10 @@ export class AiService {
   async processMessage(message: string): Promise<ReadableStream<Uint8Array>> {
     try {
       console.log('AI服务开始处理消息:', message);
-      
-      // 创建自定义流来处理工具调用
-      return new ReadableStream({
-        start: async (controller) => {
-          try {
-            await this.processWithToolCalls(message, controller);
-          } catch (error) {
-            console.error('处理消息时出错:', error);
-            const errorText = '抱歉，AI服务处理出错，请稍后再试。';
-            controller.enqueue(new TextEncoder().encode(errorText));
-            controller.close();
-          }
-        }
-      });
+      // 调用Ollama API并返回流
+      const stream = await this.callOllamaStream(message);
+      console.log('Ollama流创建成功:', stream);
+      return stream;
     } catch (error) {
       console.error('AI服务处理错误:', error);
       // 返回错误信息的流
@@ -296,8 +286,20 @@ export class AiService {
     }
 
     console.log('Ollama响应体:', response.body);
-    // 直接返回Ollama的流式响应
-    return response.body!;
+    
+    // 创建自定义流来处理工具调用
+    return new ReadableStream({
+      start: async (controller) => {
+        try {
+          await this.processStreamWithToolCalls(response.body!, controller);
+        } catch (error) {
+          console.error('流处理错误:', error);
+          const errorText = '抱歉，流处理出错，请稍后再试。';
+          controller.enqueue(new TextEncoder().encode(errorText));
+          controller.close();
+        }
+      }
+    });
   }
 
   private async callOllama(message: string): Promise<string> {
@@ -552,5 +554,104 @@ export class AiService {
     
     console.log('工具调用处理完成');
     controller.close();
+  }
+
+  private async processStreamWithToolCalls(ollamaStream: ReadableStream<Uint8Array>, controller: ReadableStreamDefaultController<Uint8Array>) {
+    const reader = ollamaStream.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullResponse = '';
+    let currentContent = '';
+    let thinkingContent = '';
+    let isInThinking = false;
+    let hasToolCall = false;
+    let toolCallProcessed = false;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const data = JSON.parse(line);
+              if (data.response) {
+                const content = data.response;
+                fullResponse += content;
+                
+                // 检查是否在思考阶段
+                if (content.includes('<think>')) {
+                  isInThinking = true;
+                  thinkingContent += content;
+                } else if (content.includes('</think>')) {
+                  isInThinking = false;
+                  thinkingContent += content;
+                } else if (isInThinking) {
+                  thinkingContent += content;
+                } else {
+                  currentContent += content;
+                }
+                
+                // 检查是否有工具调用
+                if (content.includes('<execute>')) {
+                  hasToolCall = true;
+                }
+                
+                // 发送流式内容
+                controller.enqueue(new TextEncoder().encode(JSON.stringify({ response: content }) + '\n'));
+              }
+            } catch (e) {
+              // 忽略JSON解析错误
+            }
+          }
+        }
+      }
+
+      // 如果有工具调用且未处理，则处理工具调用
+      if (hasToolCall && !toolCallProcessed) {
+        toolCallProcessed = true;
+        console.log('检测到工具调用，开始处理...');
+        
+        // 重置状态
+        this.processedExecuteBlocks.clear();
+        this.toolExecutionStates.clear();
+        
+        // 处理工具调用
+        const executeBlocks = this.extractExecuteBlocks(fullResponse);
+        for (const block of executeBlocks) {
+          if (!this.processedExecuteBlocks.has(block)) {
+            this.processedExecuteBlocks.add(block);
+            
+            const toolCalls = this.parseToolCalls(block);
+            if (toolCalls.length > 0) {
+              const toolCall = toolCalls[0];
+              console.log('执行工具调用:', toolCall);
+              
+              try {
+                const result = await this.callTool(toolCall.tool, toolCall.arguments);
+                console.log('工具调用结果:', result);
+                
+                // 发送工具执行结果
+                const resultMessage = `\n\n[工具执行结果]\n${JSON.stringify(result, null, 2)}\n\n`;
+                controller.enqueue(new TextEncoder().encode(JSON.stringify({ response: resultMessage }) + '\n'));
+              } catch (error) {
+                console.error('工具调用失败:', error);
+                const errorMessage = `\n\n[工具调用失败]\n${error instanceof Error ? error.message : '未知错误'}\n\n`;
+                controller.enqueue(new TextEncoder().encode(JSON.stringify({ response: errorMessage }) + '\n'));
+              }
+            }
+          }
+        }
+      }
+      
+    } finally {
+      reader.releaseLock();
+      controller.close();
+    }
   }
 }
