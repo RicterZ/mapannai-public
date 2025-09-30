@@ -440,29 +440,12 @@ export const AiChat = ({ onClose }: AiChatProps) => {
                 continue
               }
 
-              // 先搜索地点获取坐标
-              const searchResponse = await fetch(`/api/search?q=${encodeURIComponent(placeData.name)}&limit=1&language=zh-CN&country=JP`)
-              if (!searchResponse.ok) {
-                throw new Error(`搜索地点失败: ${searchResponse.status}`)
-              }
-              
-              const searchResults = await searchResponse.json()
-              if (!searchResults.data || searchResults.data.length === 0) {
-                throw new Error('未找到该地点')
-              }
-              
-              const place = searchResults.data[0]
-              const coordinates = {
-                latitude: place.coordinates.latitude,
-                longitude: place.coordinates.longitude
-              }
-
-              const response = await fetch('/api/markers', {
+              // 使用API客户端的方法，它会自动处理地理编码
+              const response = await fetch('/api/markers/v2', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  coordinates: coordinates,
-                  title: placeData.name,
+                  name: placeData.name,
                   iconType: placeData.iconType,
                   content: placeData.content
                 })
@@ -490,29 +473,11 @@ export const AiChat = ({ onClose }: AiChatProps) => {
             throw new Error('地点名称不能为空')
           }
 
-          // 先搜索地点获取坐标
-          const searchResponse = await fetch(`/api/search?q=${encodeURIComponent(args.name)}&limit=1&language=zh-CN&country=JP`)
-          if (!searchResponse.ok) {
-            throw new Error(`搜索地点失败: ${searchResponse.status}`)
-          }
-          
-          const searchResults = await searchResponse.json()
-          if (!searchResults.data || searchResults.data.length === 0) {
-            throw new Error('未找到该地点')
-          }
-          
-          const place = searchResults.data[0]
-          const coordinates = {
-            latitude: place.coordinates.latitude,
-            longitude: place.coordinates.longitude
-          }
-
-          const response = await fetch('/api/markers', {
+          const response = await fetch('/api/markers/v2', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              coordinates: coordinates,
-              title: args.name,
+              name: args.name,
               iconType: args.iconType || 'default',
               content: args.content || ''
             })
