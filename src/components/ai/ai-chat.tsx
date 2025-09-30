@@ -232,6 +232,21 @@ export const AiChat = ({ onClose }: AiChatProps) => {
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'
   }
 
+  // 格式化消息内容，将execute块用代码格式显示
+  const formatMessageContent = (content: string) => {
+    if (!content) return content
+    
+    // 将execute块用代码格式包裹
+    const formattedContent = content.replace(
+      /<execute>([\s\S]*?)<\/execute>/g,
+      (match, code) => {
+        return `<pre class="bg-gray-100 p-2 rounded text-sm font-mono overflow-x-auto"><code>${code.trim()}</code></pre>`
+      }
+    )
+    
+    return formattedContent
+  }
+
   // 处理工具调用
   const handleToolCalls = async (fullResponse: string, aiMessageId: string) => {
 
@@ -582,8 +597,13 @@ export const AiChat = ({ onClose }: AiChatProps) => {
               
               {/* 正式输出内容 */}
               {message.content && (
-                <div className="whitespace-pre-wrap text-black">
-                  {message.content}
+                <div className="text-black">
+                  <div 
+                    className="whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{ 
+                      __html: formatMessageContent(message.content) 
+                    }}
+                  />
                   {message.isStreaming && (
                     <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1"></span>
                   )}
