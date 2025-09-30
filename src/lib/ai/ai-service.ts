@@ -236,8 +236,11 @@ export class AiService {
 
   async processMessage(message: string): Promise<ReadableStream<Uint8Array>> {
     try {
+      console.log('AI服务开始处理消息:', message);
       // 调用Ollama API并返回流
-      return await this.callOllamaStream(message);
+      const stream = await this.callOllamaStream(message);
+      console.log('Ollama流创建成功:', stream);
+      return stream;
     } catch (error) {
       console.error('AI服务处理错误:', error);
       // 返回错误信息的流
@@ -255,6 +258,9 @@ export class AiService {
     const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
     const model = process.env.OLLAMA_MODEL || 'deepseek-r1:8b';
     
+    console.log('调用Ollama API:', { ollamaUrl, model });
+    console.log('请求URL:', `${ollamaUrl}/api/generate`);
+    
     const response = await fetch(`${ollamaUrl}/api/generate`, {
       method: 'POST',
       headers: {
@@ -267,10 +273,16 @@ export class AiService {
       })
     });
 
+    console.log('Ollama响应状态:', response.status);
+    console.log('Ollama响应头:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
-      throw new Error(`Ollama API错误: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Ollama API错误:', response.status, errorText);
+      throw new Error(`Ollama API错误: ${response.status} - ${errorText}`);
     }
 
+    console.log('Ollama响应体:', response.body);
     // 直接返回Ollama的流式响应
     return response.body!;
   }

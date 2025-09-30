@@ -5,17 +5,22 @@ const aiService = new AiService()
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('AI聊天API被调用')
     const { message } = await request.json()
+    console.log('接收到的消息:', message)
 
     if (!message) {
+      console.log('消息为空，返回400错误')
       return NextResponse.json(
         { error: '消息内容不能为空' },
         { status: 400 }
       )
     }
 
+    console.log('开始处理AI服务...')
     // 使用本地AI服务，返回流式响应
     const stream = await aiService.processMessage(message)
+    console.log('AI服务返回流:', stream)
     
     return new Response(stream, {
       headers: {
