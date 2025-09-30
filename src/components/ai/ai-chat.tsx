@@ -293,6 +293,17 @@ export const AiChat = ({ onClose }: AiChatProps) => {
     return formattedContent
   }
 
+  // HTML转义函数
+  const escapeHtml = (text: string) => {
+    if (!text) return text
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+  }
+
   // 处理工具调用
   const handleToolCalls = async (fullResponse: string, aiMessageId: string) => {
 
@@ -638,26 +649,29 @@ export const AiChat = ({ onClose }: AiChatProps) => {
                     <span className="mr-1">💭</span>
                     AI思考过程
                   </div>
-                  <div className="text-sm text-gray-600 font-mono whitespace-pre-wrap">
-                    {message.thinking.replace(/<think>|<\/think>/g, '').trim()}
-                  </div>
+                  <div 
+                    className="text-sm text-gray-600 font-mono whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{
+                      __html: escapeHtml(message.thinking.replace(/<think>|<\/think>/g, '').trim())
+                    }}
+                  />
                 </div>
               )}
               
-              {/* 正式输出内容 */}
-              {message.content && (
-                <div className="text-black">
-                  <div 
-                    className="whitespace-pre-wrap"
-                    dangerouslySetInnerHTML={{ 
-                      __html: formatMessageContent(message.content) 
-                    }}
-                  />
-                  {message.isStreaming && (
-                    <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1"></span>
-                  )}
-                </div>
-              )}
+           {/* 正式输出内容 */}
+           {message.content && (
+             <div className="text-black">
+               <div 
+                 className="whitespace-pre-wrap"
+                 dangerouslySetInnerHTML={{ 
+                   __html: formatMessageContent(escapeHtml(message.content)) 
+                 }}
+               />
+               {message.isStreaming && (
+                 <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1"></span>
+               )}
+             </div>
+           )}
               
               <div className={cn(
                 'text-xs mt-1',
