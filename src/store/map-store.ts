@@ -232,13 +232,6 @@ export const useMapStore = create<MapStore>()(
             addMarkerToStore: (marker) => {
                 set(state => ({
                     markers: [...state.markers, marker],
-                    interactionState: {
-                        ...state.interactionState,
-                        selectedMarkerId: marker.id,
-                        isSidebarOpen: true,
-                        isPopupOpen: false,
-                        pendingCoordinates: null,
-                    },
                 }), false, 'addMarkerToStore')
             },
 
