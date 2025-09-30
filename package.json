@@ -26,6 +26,7 @@
         "dotenv": "^16.6.1",
         "express": "^4.21.2",
         "https-proxy-agent": "^7.0.6",
+        "lucide-react": "^0.544.0",
         "mapbox-gl": "^3.7.0",
         "marked": "^16.3.0",
         "next": "14.2.30",
