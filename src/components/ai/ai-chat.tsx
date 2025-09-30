@@ -5,8 +5,9 @@ import { cn } from '@/utils/cn'
 
 interface Message {
   id: string
-  type: 'user' | 'ai' | 'thinking'
+  type: 'user' | 'ai'
   content: string
+  thinking?: string
   timestamp: Date
   isStreaming?: boolean
 }
@@ -92,8 +93,8 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       const decoder = new TextDecoder()
       let buffer = ''
       let currentContent = ''
-      let isThinking = false
       let thinkingContent = ''
+      let isInThinking = false
 
       if (reader) {
         while (true) {
@@ -115,52 +116,30 @@ export const AiChat = ({ onClose }: AiChatProps) => {
                   
                   // 检查是否在思考阶段
                   if (content.includes('<think>')) {
-                    if (!isThinking) {
-                      isThinking = true
-                      thinkingContent = ''
-                      // 创建思考消息
-                      const thinkingMessage: Message = {
-                        id: (Date.now() + 2).toString(),
-                        type: 'thinking',
-                        content: '',
-                        timestamp: new Date()
-                      }
-                      setMessages(prev => [...prev, thinkingMessage])
-                    }
+                    isInThinking = true
                     thinkingContent += content
-                    
-                    // 更新思考消息
-                    setMessages(prev => prev.map(msg => 
-                      msg.type === 'thinking' 
-                        ? { ...msg, content: thinkingContent }
-                        : msg
-                    ))
                   } else if (content.includes('</think>')) {
                     // 思考结束
                     thinkingContent += content
-                    setMessages(prev => prev.map(msg => 
-                      msg.type === 'thinking' 
-                        ? { ...msg, content: thinkingContent }
-                        : msg
-                    ))
-                    isThinking = false
-                  } else if (isThinking) {
+                    isInThinking = false
+                  } else if (isInThinking) {
                     // 仍在思考中
                     thinkingContent += content
-                    setMessages(prev => prev.map(msg => 
-                      msg.type === 'thinking' 
-                        ? { ...msg, content: thinkingContent }
-                        : msg
-                    ))
                   } else {
                     // 正常输出内容
                     currentContent += content
-                    setMessages(prev => prev.map(msg => 
-                      msg.id === aiMessageId 
-                        ? { ...msg, content: currentContent }
-                        : msg
-                    ))
                   }
+                  
+                  // 更新AI消息，包含思考内容和正式输出
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === aiMessageId 
+                      ? { 
+                          ...msg, 
+                          content: currentContent,
+                          thinking: thinkingContent
+                        }
+                      : msg
+                  ))
                 }
               } catch (e) {
                 // 忽略JSON解析错误
@@ -251,23 +230,32 @@ export const AiChat = ({ onClose }: AiChatProps) => {
                 'max-w-xs lg:max-w-md px-4 py-2 rounded-lg',
                 message.type === 'user'
                   ? 'bg-blue-500 text-white'
-                  : message.type === 'thinking'
-                  ? 'bg-gray-50 text-gray-600 border-l-4 border-gray-300'
                   : 'bg-gray-100 text-gray-900'
               )}
             >
-              {message.type === 'thinking' && (
-                <div className="text-xs text-gray-500 mb-1 font-medium">💭 AI思考中...</div>
+              {/* 思考内容 */}
+              {message.thinking && (
+                <div className="mb-3 p-3 bg-gray-50 border-l-4 border-gray-300 rounded-r-lg">
+                  <div className="text-xs text-gray-500 mb-2 font-medium flex items-center">
+                    <span className="mr-1">💭</span>
+                    AI思考过程
+                  </div>
+                  <div className="text-sm text-gray-600 font-mono whitespace-pre-wrap">
+                    {message.thinking.replace(/<think>|<\/think>/g, '').trim()}
+                  </div>
+                </div>
               )}
-              <div className={cn(
-                'whitespace-pre-wrap',
-                message.type === 'thinking' && 'font-mono text-sm'
-              )}>
-                {message.content}
-                {message.isStreaming && (
-                  <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1"></span>
-                )}
-              </div>
+              
+              {/* 正式输出内容 */}
+              {message.content && (
+                <div className="whitespace-pre-wrap text-black">
+                  {message.content}
+                  {message.isStreaming && (
+                    <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1"></span>
+                  )}
+                </div>
+              )}
+              
               <div className={cn(
                 'text-xs mt-1',
                 message.type === 'user' ? 'text-blue-100' : 'text-gray-500'
