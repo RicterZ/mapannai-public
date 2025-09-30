@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AIServiceV2 } from '@/lib/ai/ai-service-v2'
+import { AIServiceV3 } from '@/lib/ai/ai-service-v3'
 
 // 创建AI服务实例
-const aiService = new AIServiceV2()
+const aiService = new AIServiceV3()
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          for await (const chunk of aiService.processMessage(message, conversationId)) {
+          for await (const chunk of aiService.processMessageStream(message, conversationId)) {
             // 将chunk转换为SSE格式
             const data = JSON.stringify(chunk)
             controller.enqueue(encoder.encode(`data: ${data}\n\n`))
@@ -68,15 +68,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 获取工具定义
+// 获取AI服务状态
 export async function GET() {
   try {
-    const tools = aiService.getToolDefinitions()
-    return NextResponse.json({ tools })
+    const stats = aiService.getStats()
+    return NextResponse.json({ stats })
   } catch (error) {
-    console.error('获取工具定义错误:', error)
+    console.error('获取AI服务状态错误:', error)
     return NextResponse.json(
-      { error: '获取工具定义失败' },
+      { error: '获取AI服务状态失败' },
       { status: 500 }
     )
   }

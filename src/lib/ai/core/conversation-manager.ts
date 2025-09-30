@@ -146,11 +146,11 @@ export class ConversationManager {
     const now = new Date()
     const expireTime = 24 * 60 * 60 * 1000 // 24小时
 
-    for (const [id, conversation] of this.conversations) {
+    this.conversations.forEach((conversation, id) => {
       if (now.getTime() - conversation.updatedAt.getTime() > expireTime) {
         this.conversations.delete(id)
       }
-    }
+    })
   }
 
   /**
@@ -170,6 +170,6 @@ export class ConversationManager {
   }
 
   private generateId(): string {
-    return `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    return `conv_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
   }
 }
