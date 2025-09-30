@@ -211,10 +211,13 @@ export const AiChat = ({ onClose }: AiChatProps) => {
         for (const toolCall of toolCalls) {
           
           try {
+            console.log(`[MCP CALL] ${toolCall.tool} args:`, JSON.stringify(toolCall.arguments, null, 2))
             const result = await executeToolCall(toolCall)
+            console.log(`[MCP RESULT] ${toolCall.tool} result:`, JSON.stringify(result, null, 2))
             
-            // 添加工具执行结果到消息
-            const resultMessage = `\n\n[工具执行结果]\n${JSON.stringify(result, null, 2)}\n\n`
+            // 添加工具调用摘要到消息
+            const argsSummary = JSON.stringify(toolCall.arguments, null, 2)
+            const resultMessage = `\n\n已调用${toolCall.tool}工具，参数：\n${argsSummary}\n`
             setMessages(prev => prev.map(msg => 
               msg.id === aiMessageId 
                 ? { ...msg, content: msg.content + resultMessage }
