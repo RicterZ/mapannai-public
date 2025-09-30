@@ -150,7 +150,7 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       }
 
       // 流式响应完成后，检查是否有工具调用
-      if (fullResponse.includes('<execute>')) {
+      if (fullResponse.includes('<execute>') || fullResponse.includes('"tool":')) {
         await handleToolCalls(fullResponse, aiMessageId)
       }
 
@@ -196,7 +196,9 @@ export const AiChat = ({ onClose }: AiChatProps) => {
   // 处理工具调用
   const handleToolCalls = async (fullResponse: string, aiMessageId: string) => {
     try {
-      // 提取execute块
+      let toolCalls: Array<{tool: string, arguments: any}> = []
+      
+      // 首先尝试提取execute块
       const executeRegex = /<execute>([\s\S]*?)<\/execute>/g
       const executeBlocks: string[] = []
       let match
@@ -205,33 +207,40 @@ export const AiChat = ({ onClose }: AiChatProps) => {
         executeBlocks.push(match[1].trim())
       }
       
-      for (const block of executeBlocks) {
-        const toolCalls = parseToolCalls(block)
-        
-        for (const toolCall of toolCalls) {
+      if (executeBlocks.length > 0) {
+        // 处理execute块中的工具调用
+        for (const block of executeBlocks) {
+          const parsedCalls = parseToolCalls(block)
+          toolCalls.push(...parsedCalls)
+        }
+      } else {
+        // 如果没有execute块，尝试直接解析JSON工具调用
+        const jsonToolCalls = extractJsonToolCalls(fullResponse)
+        toolCalls.push(...jsonToolCalls)
+      }
+      
+      for (const toolCall of toolCalls) {
+        try {
+          console.log(`[MCP CALL] ${toolCall.tool} args:`, JSON.stringify(toolCall.arguments, null, 2))
+          const result = await executeToolCall(toolCall)
+          console.log(`[MCP RESULT] ${toolCall.tool} result:`, JSON.stringify(result, null, 2))
           
-          try {
-            console.log(`[MCP CALL] ${toolCall.tool} args:`, JSON.stringify(toolCall.arguments, null, 2))
-            const result = await executeToolCall(toolCall)
-            console.log(`[MCP RESULT] ${toolCall.tool} result:`, JSON.stringify(result, null, 2))
-            
-            // 添加工具调用摘要到消息
-            const argsSummary = JSON.stringify(toolCall.arguments, null, 2)
-            const resultMessage = `\n\n已调用${toolCall.tool}工具，参数：\n${argsSummary}\n`
-            setMessages(prev => prev.map(msg => 
-              msg.id === aiMessageId 
-                ? { ...msg, content: msg.content + resultMessage }
-                : msg
-            ))
-          } catch (error) {
-            console.error('工具调用失败:', error)
-            const errorMessage = `\n\n[工具调用失败]\n${error instanceof Error ? error.message : '未知错误'}\n\n`
-            setMessages(prev => prev.map(msg => 
-              msg.id === aiMessageId 
-                ? { ...msg, content: msg.content + errorMessage }
-                : msg
-            ))
-          }
+          // 添加工具调用摘要到消息
+          const argsSummary = JSON.stringify(toolCall.arguments, null, 2)
+          const resultMessage = `\n\n已调用${toolCall.tool}工具，参数：\n${argsSummary}\n`
+          setMessages(prev => prev.map(msg => 
+            msg.id === aiMessageId 
+              ? { ...msg, content: msg.content + resultMessage }
+              : msg
+          ))
+        } catch (error) {
+          console.error('工具调用失败:', error)
+          const errorMessage = `\n\n[工具调用失败]\n${error instanceof Error ? error.message : '未知错误'}\n\n`
+          setMessages(prev => prev.map(msg => 
+            msg.id === aiMessageId 
+              ? { ...msg, content: msg.content + errorMessage }
+              : msg
+          ))
         }
       }
     } catch (error) {
@@ -256,6 +265,35 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       return toolCalls
     } catch (error) {
       console.error('解析工具调用失败:', error)
+      return []
+    }
+  }
+
+  // 提取直接输出的JSON工具调用
+  const extractJsonToolCalls = (text: string): Array<{tool: string, arguments: any}> => {
+    try {
+      const toolCalls: Array<{tool: string, arguments: any}> = []
+      
+      // 匹配包含"tool"和"arguments"的JSON对象
+      const jsonRegex = /\{[^{}]*"tool"[^{}]*"arguments"[^{}]*\}/g
+      const matches = text.match(jsonRegex)
+      
+      if (matches) {
+        for (const match of matches) {
+          try {
+            const toolCall = JSON.parse(match)
+            if (toolCall.tool && toolCall.arguments) {
+              toolCalls.push(toolCall)
+            }
+          } catch (e) {
+            // 忽略解析错误的JSON
+          }
+        }
+      }
+
+      return toolCalls
+    } catch (error) {
+      console.error('提取JSON工具调用失败:', error)
       return []
     }
   }
