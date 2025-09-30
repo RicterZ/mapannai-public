@@ -33,6 +33,7 @@ export const AiChat = ({ onClose }: AiChatProps) => {
 
   // 组件卸载时标记
   useEffect(() => {
+    isMountedRef.current = true
     return () => {
       isMountedRef.current = false
     }
@@ -115,12 +116,6 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       let fullResponse = ''
 
       while (true) {
-        if (!isMountedRef.current) {
-          // 组件已卸载，停止读取但不取消reader
-          console.log('组件已卸载，停止读取流')
-          break
-        }
-
         const { done, value } = await reader.read()
         
         if (done) {
@@ -160,19 +155,17 @@ export const AiChat = ({ onClose }: AiChatProps) => {
                  currentContent += content
                }
               
-              // 安全地更新AI消息
-              if (isMountedRef.current) {
-                setMessages(prev => prev.map(msg => 
-                  msg.id === aiMessageId 
-                    ? { 
-                        ...msg, 
-                        content: currentContent,
-                        thinking: thinkingContent,
-                        isStreaming: true
-                      }
-                    : msg
-                ))
-              }
+              // 更新AI消息
+              setMessages(prev => prev.map(msg => 
+                msg.id === aiMessageId 
+                  ? { 
+                      ...msg, 
+                      content: currentContent,
+                      thinking: thinkingContent,
+                      isStreaming: true
+                    }
+                  : msg
+              ))
             } else if (data.error) {
               console.error('AI API返回错误:', data.error)
               throw new Error(data.error)
@@ -190,31 +183,25 @@ export const AiChat = ({ onClose }: AiChatProps) => {
         await handleToolCalls(fullResponse, aiMessageId)
       }
 
-      // 完成流式输出
-      if (isMountedRef.current) {
+        // 完成流式输出
         setMessages(prev => prev.map(msg => 
           msg.id === aiMessageId 
             ? { ...msg, isStreaming: false }
             : msg
         ))
-      }
 
     } catch (error) {
       console.error('AI聊天错误:', error)
       
-      if (isMountedRef.current) {
-        const errorMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          type: 'ai',
-          content: '抱歉，服务暂时不可用，请稍后再试。',
-          timestamp: new Date()
-        }
-        setMessages(prev => [...prev, errorMessage])
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'ai',
+        content: '抱歉，服务暂时不可用，请稍后再试。',
+        timestamp: new Date()
       }
+      setMessages(prev => [...prev, errorMessage])
     } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false)
-      }
+      setIsLoading(false)
        // 确保reader被关闭
        if (reader) {
          try {
@@ -247,7 +234,6 @@ export const AiChat = ({ onClose }: AiChatProps) => {
 
   // 处理工具调用
   const handleToolCalls = async (fullResponse: string, aiMessageId: string) => {
-    if (!isMountedRef.current) return
 
     try {
       let toolCalls: Array<{tool: string, arguments: any}> = []
@@ -281,38 +267,32 @@ export const AiChat = ({ onClose }: AiChatProps) => {
         )
       )
 
-      for (const toolCall of uniqueToolCalls) {
-        if (!isMountedRef.current) break
-
-        try {
-          console.log(`[MCP CALL] ${toolCall.tool} args:`, JSON.stringify(toolCall.arguments, null, 2))
-          const result = await executeToolCall(toolCall)
-          console.log(`[MCP RESULT] ${toolCall.tool} result:`, JSON.stringify(result, null, 2))
-          
-          // 添加工具调用摘要到消息
-          const argsSummary = JSON.stringify(toolCall.arguments, null, 2)
-          const resultMessage = `\n\n已调用${toolCall.tool}工具，参数：\n${argsSummary}\n`
-          
-          if (isMountedRef.current) {
-            setMessages(prev => prev.map(msg => 
-              msg.id === aiMessageId 
-                ? { ...msg, content: msg.content + resultMessage }
-                : msg
-            ))
-          }
-        } catch (error) {
-          console.error('工具调用失败:', error)
-          const errorMessage = `\n\n[工具调用失败]\n${error instanceof Error ? error.message : '未知错误'}\n\n`
-          
-          if (isMountedRef.current) {
-            setMessages(prev => prev.map(msg => 
-              msg.id === aiMessageId 
-                ? { ...msg, content: msg.content + errorMessage }
-                : msg
-            ))
-          }
-        }
-      }
+       for (const toolCall of uniqueToolCalls) {
+         try {
+           console.log(`[MCP CALL] ${toolCall.tool} args:`, JSON.stringify(toolCall.arguments, null, 2))
+           const result = await executeToolCall(toolCall)
+           console.log(`[MCP RESULT] ${toolCall.tool} result:`, JSON.stringify(result, null, 2))
+           
+           // 添加工具调用摘要到消息
+           const argsSummary = JSON.stringify(toolCall.arguments, null, 2)
+           const resultMessage = `\n\n已调用${toolCall.tool}工具，参数：\n${argsSummary}\n`
+           
+           setMessages(prev => prev.map(msg => 
+             msg.id === aiMessageId 
+               ? { ...msg, content: msg.content + resultMessage }
+               : msg
+           ))
+         } catch (error) {
+           console.error('工具调用失败:', error)
+           const errorMessage = `\n\n[工具调用失败]\n${error instanceof Error ? error.message : '未知错误'}\n\n`
+           
+           setMessages(prev => prev.map(msg => 
+             msg.id === aiMessageId 
+               ? { ...msg, content: msg.content + errorMessage }
+               : msg
+           ))
+         }
+       }
     } catch (error) {
       console.error('处理工具调用时出错:', error)
     }
