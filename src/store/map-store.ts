@@ -98,6 +98,9 @@ interface MapStore {
     clearError: () => void
 
     setLoading: (loading: boolean) => void
+
+    // Chain building - update next relations in local state
+    setMarkerNext: (markerId: string, nextIds: string[]) => void
 }
 
 // 检查是否在服务器端API路由中运行
@@ -235,11 +238,13 @@ export const useMapStore = create<MapStore>()(
                     const existingIndex = state.markers.findIndex(m => m.id === marker.id);
                     if (existingIndex !== -1) {
                         // 如果存在，跳过添加但返回现有标记信息
-                        console.log('标记已存在，跳过添加:', marker.id);
+                        console.debug('[useMapStore] addMarkerToStore skip existing:', marker.id);
                         return state;
                     } else {
                         // 如果不存在，添加新标记
-                        return { markers: [...state.markers, marker] };
+                        const next = { markers: [...state.markers, marker] } as any
+                        console.debug('[useMapStore] addMarkerToStore added:', marker.id, 'total ->', (state.markers.length + 1))
+                        return next;
                     }
                 }, false, 'addMarkerToStore')
                 
@@ -604,6 +609,24 @@ export const useMapStore = create<MapStore>()(
                         console.error('保存内容到 Dataset 失败:', error)
                     })
                 }
+            },
+
+            // 设置某个标记的 next 关系（用于行程链实时渲染）
+            setMarkerNext: (markerId, nextIds) => {
+                set(state => ({
+                    markers: state.markers.map(marker =>
+                        marker.id === markerId
+                            ? {
+                                ...marker,
+                                content: {
+                                    ...marker.content,
+                                    next: Array.isArray(nextIds) ? nextIds : [],
+                                    updatedAt: new Date(),
+                                },
+                            }
+                            : marker
+                    ),
+                }), false, 'setMarkerNext')
             },
 
             // Dataset actions

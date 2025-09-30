@@ -20,6 +20,7 @@ import { Sidebar } from '@/components/sidebar/sidebar'
 import { cn } from '@/utils/cn'
 import { MarkerIconType } from '@/types/marker'
 import Map, { Marker as MapboxMarker, MapRef, ViewState, MapProvider as ReactMapProvider } from 'react-map-gl'
+import { Bot } from 'lucide-react'
 
 // 根据地图提供者导入相应的样式
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -162,6 +163,15 @@ export const AbstractMap = () => {
     } = useMapStore()
 
     const { isPopupOpen, popupCoordinates, selectedMarkerId, isSidebarOpen, isAiSidebarOpen } = interactionState
+
+    // 调试：监听 markers 变化
+    useEffect(() => {
+        console.debug('[AbstractMap] markers changed:', markers.length)
+        if (markers.length > 0) {
+            const m = markers[markers.length - 1]
+            console.debug('[AbstractMap] last marker:', m?.id, m?.coordinates)
+        }
+    }, [markers])
 
     // 自定义关闭标记详情函数，在移动端关闭时跳转到正中间
     const handleCloseSidebar = useCallback(() => {
@@ -863,12 +873,10 @@ export const AbstractMap = () => {
                         aria-label={interactionState.isAiSidebarOpen ? '关闭AI助手' : '打开AI助手'}
                         title={interactionState.isAiSidebarOpen ? '关闭AI助手' : '打开AI助手'}
                     >
-                        <svg className={cn(
-                            "w-5 h-5",
-                            interactionState.isAiSidebarOpen ? "text-blue-600" : "text-gray-700"
-                        )} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                        </svg>
+                        <Bot className={cn(
+                            'w-5 h-5',
+                            interactionState.isAiSidebarOpen ? 'text-blue-600' : 'text-gray-700'
+                        )} />
                     </button>
 
                     {/* 城市快速跳转按钮 */}
