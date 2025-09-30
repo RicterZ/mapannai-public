@@ -234,7 +234,7 @@ export const useMapStore = create<MapStore>()(
                     // 检查是否已存在相同ID的标记
                     const existingIndex = state.markers.findIndex(m => m.id === marker.id);
                     if (existingIndex !== -1) {
-                        // 如果存在，跳过添加
+                        // 如果存在，跳过添加但返回现有标记信息
                         console.log('标记已存在，跳过添加:', marker.id);
                         return state;
                     } else {
@@ -242,6 +242,11 @@ export const useMapStore = create<MapStore>()(
                         return { markers: [...state.markers, marker] };
                     }
                 }, false, 'addMarkerToStore')
+                
+                // 返回标记信息（无论是新添加的还是已存在的）
+                const currentState = get();
+                const existingMarker = currentState.markers.find(m => m.id === marker.id);
+                return existingMarker || marker;
             },
 
             createMarkerFromModal: async (data) => {
