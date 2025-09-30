@@ -234,10 +234,9 @@ export const useMapStore = create<MapStore>()(
                     // 检查是否已存在相同ID的标记
                     const existingIndex = state.markers.findIndex(m => m.id === marker.id);
                     if (existingIndex !== -1) {
-                        // 如果存在，更新现有标记
-                        const updatedMarkers = [...state.markers];
-                        updatedMarkers[existingIndex] = marker;
-                        return { markers: updatedMarkers };
+                        // 如果存在，跳过添加
+                        console.log('标记已存在，跳过添加:', marker.id);
+                        return state;
                     } else {
                         // 如果不存在，添加新标记
                         return { markers: [...state.markers, marker] };
