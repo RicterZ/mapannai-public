@@ -5,10 +5,10 @@ import { Inter } from 'next/font/google'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-    title: 'マップ案内 - 交互式地图编辑器',
-    description: '交互式地图标记编辑平台，支持富文本内容编辑和多人协作',
-    keywords: ['地图', '编辑器', '标记', 'mapbox', '交互式', 'マップ案内'],
-    authors: [{ name: 'マップ案内 Team' }],
+    title: 'マップ案内 Plus - 交互式地图 AI 编辑器',
+    description: '交互式地图标记编辑平台，支持富文本内容编辑和多人协作，支持AI聊天和生成计划',
+    keywords: ['地图', '编辑器', '标记', 'mapbox', '交互式', 'マップ案内', 'AI', '聊天', '旅游计划'],
+    authors: [{ name: 'マップ案内 Team, Ricter Z' }],
 }
 
 export const viewport: Viewport = {
