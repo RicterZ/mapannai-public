@@ -32,6 +32,7 @@ export interface Marker {
   content: MarkerContent;
 }
 
+
 export interface CreateMarkerRequest {
   coordinates: MarkerCoordinates;
   title: string;

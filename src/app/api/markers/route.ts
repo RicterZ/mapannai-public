@@ -4,6 +4,7 @@ import { Marker, MarkerIconType } from '@/types/marker';
 import { v4 as uuidv4 } from 'uuid';
 import { datasetService } from '@/lib/api/dataset-service';
 import { config } from '@/lib/config';
+import { isWithinDistance } from '@/utils/distance';
 
 // 获取所有标记
 export async function GET() {
@@ -77,6 +78,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 检查是否存在相近的标记（10米范围内）
+    const datasetId = config.map.mapbox.dataset?.datasetId;
+    if (datasetId) {
+      try {
+        const existingFeatures = await datasetService.getAllFeatures(datasetId);
+        const nearbyMarker = existingFeatures.features.find(feature => {
+          if (!feature.geometry || !feature.geometry.coordinates) return false;
+          
+          const [lng, lat] = feature.geometry.coordinates;
+          return isWithinDistance(
+            coordinates.latitude,
+            coordinates.longitude,
+            lat,
+            lng,
+            10 // 10米范围内
+          );
+        });
+
+        if (nearbyMarker) {
+          // 找到相近标记，直接返回现有标记信息，客户端无感知
+          const existingMarker = {
+            id: nearbyMarker.id,
+            coordinates: {
+              latitude: nearbyMarker.geometry.coordinates[1],
+              longitude: nearbyMarker.geometry.coordinates[0],
+            },
+            content: {
+              id: nearbyMarker.id,
+              title: nearbyMarker.properties?.metadata?.title || '未命名标记',
+              iconType: nearbyMarker.properties?.iconType || 'location',
+              markdownContent: nearbyMarker.properties?.markdownContent || '',
+              next: nearbyMarker.properties?.next || [],
+              createdAt: nearbyMarker.properties?.metadata?.createdAt 
+                ? new Date(nearbyMarker.properties.metadata.createdAt) 
+                : new Date(),
+              updatedAt: nearbyMarker.properties?.metadata?.updatedAt 
+                ? new Date(nearbyMarker.properties.metadata.updatedAt) 
+                : new Date(),
+            },
+          };
+
+          return NextResponse.json(existingMarker);
+        }
+      } catch (error) {
+        console.warn('检查相近标记时出错，继续创建新标记:', error);
+      }
+    }
+
     // 创建标记对象
     const markerId = uuidv4();
     const now = new Date();
@@ -95,7 +144,6 @@ export async function POST(request: NextRequest) {
     };
 
     // 直接保存到数据集
-    const datasetId = config.map.mapbox.dataset?.datasetId;
     if (datasetId) {
       const properties = {
         markdownContent: marker.content.markdownContent,

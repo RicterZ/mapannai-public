@@ -6,6 +6,148 @@ import axios from 'axios';
 import { MapannaiApiClient } from './api-client.js';
 import dotenv from 'dotenv';
 
+
+const prompt = `你是旅游规划助手，帮助用户创建地图标记和规划行程。您的任务很简单：基于您的知识推荐景点，调用工具创建标记，补充地点信息，最后创建行程链。
+
+## 输出格式
+<think>
+[深度思考用户需求，列出具体地点计划A、B、C、D、E和推荐顺序，包括住宿、餐饮、景点等类型，并考虑交通和时间安排。]
+</think>
+
+<execute>
+[只能包含工具调用，不能有其他内容]
+</execute>
+
+## 核心规则
+1. **深度思考优先**：在<think>内完成全面需求分析，列出5-8个推荐地点和游览顺序。
+2. **日语地点名称**：创建标记时尽量使用日语官方名称，确保地点准确性。
+3. **直接创建标记**：无需检查现有标记，直接基于您的知识推荐地点并调用create_marker_v2创建标记。
+4. **自动规划执行**：不需要向用户确认是否继续，AI应自行按计划执行所有步骤。
+5. **等待工具结果**：每次调用工具后必须等待工具返回结果，再继续下一步。
+6. **信息补充机制**：创建标记后，使用update_marker_content添加详细信息（门票、营业时间、交通提示等）。
+7. **行程链创建**：基于思考阶段的规划顺序，调用create_travel_chain组织markerIds。
+
+## 简化工作流程
+1) **思考阶段**：分析用户需求，列出推荐地点和顺序。
+2) **标记创建阶段**：对每个推荐地点直接创建标记，使用日语名称。
+3) **信息补充阶段**：为每个标记补充详细信息。
+4) **行程链创建**：基于规划顺序创建行程链。
+5) **任务完成**：输出 ✅ 任务已完成。
+
+## 可用工具
+- **create_marker_v2**: 通过地名创建标记 (name, iconType, content可选) - 内部会搜索地点并获取坐标
+- **update_marker_content**: 更新标记内容 (markerId, title, markdownContent)
+- **create_travel_chain**: 创建行程链 (markerIds, chainName, description)
+
+## 工具调用格式
+{
+  "tool": "工具名称",
+  "arguments": { "参数": "值" },
+  "uuid": "随机UUID字符串"
+}
+
+## 图标类型选择指导
+- **landmark**: 地标建筑、纪念碑
+- **culture**: 博物馆、艺术馆、历史遗迹
+- **natural**: 自然景观、公园、海滩
+- **food**: 餐厅、美食街、咖啡厅
+- **shopping**: 商场、购物中心、市场
+- **activity**: 娱乐场所、运动场馆
+- **location**: 一般位置、地址
+- **hotel**: 酒店、住宿、民宿
+- **park**: 公园、绿地
+
+## 信息补充指南
+使用update_marker_content时，markdownContent应包含：
+- **基本描述**：地点特色和推荐理由
+- **实用信息**：门票价格、营业时间
+- **交通提示**：公共交通方式、停车信息
+- **注意事项**：最佳游览时间、预订建议等
+
+## 日语地点命名规则
+- 优先使用日语官方名称（如"東京タワー"而非"Tokyo Tower"）
+- 对于知名景点，使用当地常用名称
+- 确保名称准确性，避免翻译错误
+
+## 自动规划要求
+- AI应自行完成所有规划步骤，不需要向用户确认
+- 按思考阶段的计划自动执行所有工具调用
+- 遇到工具错误时自动尝试解决或调整计划
+
+## 对话流程要求
+- 每次调用工具后必须等待工具返回结果
+- 收到工具结果后，根据结果决定下一步操作
+- 保持对话的自然流畅，但严格遵循思考-执行的分离格式
+
+## 示例：函馆一日游（日语名称版本）
+<think>用户需要函馆一日游。推荐以下地点和顺序：
+1. 函館朝市（美食）- 海鲜市场，早餐推荐
+2. 五稜郭公園（文化）- 历史遗迹，免费入园
+3. 元町区域（购物/文化）- 西洋建筑群
+4. 函館山（景点）- 地标，夜景著名
+5. 湯の川温泉（住宿）- 温泉旅馆
+顺序：函館朝市→五稜郭公園→元町区域→函館山→湯の川温泉</think>
+
+<execute>
+{
+  "tool": "create_marker_v2",
+  "arguments": {
+    "name": "函館朝市",
+    "iconType": "food",
+    "content": "函館著名的海鲜市场"
+  },
+  "uuid": "abc123-def456-ghi789"
+}
+</execute>
+
+<think>已创建函館朝市标记，等待工具返回markerId后补充详细信息。</think>
+
+[等待工具返回结果...(这段话不必输出，这只是表示你需要等待返回结果)]
+
+<execute>
+{
+  "tool": "update_marker_content",
+  "arguments": {
+    "markerId": "返回的markerId",
+    "title": "函館朝市",
+    "markdownContent": "**函館朝市**\n- 特色：新鲜海鲜、海胆、螃蟹\n- 时间：6:00-14:00\n- 推荐：海鲜丼早餐\n- 交通：JR函館站步行5分钟"
+  },
+  "uuid": "def456-ghi789-jkl012"
+}
+</execute>
+
+<think>已更新函館朝市信息，继续创建下一个标记：五稜郭公園。</think>
+
+<execute>
+{
+  "tool": "create_marker_v2",
+  "arguments": {
+    "name": "五稜郭公園",
+    "iconType": "culture",
+    "content": "星形要塞历史公园"
+  },
+  "uuid": "ghi789-jkl012-mno345"
+}
+</execute>
+
+[重复以上步骤为其他地点创建标记并更新内容...]
+
+<think>所有标记已创建并更新信息，现在基于规划顺序创建行程链。</think>
+
+<execute>
+{
+  "tool": "create_travel_chain",
+  "arguments": {
+    "markerIds": ["id1", "id2", "id3", "id4", "id5"],
+    "chainName": "函館一日遊",
+    "description": "从早餐市场开始，游览历史遗迹，欣赏西洋建筑，观看夜景，最后入住温泉旅馆"
+  },
+  "uuid": "jkl012-mno345-pqr678"
+}
+</execute>
+
+✅ 任务已完成：已创建函館一日遊行程链，包含5个地点，涵盖美食、文化、购物和住宿。`
+
 // 加载环境变量
 dotenv.config();
 
@@ -21,6 +163,7 @@ class AIMiddleware {
   private apiClient: MapannaiApiClient;
   private port: number;
   private conversationSessions: Map<string, ConversationMessage[]> = new Map();
+  private executedToolCalls: Set<string> = new Set(); // 存储已执行的工具调用UUID
 
   constructor() {
     this.app = express();
@@ -95,117 +238,7 @@ class AIMiddleware {
         const messages: ConversationMessage[] = [
           {
             role: 'system',
-            content: `你是旅游规划助手，帮助用户创建地图标记和规划行程。请真心实意的帮助用户，为用户深度考虑住、行、吃、游、购、娱等要素。
-
-## 输出格式
-<think>
-[深度思考用户需求，列出具体地点计划A、B、C、D、E和推荐顺序，包括住宿、餐饮、景点等类型，并考虑交通和时间安排。思考应详细但聚焦，确保后续工具调用有明确目标。]
-</think>
-
-<execute>
-[只能包含工具调用，不能有其他内容]
-</execute>
-
-## 核心规则
-1. **深度思考优先**：在<think>内必须完成全面需求分析，列出所有推荐地点（如A、B、C、D、E）和推荐游览顺序（如A→C→D→E→B），包括地点类型（住宿、餐厅、景点等）和关键信息（如门票价格、营业时间等，基于常识）。
-3. **标记复用原则**：只复用思考阶段列出且已存在的标记，避免被其他标记干扰。
-4. **行程链最小要求**：create_travel_chain必须基于思考阶段的规划顺序，且需要至少2个有效markerIds。
-5. **信息补充机制**：创建标记后，应使用update_marker_content添加详细信息（如门票、营业时间、交通提示等），基于常识或工具返回数据。
-6. **分离执行步骤**：严格按步骤执行工具调用，一次只调用一个工具。
-7. **目的地细化搜索**：搜索地点时必须使用具体名称（如"函馆山"而非"函馆"），确保精度。
-
-## 完整工作流程
-1) **深度思考阶段**：在<think>内分析用户需求，列出5-8个推荐地点（涵盖住、行、吃、游、购、娱），确定最佳游览顺序，并备注每个地点的类型和关键信息。
-2) **标记补齐阶段**：对思考阶段列出的每个地点：
-   - 检查是否在现有标记中（标题匹配）
-   - 如不存在 → create_marker_v2(尽量提供更具体的查询，例如“函馆山附近 炸猪排店”，并选择合适iconType) → update_marker_content(添加详细信息)
-3) **行程链创建**：基于思考阶段的顺序，调用create_travel_chain组织markerIds。
-4) **任务完成**：输出 ✅ 任务已完成，并简要总结行程。
-
-## 可用工具
-- **create_marker_v2**: 通过地名创建标记（内部搜索坐标；建议使用更具体的查询）
-- **create_marker**: 创建标记 (coordinates, title, iconType) [如已知坐标时使用]
-- **search_places**: 搜索地点坐标 (query: string) [可选，不推荐优先使用]
-- **get_marker**: 获取单个标记 (markerId: string)
-- **update_marker_content**: 更新标记内容 (markerId, title, markdownContent) - [用于添加门票价格、营业时间、交通等信息]
-- **create_travel_chain**: 创建行程链 (markerIds, chainName, description)
-
-## 工具调用格式
-TOOL_CALL_START
-{
-  "tool": "工具名称",
-  "arguments": { "参数": "值" }
-}
-TOOL_CALL_END
-
-## 图标类型选择指导
-- **landmark**: 地标建筑、纪念碑
-- **culture**: 博物馆、艺术馆、历史遗迹
-- **natural**: 自然景观、公园、海滩
-- **food**: 餐厅、美食街、咖啡厅
-- **shopping**: 商场、购物中心、市场
-- **activity**: 娱乐场所、运动场馆
-- **location**: 一般位置、地址
-- **hotel**: 酒店、住宿、民宿
-- **park**: 公园、绿地
-
-## 信息补充指南
-使用update_marker_content时，markdownContent应包含：
-- **基本描述**：地点特色和推荐理由
-- **实用信息**：门票价格（如"成人票¥1000"）、营业时间（如"9:00-18:00"）
-- **交通提示**：公共交通方式、停车信息
-- **注意事项**：最佳游览时间、预订建议等
-基于常识填充，如无法确定则标注"信息待核实"。
-
-## 专注当前规划规则
-- **计划驱动执行**：严格按照思考阶段制定的计划执行，不被现有标记库中的其他地点分散注意力。
-- **只复用计划内标记**：只有当思考阶段列出的地点在现有标记中存在时，才复用这些标记。
-
-## 示例：函馆一日游（正确流程）
-<think>
-用户需要函馆一日游，深度考虑住宿、餐饮、景点和交通。推荐地点：
-1. 函馆山（景点）- 地标，夜景著名，门票约¥1500，缆车运营时间10:00-22:00
-2. 五棱郭公园（文化）- 历史遗迹，免费入园，塔楼门票¥900，9:00-18:00
-3. 函馆朝市（美食）- 海鲜市场，早餐推荐，6:00-14:00
-4. 元町区域（购物/文化）- 西洋建筑群，商店10:00-18:00
-5. 汤之川温泉（住宿）- 温泉旅馆，可过夜
-推荐顺序：函馆朝市(早餐)→五棱郭公园→元町区域(午餐)→函馆山(夜景)→汤之川温泉(住宿)，考虑交通便利性和时间安排。
-</think>
-
-<execute>
-TOOL_CALL_START
-{
-  "tool": "create_marker_v2",
-  "arguments": { "name": "函馆山", "iconType": "natural" }
-}
-TOOL_CALL_END
-</execute>
-
-<execute>
-TOOL_CALL_START
-{
-  "tool": "update_marker_content",
-  "arguments": { "markerId": "新标记ID", "title": "函馆山", "markdownContent": "**函馆山夜景**\n- 门票：缆车往返¥1500\n- 时间：10:00-22:00\n- 交通：乘巴士或缆车上山\n- 提示：日落时分最佳，避开人群" }
-}
-TOOL_CALL_END
-</execute>
-
-[重复以上步骤为其他计划地点创建标记并更新内容...]
-
-<think>
-所有计划中的函馆地点标记已创建并更新信息，现在基于规划顺序创建行程链。
-</think>
-
-<execute>
-TOOL_CALL_START
-{
-  "tool": "create_travel_chain",
-  "arguments": { "markerIds": ["id1", "id2", "id3", "id4", "id5"], "chainName": "函馆深度一日游", "description": "涵盖早餐市场、历史公园、文化区域、夜景和温泉住宿" }
-}
-TOOL_CALL_END
-</execute>
-
-✅ 任务已完成：已创建函馆深度一日游行程链，包含5个地点，涵盖景点、美食、购物和住宿，并补充实用信息。`
+            content: prompt
           },
           ...conversation,
           {
@@ -223,35 +256,106 @@ TOOL_CALL_END
           // 重置标志
           hasToolCalls = false;
           let currentResponse = '';
-          let inExecutionSection = false;
+          let responseBuffer = ''; // 用于处理跨chunk的标签
           
           // 流式调用 Ollama
           await this.callOllamaStream(currentMessages, async (chunk: string) => {
             currentResponse += chunk;
             fullResponse += chunk;
+            responseBuffer += chunk;
             
             // 发送流式数据
             res.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`);
             
-            // 检查是否进入执行部分
-            if (currentResponse.includes('<execute>')) {
-              inExecutionSection = true;
-            }
+            // 检查是否有完整的execute块（处理跨chunk的情况）
+            const executePattern = /<execute>[\s\S]*?<\/execute>/g;
+            let match;
+            let hasExecuteBlock = false;
             
-            // 检查是否包含工具调用（只在执行部分检测）
-            if (inExecutionSection) {
-              if (chunk.includes('TOOL_CALL_START')) {
-                hasToolCalls = true;
-              } else if (/<execute>[\s\S]*?TOOL_CALL_START/.test(currentResponse)) {
-                hasToolCalls = true;
+            // 重置正则表达式的lastIndex
+            executePattern.lastIndex = 0;
+            
+            while ((match = executePattern.exec(responseBuffer)) !== null) {
+              hasExecuteBlock = true;
+              const executeBlock = match[0];
+              
+              // 解析这个execute块中的工具调用
+              const toolCalls = this.parseToolCalls(executeBlock);
+              if (toolCalls.length > 0) {
+                // 检查是否有重复的工具调用
+                const newToolCalls = toolCalls.filter(toolCall => {
+                  if (toolCall.uuid && this.executedToolCalls.has(toolCall.uuid)) {
+                    console.log(`跳过重复的工具调用: ${toolCall.tool} (UUID: ${toolCall.uuid})`);
+                    return false;
+                  }
+                  return true;
+                });
+
+                if (newToolCalls.length === 0) {
+                  console.log('所有工具调用都已执行过，跳过');
+                  continue;
+                }
+
+                res.write(`data: ${JSON.stringify({ type: 'tool_executing', message: '正在执行工具调用...' })}\n\n`);
+                
+                try {
+                  // 同步执行所有工具调用
+                  const results = await this.executeToolCalls(newToolCalls);
+                  
+                  // 发送工具调用结果
+                  for (let i = 0; i < newToolCalls.length; i++) {
+                    const toolCall = newToolCalls[i];
+                    const result = results[i];
+                    
+                    // 记录已执行的工具调用UUID
+                    if (toolCall.uuid) {
+                      this.executedToolCalls.add(toolCall.uuid);
+                    }
+                    
+                    if (result.error) {
+                      res.write(`data: ${JSON.stringify({ type: 'tool_error', tool: toolCall.tool, error: result.error })}\n\n`);
+                    } else {
+                      res.write(`data: ${JSON.stringify({ type: 'tool_call', tool: toolCall.tool, result: result.result })}\n\n`);
+                    }
+                  }
+                  
+                  // 将工具调用结果添加到对话上下文中
+                  const toolResults = results.map((result, index) => {
+                    const toolCall = newToolCalls[index];
+                    const toolResult = result.result || result.error;
+                    return `工具调用结果 (${toolCall.tool}): ${JSON.stringify(toolResult)}`;
+                  }).join('\n\n');
+                  
+                  // 更新对话上下文，添加工具结果
+                  currentMessages.push({
+                    role: 'assistant',
+                    content: currentResponse
+                  });
+                  currentMessages.push({
+                    role: 'user',
+                    content: `🔧 MCP工具返回结果：\n\n${toolResults}\n\n请基于这些真实结果继续下一步操作。如果任务已完成，请说明完成情况。如果需要继续操作，请按照格式要求输出。`
+                  });
+
+                  // 更新session中的对话历史
+                  this.updateSessionHistory(currentSessionId, currentResponse, `🔧 MCP工具返回结果：\n\n${toolResults}`);
+                  
+                  // 设置标志，让AI继续生成下一步响应
+                  hasToolCalls = true;
+                  
+                } catch (error) {
+                  console.error('工具调用执行异常:', error);
+                  res.write(`data: ${JSON.stringify({ type: 'tool_error', error: error instanceof Error ? error.message : '工具调用执行异常' })}\n\n`);
+                  hasToolCalls = false;
+                }
               }
             }
+            
+            // 如果找到了execute块，从缓冲区中移除已处理的部分
+            if (hasExecuteBlock) {
+              // 移除已处理的execute块，保留后续内容
+              responseBuffer = responseBuffer.replace(executePattern, '');
+            }
           });
-          
-          // 检查完整的响应中是否包含工具调用（只在<execute>标签内检测）
-          if (!hasToolCalls && currentResponse.includes('TOOL_CALL_START') && currentResponse.includes('<execute>')) {
-            hasToolCalls = true;
-          }
           
           // 检查是否任务已完成（只有在没有工具调用时才检查完成标记）
           if (!hasToolCalls) {
@@ -260,128 +364,6 @@ TOOL_CALL_END
             if (currentResponse.match(completionPattern)) {
               console.log('检测到正式的任务完成标识，但继续保持对话状态');
               // 不再停止循环，让AI继续输出后续内容（如询问是否需要其他帮助）
-              hasToolCalls = false;
-            }
-          }
-          
-          // 如果检测到工具调用，执行工具并重新开始对话
-          if (hasToolCalls) {
-            // 解析工具调用
-            const toolCalls = this.parseToolCalls(currentResponse);
-            
-            if (toolCalls.length > 0) {
-              // 发送工具执行状态
-              res.write(`data: ${JSON.stringify({ type: 'tool_executing', message: '正在执行工具调用...' })}\n\n`);
-              
-              try {
-                // 同步执行所有工具调用
-                const results = await this.executeToolCalls(toolCalls);
-                
-                // 发送工具调用结果
-                for (let i = 0; i < toolCalls.length; i++) {
-                  const toolCall = toolCalls[i];
-                  const result = results[i];
-                  
-                  if (result.error) {
-                    res.write(`data: ${JSON.stringify({ type: 'tool_error', tool: toolCall.tool, error: result.error })}\n\n`);
-                  } else {
-                    res.write(`data: ${JSON.stringify({ type: 'tool_call', tool: toolCall.tool, result: result.result })}\n\n`);
-                  }
-                }
-                
-                // 将工具调用结果添加到对话上下文中，优化内容长度
-                const toolResults = results.map((result, index) => {
-                  const toolCall = toolCalls[index];
-                  const toolResult = result.result || result.error;
-                  
-                  // 根据工具类型优化返回内容
-                  if (toolCall.tool === 'get_markers') {
-                    if (Array.isArray(toolResult) && toolResult.length > 0) {
-                      // 只返回关键信息：id, title, coordinates，智能限制数量
-                      const totalMarkers = toolResult.length;
-                      let maxMarkers = 50; // 默认最多显示50个标记
-                      
-                      // 如果标记数量很多，适当增加显示数量
-                      if (totalMarkers > 100) {
-                        maxMarkers = 100; // 超过100个标记时，显示前100个
-                      } else if (totalMarkers > 200) {
-                        maxMarkers = 150; // 超过200个标记时，显示前150个
-                      }
-                      
-                      const markersToShow = toolResult.slice(0, maxMarkers);
-                      const simplifiedMarkers = markersToShow.map(marker => ({
-                        id: marker.id,
-                        // 一些后端返回的title位于 content.title，这里做兼容
-                        title: (marker as any)?.title ?? (marker as any)?.content?.title ?? '',
-                        coordinates: (marker as any)?.coordinates
-                      }));
-                      
-                      let result = `工具调用结果 (${toolCall.tool}): 找到 ${totalMarkers} 个标记`;
-                      if (totalMarkers > maxMarkers) {
-                        result += ` (显示前 ${maxMarkers} 个)`;
-                      }
-                      result += `\n${JSON.stringify(simplifiedMarkers, null, 2)}`;
-                      return result;
-                    } else {
-                      return `工具调用结果 (${toolCall.tool}): 没有找到任何标记`;
-                    }
-                  } else if (toolCall.tool === 'search_places') {
-                    if (Array.isArray(toolResult) && toolResult.length > 0) {
-                      // 只返回第一个结果的坐标和标题
-                      const firstResult = toolResult[0];
-                      return `工具调用结果 (${toolCall.tool}): 找到 ${toolResult.length} 个地点\n第一个结果: ${JSON.stringify({
-                        title: firstResult.title,
-                        coordinates: firstResult.coordinates
-                      }, null, 2)}`;
-                    } else {
-                      return `工具调用结果 (${toolCall.tool}): 没有找到相关地点`;
-                    }
-                  } else if (toolCall.tool === 'create_marker') {
-                    // 创建标记成功，返回关键信息
-                    return `工具调用结果 (${toolCall.tool}): 标记创建成功\n${JSON.stringify({
-                      id: toolResult.id,
-                      title: toolResult.title,
-                      coordinates: toolResult.coordinates
-                    }, null, 2)}`;
-                  } else {
-                    // 其他工具返回完整结果
-                    return `工具调用结果 (${toolCall.tool}): ${JSON.stringify(toolResult)}`;
-                  }
-                }).join('\n\n');
-                
-                // 限制工具结果的总长度，避免上下文过长
-                const maxToolResultLength = 8000; // 限制工具结果最大长度，支持更多标记
-                let finalToolResults = toolResults;
-                if (toolResults.length > maxToolResultLength) {
-                  finalToolResults = toolResults.substring(0, maxToolResultLength) + '\n\n[内容过长，已截断]';
-                }
-                
-                // 更新对话上下文，添加工具结果
-                currentMessages.push({
-                  role: 'assistant',
-                  content: currentResponse
-                });
-                currentMessages.push({
-                  role: 'user',
-                  content: `🔧 MCP工具返回结果：
-
-${finalToolResults}
-
-请基于这些真实结果继续下一步操作。如果任务已完成，请说明完成情况。如果需要继续操作，请按照格式要求输出。`
-                });
-
-                // 更新session中的对话历史
-                this.updateSessionHistory(currentSessionId, currentResponse, `🔧 MCP工具返回结果：\n\n${finalToolResults}`);
-                
-                // 继续循环，让AI基于工具结果生成下一步响应
-                hasToolCalls = true;
-                
-              } catch (error) {
-                console.error('工具调用执行异常:', error);
-                res.write(`data: ${JSON.stringify({ type: 'tool_error', error: error instanceof Error ? error.message : '工具调用执行异常' })}\n\n`);
-                hasToolCalls = false;
-              }
-            } else {
               hasToolCalls = false;
             }
           }
@@ -413,11 +395,11 @@ ${finalToolResults}
         },
           {
             name: 'create_marker_v2',
-            description: '通过地名创建标记：内部搜索地点并择优坐标。为提高准确度，请尽量提供更具体的查询，例如“函馆山附近 炸猪排店”。',
+            description: '通过地名创建标记：内部搜索地点并择优坐标。为提高准确度，请尽量提供更具体的查询，例如"函馆山附近 炸猪排店"。注意：只需要提供name（地名）、iconType（图标类型）和可选的content（描述），不需要提供coordinates坐标。',
             parameters: {
-              name: 'string',
-              iconType: 'string',
-              content: 'string (optional)'
+              name: 'string (地名，如"美之海水族馆")',
+              iconType: 'string (图标类型)',
+              content: 'string (可选，描述信息)'
             }
           },
         {
@@ -603,8 +585,11 @@ ${finalToolResults}
     }
   }
 
-  private parseToolCalls(response: string): Array<{ tool: string; args: any }> {
-    const toolCalls: Array<{ tool: string; args: any }> = [];
+  private parseToolCalls(response: string): Array<{ tool: string; args: any; uuid?: string }> {
+    const toolCalls: Array<{ tool: string; args: any; uuid?: string }> = [];
+
+    console.log(response)
+    console.log("--------------------------------")
     
     // 只在<execute>标签内查找工具调用
     let executionSection = '';
@@ -623,27 +608,74 @@ ${finalToolResults}
       }
     }
     
-    // 使用正则表达式匹配工具调用格式，支持多行JSON
-    const toolCallRegex = /TOOL_CALL_START\s*(\{[\s\S]*?\})\s*TOOL_CALL_END/g;
-    let match;
+    // 使用更精确的方法匹配JSON对象
+    // 找到所有包含"tool"的JSON对象
+    const lines = executionSection.split('\n');
+    let jsonBuffer = '';
+    let braceCount = 0;
+    let inJson = false;
+    let startLine = -1;
     
-    // 重置正则表达式的 lastIndex，因为 test() 方法会改变它
-    toolCallRegex.lastIndex = 0;
-    
-    while ((match = toolCallRegex.exec(executionSection)) !== null) {
-      try {
-        const toolCallData = JSON.parse(match[1]);
-        if (toolCallData.tool) {
-          // 如果没有 arguments 字段，自动添加空对象
-          const args = toolCallData.arguments || {};
-          toolCalls.push({
-            tool: toolCallData.tool,
-            args: args
-          });
-        } else {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmedLine = line.trim();
+      
+      // 如果行包含"tool"且不在JSON中，需要找到JSON对象的开始
+      if (trimmedLine.includes('"tool"') && !inJson) {
+        // 向前查找JSON对象的开始（包含{的行）
+        let jsonStart = i;
+        for (let j = i; j >= 0; j--) {
+          if (lines[j].includes('{')) {
+            jsonStart = j;
+            break;
+          }
         }
-      } catch (error) {
-        // 安静失败，不输出大量日志
+        
+        inJson = true;
+        jsonBuffer = '';
+        braceCount = 0;
+        startLine = jsonStart;
+        
+        // 从JSON开始行重新收集
+        for (let k = jsonStart; k <= i; k++) {
+          jsonBuffer += lines[k] + '\n';
+          for (const char of lines[k]) {
+            if (char === '{') braceCount++;
+            if (char === '}') braceCount--;
+          }
+        }
+      }
+      
+      if (inJson && i > startLine) {
+        // 继续收集后续行
+        jsonBuffer += line + '\n';
+        for (const char of line) {
+          if (char === '{') braceCount++;
+          if (char === '}') braceCount--;
+        }
+        
+        // 如果大括号平衡，说明JSON对象完整
+        if (braceCount === 0 && jsonBuffer.trim()) {
+          try {
+            const toolCallData = JSON.parse(jsonBuffer.trim());
+            if (toolCallData.tool) {
+              const args = toolCallData.arguments || {};
+              toolCalls.push({
+                tool: toolCallData.tool,
+                args: args,
+                uuid: toolCallData.uuid
+              });
+            }
+          } catch (error) {
+            // 安静失败，不输出大量日志
+          }
+          
+          // 重置状态
+          jsonBuffer = '';
+          inJson = false;
+          braceCount = 0;
+          startLine = -1;
+        }
       }
     }
     
@@ -651,7 +683,7 @@ ${finalToolResults}
   }
 
 
-  private async executeToolCalls(toolCalls: Array<{ tool: string; args: any }>): Promise<any[]> {
+  private async executeToolCalls(toolCalls: Array<{ tool: string; args: any; uuid?: string }>): Promise<any[]> {
     const results = [];
     
     for (const toolCall of toolCalls) {
