@@ -314,31 +314,19 @@ export class AiService {
                       if (!processedExecuteBlocks.has(blockHash)) {
                         processedExecuteBlocks.add(blockHash);
                         
-                        // 解析并执行工具调用
+                        // 解析工具调用，但不执行，让前端处理
                         const toolCalls = this.parseToolCalls(executeBlockContent);
                         console.log('🔍 解析到的工具调用:', toolCalls);
+                        
+                        // 将工具调用信息发送到前端，让前端执行
                         for (const toolCall of toolCalls) {
-                          try {
-                            console.log('🔍 开始执行工具调用:', toolCall.tool);
-                            const result = await this.executeToolCall(toolCall);
-                            console.log('🔍 工具调用执行成功:', result);
-                            // 将工具调用结果添加到响应中
-                            const toolResult = `\n\n[工具调用结果]\n${JSON.stringify(result, null, 2)}\n`;
-                            fullResponse += toolResult;
-                            
-                            // 发送工具调用结果到前端
-                            const toolResponseData = JSON.stringify({ response: toolResult }) + '\n';
-                            if (controller.desiredSize !== null) {
-                              controller.enqueue(new TextEncoder().encode(toolResponseData));
-                            }
-                          } catch (error) {
-                            const errorResult = `\n\n[工具调用失败]\n${error instanceof Error ? error.message : '未知错误'}\n`;
-                            fullResponse += errorResult;
-                            
-                            const errorResponseData = JSON.stringify({ response: errorResult }) + '\n';
-                            if (controller.desiredSize !== null) {
-                              controller.enqueue(new TextEncoder().encode(errorResponseData));
-                            }
+                          const toolCallData = `\n\n[工具调用]\n${JSON.stringify(toolCall, null, 2)}\n`;
+                          fullResponse += toolCallData;
+                          
+                          // 发送工具调用信息到前端
+                          const toolResponseData = JSON.stringify({ response: toolCallData }) + '\n';
+                          if (controller.desiredSize !== null) {
+                            controller.enqueue(new TextEncoder().encode(toolResponseData));
                           }
                         }
                       }
