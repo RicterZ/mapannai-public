@@ -297,13 +297,15 @@ export class AiService {
               if (line.trim()) {
                 try {
                   const data = JSON.parse(line);
+                  console.log('Ollama原始数据:', data);
                   if (data.response) {
                     // 转换为前端期望的格式
                     const responseData = JSON.stringify({ response: data.response }) + '\n';
+                    console.log('发送到前端:', responseData);
                     controller.enqueue(new TextEncoder().encode(responseData));
                   }
                 } catch (e) {
-                  // 忽略解析错误
+                  console.log('JSON解析失败:', line, e);
                 }
               }
             }

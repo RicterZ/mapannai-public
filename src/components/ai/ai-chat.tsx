@@ -134,6 +134,7 @@ export const AiChat = ({ onClose }: AiChatProps) => {
 
           try {
             const data = JSON.parse(line)
+            console.log('前端接收到的数据:', data)
             
             // 处理不同类型的响应数据
             if (data.response) {
