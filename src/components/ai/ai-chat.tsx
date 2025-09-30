@@ -95,6 +95,7 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       let currentContent = ''
       let thinkingContent = ''
       let isInThinking = false
+      let fullResponse = ''
 
       if (reader) {
         while (true) {
@@ -113,6 +114,7 @@ export const AiChat = ({ onClose }: AiChatProps) => {
                 if (data.response) {
                   const content = data.response
                   console.log('Content:', content)
+                  fullResponse += content
                   
                   // 检查是否在思考阶段
                   if (content.includes('<think>')) {
@@ -147,6 +149,12 @@ export const AiChat = ({ onClose }: AiChatProps) => {
             }
           }
         }
+      }
+
+      // 流式响应完成后，检查是否有工具调用
+      if (fullResponse.includes('<execute>')) {
+        console.log('检测到工具调用，开始处理...')
+        await handleToolCalls(fullResponse, aiMessageId)
       }
 
       // 完成流式输出
@@ -186,6 +194,155 @@ export const AiChat = ({ onClose }: AiChatProps) => {
     const textarea = e.target
     textarea.style.height = 'auto'
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'
+  }
+
+  // 处理工具调用
+  const handleToolCalls = async (fullResponse: string, aiMessageId: string) => {
+    try {
+      // 提取execute块
+      const executeRegex = /<execute>([\s\S]*?)<\/execute>/g
+      const executeBlocks: string[] = []
+      let match
+      
+      while ((match = executeRegex.exec(fullResponse)) !== null) {
+        executeBlocks.push(match[1].trim())
+      }
+      
+      console.log('找到execute块:', executeBlocks)
+      
+      for (const block of executeBlocks) {
+        const toolCalls = parseToolCalls(block)
+        console.log('解析的工具调用:', toolCalls)
+        
+        for (const toolCall of toolCalls) {
+          console.log('执行工具调用:', toolCall)
+          
+          try {
+            const result = await executeToolCall(toolCall)
+            console.log('工具调用结果:', result)
+            
+            // 添加工具执行结果到消息
+            const resultMessage = `\n\n[工具执行结果]\n${JSON.stringify(result, null, 2)}\n\n`
+            setMessages(prev => prev.map(msg => 
+              msg.id === aiMessageId 
+                ? { ...msg, content: msg.content + resultMessage }
+                : msg
+            ))
+          } catch (error) {
+            console.error('工具调用失败:', error)
+            const errorMessage = `\n\n[工具调用失败]\n${error instanceof Error ? error.message : '未知错误'}\n\n`
+            setMessages(prev => prev.map(msg => 
+              msg.id === aiMessageId 
+                ? { ...msg, content: msg.content + errorMessage }
+                : msg
+            ))
+          }
+        }
+      }
+    } catch (error) {
+      console.error('处理工具调用时出错:', error)
+    }
+  }
+
+  // 解析工具调用
+  const parseToolCalls = (executeBlock: string): Array<{tool: string, arguments: any}> => {
+    try {
+      const toolCalls: Array<{tool: string, arguments: any}> = []
+      
+      // 尝试解析JSON格式的工具调用
+      const jsonMatch = executeBlock.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        const toolCall = JSON.parse(jsonMatch[0])
+        if (toolCall.tool && toolCall.arguments) {
+          toolCalls.push(toolCall)
+        }
+      }
+
+      return toolCalls
+    } catch (error) {
+      console.error('解析工具调用失败:', error)
+      return []
+    }
+  }
+
+  // 执行工具调用
+  const executeToolCall = async (toolCall: {tool: string, arguments: any}): Promise<any> => {
+    const { tool, arguments: args } = toolCall
+    
+    switch (tool) {
+      case 'create_marker_v2':
+        // 支持两种格式：places 和 markers
+        const batchData = args.places || args.markers
+        if (batchData && Array.isArray(batchData)) {
+          const results = []
+          for (const item of batchData) {
+            try {
+              // 处理不同的参数格式
+              const placeData = {
+                name: item.name || item.title,
+                iconType: item.iconType,
+                content: item.content || item.description || ''
+              }
+              const result = await fetch('/api/markers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  coordinates: { latitude: 0, longitude: 0 }, // 临时坐标，会被搜索替换
+                  title: placeData.name,
+                  iconType: placeData.iconType,
+                  content: placeData.content
+                })
+              })
+              const marker = await result.json()
+              results.push(marker)
+            } catch (error) {
+              const itemName = item.name || item.title || '未知地点'
+              console.error(`创建标记失败 ${itemName}:`, error)
+              results.push({ error: error instanceof Error ? error.message : '创建失败', place: itemName })
+            }
+          }
+          return { type: 'batch', results }
+        } else {
+          // 单个地点创建
+          const response = await fetch('/api/markers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              coordinates: { latitude: 0, longitude: 0 },
+              title: args.name,
+              iconType: args.iconType,
+              content: args.content || ''
+            })
+          })
+          return await response.json()
+        }
+
+      case 'update_marker_content':
+        const updateResponse = await fetch(`/api/markers/${args.markerId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: args.title,
+            markdownContent: args.markdownContent
+          })
+        })
+        return await updateResponse.json()
+
+      case 'create_travel_chain':
+        const chainResponse = await fetch('/api/chains', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            markerIds: args.markerIds,
+            name: args.chainName,
+            description: args.description
+          })
+        })
+        return await chainResponse.json()
+
+      default:
+        throw new Error(`未知工具: ${tool}`)
+    }
   }
 
   return (
