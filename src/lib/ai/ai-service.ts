@@ -280,11 +280,11 @@ export class AiService {
     // 转换Ollama流格式为前端期望的JSON格式
     return new ReadableStream({
       start: async (controller) => {
-        try {
-          const reader = response.body!.getReader();
-          const decoder = new TextDecoder();
-          let buffer = '';
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
+        try {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -312,9 +312,18 @@ export class AiService {
           }
         } catch (error) {
           console.error('流处理错误:', error);
-          controller.error(error);
+          if (controller.desiredSize !== null) {
+            controller.error(error);
+          }
         } finally {
-          controller.close();
+          try {
+            await reader.cancel();
+          } catch (e) {
+            // 忽略取消错误
+          }
+          if (controller.desiredSize !== null) {
+            controller.close();
+          }
         }
       }
     });
