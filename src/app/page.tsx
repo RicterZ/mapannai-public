@@ -22,7 +22,7 @@ const Sidebar = dynamic(() => import('@/components/sidebar/sidebar').then(mod =>
     ssr: false
 })
 
-const AiSidebar = dynamic(() => import('@/components/ai/ai-sidebar').then(mod => ({ default: mod.AiSidebar })), {
+const AiSidebarV3 = dynamic(() => import('@/components/ai/ai-sidebar-v3').then(mod => ({ default: mod.AiSidebarV3 })), {
     ssr: false
 })
 
@@ -38,10 +38,11 @@ export default function HomePage() {
             {/* Floating sidebar */}
             <Sidebar />
 
-            {/* AI Sidebar */}
-            {interactionState.isAiSidebarOpen && (
-                <AiSidebar onClose={closeAiSidebar} />
-            )}
+            {/* AI Sidebar V3 - 混合架构 */}
+            <AiSidebarV3 
+                isOpen={interactionState.isAiSidebarOpen} 
+                onToggle={() => interactionState.isAiSidebarOpen ? closeAiSidebar() : openAiSidebar()} 
+            />
 
         </main>
     )
