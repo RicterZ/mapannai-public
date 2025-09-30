@@ -70,6 +70,7 @@ export interface MapInteractionState {
     displayedMarkerId: string | null // 用于在边栏中显示内容的标记ID
     isPopupOpen: boolean
     isSidebarOpen: boolean
+    isAiSidebarOpen: boolean // AI侧边栏状态
     pendingCoordinates: MarkerCoordinates | null
     popupCoordinates: MarkerCoordinates | null
     placeName: string | null // 地点名称（保持向后兼容）
