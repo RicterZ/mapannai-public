@@ -227,8 +227,15 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
                     <div className="flex-1">
-                        <h2 className="text-lg font-semibold text-gray-900">
-                            {selectedMarker?.content.title || '标记详情'}
+                        <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            {selectedMarker && (() => {
+                                const iconType = selectedMarker.content.iconType || 'location'
+                                // MARKER_ICONS 已在 marker-chain.tsx 引用，需在此处引入
+                                const { MARKER_ICONS } = require('@/types/marker')
+                                const icon = MARKER_ICONS[iconType]
+                                return <span className="text-base" aria-hidden>{icon.emoji}</span>
+                            })()}
+                            <span>{selectedMarker?.content.title || '标记详情'}</span>
                         </h2>
                         {selectedMarker && (
                             <p className="text-sm text-gray-500 mt-1">

@@ -175,6 +175,15 @@ body {
     background: #a8a8a8;
 }
 
+/* 隐藏滚动条但保留滚动能力 */
+.hide-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
 /* Firefox 滚动条样式 */
 .custom-scrollbar {
     scrollbar-width: thin;

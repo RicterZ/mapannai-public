@@ -1,7 +1,8 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import { AIChat } from './ai-chat'
+import { createMarkerV2Tool, createTravelChainTool } from '@/lib/ai/tools/marker-tools'
 
 interface ExecutionPlan {
   id: string
@@ -26,6 +27,17 @@ interface AiSidebarProps {
 }
 
 export function AiSidebar({ isOpen, onToggle }: AiSidebarProps) {
+  // 按下 ESC 关闭侧边栏
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onToggle()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onToggle])
   const handleExecutePlan = async (plan: ExecutionPlan) => {
     const anyWindow = (typeof window !== 'undefined') ? (window as any) : null
     const debug = (...args: any[]) => {
@@ -39,43 +51,69 @@ export function AiSidebar({ isOpen, onToggle }: AiSidebarProps) {
     }
     debug('execute_plan_entry', { planId: plan?.id, stepCount: plan?.steps?.length })
     
-    // 模拟执行过程
+    // 按组（通常对应“当天”）收集刚创建的标记ID
+    let currentGroupMarkerIds: string[] = []
     for (const step of plan.steps) {
       console.log(`执行步骤: ${step.description}`)
-      
-      // 模拟异步操作
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
+
       if (step.type === 'create_markers') {
-        debug('step_create_markers', { args: step.args })
-        // TODO: 调用实际的地图标记创建逻辑
-        // 这里需要集成到地图组件中
+        try {
+          debug('step_create_markers_begin', { args: step.args })
+          // 支持批量创建
+          const places = Array.isArray(step.args?.places) ? step.args.places : (step.args?.name ? [{ name: step.args.name, iconType: step.args.iconType || 'location', content: step.args.content || '' }] : [])
+          const result = await createMarkerV2Tool.execute({ places })
+          // 归集返回的 marker id（仅加入本组，不跨组累计）
+          if (Array.isArray(result?.results)) {
+            for (const r of result.results) {
+              if (r && r.id) currentGroupMarkerIds.push(r.id)
+            }
+          } else if (result && result.id) {
+            currentGroupMarkerIds.push(result.id)
+          }
+          debug('step_create_markers_success', { groupCreatedCount: currentGroupMarkerIds.length })
+        } catch (err) {
+          console.error('创建标记失败:', err)
+          debug('step_create_markers_error', { error: err instanceof Error ? err.message : String(err) })
+          // 不中断后续步骤，让链式继续
+        }
       } else if (step.type === 'create_chain') {
-        debug('step_create_chain', { args: step.args })
-        // TODO: 调用实际的行程链创建逻辑
+        try {
+          debug('step_create_chain_begin', { args: step.args })
+          // 若未显式提供 markerIds，则使用“本组”刚创建的标记IDs
+          const markerIds: string[] = Array.isArray(step.args?.markerIds) && step.args.markerIds.length > 0
+            ? step.args.markerIds
+            : currentGroupMarkerIds
+          if (markerIds.length === 0) {
+            console.warn('无可用的 markerIds，跳过创建行程链')
+            continue
+          }
+          await createTravelChainTool.execute({
+            markerIds,
+            chainName: step.args?.chainName,
+            description: step.args?.description
+          })
+          debug('step_create_chain_success', { markerIdsCount: markerIds.length })
+          // 每创建一条链后清空“本组”IDs，避免后续链串联到之前的地点
+          if (!Array.isArray(step.args?.markerIds) || step.args.markerIds.length === 0) {
+            currentGroupMarkerIds = []
+          }
+        } catch (err) {
+          console.error('创建行程链失败:', err)
+          debug('step_create_chain_error', { error: err instanceof Error ? err.message : String(err) })
+        }
+      } else {
+        // 其它消息类步骤，当前不执行具体动作
+        debug('step_message', { args: step.args })
       }
     }
     
     debug('execute_plan_done', { planId: plan?.id })
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex">
-      {/* 背景遮罩 */}
-      <div 
-        className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-        onClick={onToggle}
-      />
-      
+    <div className={`fixed inset-0 z-50 flex pointer-events-none`}>
       {/* 侧边栏 */}
-      <div className="relative ml-auto h-full w-full max-w-md bg-white shadow-xl flex flex-col overflow-hidden">
-        {/* 头部 */}
-        <div className="flex items-center p-4 border-b">
-          <h2 className="text-lg font-semibold">AI旅游助手</h2>
-        </div>
-        
+      <div className={`relative ml-auto h-full w-full max-w-full md:max-w-md lg:max-w-lg bg-white shadow-xl flex flex-col overflow-hidden transform transition-transform duration-300 pointer-events-auto ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         {/* 聊天区域 */}
         <div className="flex-1 min-h-0">
           <AIChat 
