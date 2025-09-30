@@ -55,25 +55,12 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
   const [conversationId] = useState(() => `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
   const [executingPlan, setExecutingPlan] = useState<string | null>(null)
   const [thinkingText, setThinkingText] = useState('')
+  const [planDraftText, setPlanDraftText] = useState('')
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  // 轻量调试输出（可被 window.__AI_DEBUG__ 接管）
-  const debug = (...args: any[]) => {
-    try {
-      const anyWindow = (typeof window !== 'undefined') ? (window as any) : null
-      if (anyWindow && typeof anyWindow.__AI_DEBUG__ === 'function') {
-        anyWindow.__AI_DEBUG__('AIChat', ...args)
-      } else {
-        console.debug('[AIChat]', ...args)
-      }
-    } catch {
-      // 忽略调试异常
-    }
-  }
-
   useEffect(() => {
-    debug('mounted', { hasOnExecutePlan: !!onExecutePlan, conversationId })
+    console.log('[AIChat] mounted', { hasOnExecutePlan: !!onExecutePlan, conversationId })
   }, [])
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -89,9 +76,9 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
   }
 
   useEffect(() => {
-    // 在消息或思考文本变化时，保持滚动到底部
+    // 在消息/思考/计划草案变化时，保持滚动到底部
     scrollToBottom()
-  }, [messages, thinkingText])
+  }, [messages, thinkingText, planDraftText])
 
   // 发送消息
   const handleSendMessage = async () => {
@@ -158,6 +145,9 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
                 case 'thinking_end':
                   setThinkingText('')
                   break
+                case 'plan_chunk':
+                  setPlanDraftText(prev => prev + chunk.content)
+                  break
                 case 'text':
                   if (!currentAssistantMessage) {
                     currentAssistantMessage = {
@@ -180,7 +170,9 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
                   break
 
                 case 'plan':
-                  debug('plan_received', {
+                  // 收到最终计划，清空草案显示
+                  setPlanDraftText('')
+                  console.log('[AIChat] plan_received', {
                     planId: chunk?.plan?.id,
                     stepCount: chunk?.plan?.steps?.length,
                     hasOnExecutePlan: !!onExecutePlan
@@ -238,9 +230,9 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
 
     setExecutingPlan(plan.id)
     try {
-      debug('execute_plan_start', { planId: plan.id, steps: plan.steps.map(s => ({ id: s.id, type: s.type })) })
+      console.log('[AIChat] execute_plan_start', { planId: plan.id, steps: plan.steps.map(s => ({ id: s.id, type: s.type })) })
       await onExecutePlan(plan)
-      debug('execute_plan_success', { planId: plan.id })
+      console.log('[AIChat] execute_plan_success', { planId: plan.id })
       
       // 更新计划状态为已完成
       setMessages(prev => 
@@ -258,7 +250,7 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
       )
     } catch (error) {
       console.error('执行计划失败:', error)
-      debug('execute_plan_error', { planId: plan.id, error: error instanceof Error ? error.message : String(error) })
+      console.log('[AIChat] execute_plan_error', { planId: plan.id, error: error instanceof Error ? error.message : String(error) })
       // 更新计划状态为失败
       setMessages(prev => 
         prev.map(msg => 
@@ -371,7 +363,7 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
                       <div className="flex items-center justify-between">
                         <div>
                           <CardTitle className="text-lg">{message.plan.title}</CardTitle>
-                          <p className="text-sm text-muted-foreground mt-1">
+                          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
                             {message.plan.description}
                           </p>
                         </div>
@@ -394,7 +386,7 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
                               {index + 1}
                             </Badge>
                             <div className="flex-1">
-                              <p className="font-medium text-sm">{step.description}</p>
+                              <p className="font-medium text-sm whitespace-pre-wrap">{step.description}</p>
                             </div>
                             {getStatusIcon(step.status)}
                           </div>
@@ -406,13 +398,14 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
               </div>
             ))}
 
-            {isLoading && (
+            {(isLoading || planDraftText) && (
               <div className="flex gap-3">
                 <Bot className="h-6 w-6 text-blue-500 animate-pulse" />
                 <div className="bg-muted rounded-lg px-3 py-2">
-                {thinkingText ? (
+                {thinkingText || planDraftText ? (
                   <div className="whitespace-pre-wrap text-sm text-muted-foreground max-w-[60ch]">
                     {thinkingText}
+                    {planDraftText}
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">

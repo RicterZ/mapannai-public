@@ -16,6 +16,41 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
     const { markers, setHighlightedChain, clearHighlightedChain, updateMarkerContent } = useMapStore()
     
     
+  // 横向拖拽：按下容器并拖动进行横向滚动
+  const handleChainMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    // 仅在非交互元素上按下时才进入拖拽，避免遮挡右上角 X 等按钮
+    const target = e.target as HTMLElement
+    if (target && target.closest('button')) {
+      return
+    }
+    const startX = e.pageX
+    const startScrollLeft = el.scrollLeft
+    e.preventDefault()
+    el.classList.add('cursor-grabbing', 'select-none')
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const dx = ev.pageX - startX
+      el.scrollLeft = startScrollLeft - dx
+    }
+    const onMouseUp = () => {
+      el.classList.remove('cursor-grabbing', 'select-none')
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }, [])
+
+  // 将垂直滚轮映射为横向滚动
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      el.scrollLeft += e.deltaY
+      e.preventDefault()
+    }
+  }, [])
+
     const handleMouseEnter = useCallback((chainIds: string[]) => {
         setHighlightedChain(chainIds)
     }, [setHighlightedChain])
@@ -164,15 +199,12 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200" data-marker-chain>
             <div className="flex items-center mb-2">
                 <div className="flex items-center space-x-2">
-                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                    </svg>
                     <span className="text-sm font-medium text-gray-700">标记链</span>
                 </div>
             </div>
             
             {markerChains.length > 0 ? (
-                <div className="space-y-3" style={{ overflow: 'visible' }}>
+                <div className="space-y-3 min-w-0" style={{ overflow: 'visible' }}>
                     {/* 显示所有标记链 */}
                     {markerChains.map((chain, chainIndex) => {
                         // 获取当前链的所有标记ID（不包含当前标记，只包含链中的标记）
@@ -181,11 +213,34 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
                         return (
                             <div 
                                 key={chainIndex} 
-                                className="flex items-center space-x-2 overflow-x-auto overflow-y-visible"
+                                className="flex items-center space-x-2 overflow-x-auto overflow-y-visible cursor-grab hide-scrollbar w-full max-w-full min-w-0 whitespace-nowrap pr-2"
                                 onMouseEnter={() => handleMouseEnter(chainIds)}
                                 onMouseLeave={handleMouseLeave}
-                                style={{ overflow: 'visible', pointerEvents: 'auto' }}
+                                style={{ overflowY: 'visible', pointerEvents: 'auto' }}
+                                onMouseDown={handleChainMouseDown}
+                                onWheel={handleWheel}
                             >
+                            {/* 当前标记指示（最左侧高亮） */}
+                            <div className="flex items-center space-x-2 flex-shrink-0 mr-1">
+                                <div className="inline-flex items-center h-8 rounded-full px-2.5 border border-blue-300 bg-blue-50 text-blue-700 flex-shrink-0">
+                                    {(() => {
+                                        const iconType = currentMarker.content.iconType || 'location'
+                                        const icon = MARKER_ICONS[iconType]
+                                        return (
+                                            <span className="mr-1" aria-hidden>
+                                                {icon.emoji}
+                                            </span>
+                                        )
+                                    })()}
+                                    <span className="text-xs font-medium">当前</span>
+                                </div>
+                                <div className="text-gray-300">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </div>
+                            </div>
+
                             {chain.map((marker, index) => {
                                 const iconType = marker.content.iconType || 'location'
                                 const iconConfig = MARKER_ICONS[iconType]
@@ -202,7 +257,7 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
                                         )}
                                         
                                         {/* 标记信息容器 */}
-                                        <div className="relative group" style={{ overflow: 'visible' }}>
+                                        <div className="relative group inline-flex items-center h-9 align-middle" style={{ overflow: 'visible' }}>
                                             <button
                                                 onClick={() => {
                                                     onMarkerClick(marker.id)
@@ -221,12 +276,12 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
                                                     }, 100)
                                                 }}
                                                 className={cn(
-                                                    'flex items-center space-x-2 px-3 py-2 rounded-lg',
-                                                    'bg-white border border-gray-200 hover:border-blue-300',
-                                                    'hover:bg-blue-50 transition-all duration-200',
-                                                    'focus:outline-none',
-                                                    'shadow-sm hover:shadow-md'
+                                                    'inline-flex flex-none items-center space-x-2 px-3 py-0 rounded-l-lg whitespace-nowrap',
+                                                    'bg-white border border-gray-200',
+                                                    'hover:bg-blue-50 hover:border-blue-300 transition-colors duration-200',
+                                                    'focus:outline-none h-9 leading-none'
                                                 )}
+                                                style={{ borderRightWidth: 1 }}
                                             >
                                                 {/* 图标 */}
                                                 <div className={cn(
@@ -244,25 +299,21 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
                                                 </span>
                                             </button>
                                             
-                                            {/* 删除按钮 - hover时显示 */}
+                                            {/* 右侧删除按钮（并列块） */}
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation()
                                                     handleRemoveFromChain(marker.id, chainIndex)
                                                 }}
                                                 className={cn(
-                                                    'absolute -top-1 -right-1 w-4 h-4 rounded-full',
-                                                    'bg-red-500 hover:bg-red-600 text-white',
-                                                    'flex items-center justify-center',
-                                                    'opacity-0 group-hover:opacity-100 transition-opacity duration-200',
-                                                    'shadow-lg border border-white',
-                                                    'focus:outline-none',
-                                                    'z-50'
+                                                    'inline-flex flex-none items-center justify-center px-2 py-0 rounded-r-lg whitespace-nowrap',
+                                                    'bg-white border border-gray-200',
+                                                    'hover:bg-red-50 hover:border-red-300 text-red-600 hover:text-red-700',
+                                                    'transition-colors duration-200 focus:outline-none h-9 leading-none'
                                                 )}
-                                                style={{ zIndex: 50 }}
                                                 title="从链中删除此标记"
                                             >
-                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-4 h-4 block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                                 </svg>
                                             </button>
@@ -292,7 +343,7 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
                                         onAddMarker(targetMarkerId)
                                     }}
                                     className={cn(
-                                        'flex items-center space-x-2 px-3 py-2 rounded-lg',
+                                        'inline-flex flex-none items-center h-9 space-x-2 px-3 py-0 rounded-lg',
                                         'bg-blue-50 border-2 border-dashed border-blue-300 hover:border-blue-400',
                                         'hover:bg-blue-100 transition-all duration-200',
                                         'focus:outline-none',
@@ -322,7 +373,7 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
                     <button
                         onClick={() => onAddMarker(currentMarker.id)}
                         className={cn(
-                            'flex items-center space-x-2 px-3 py-2 rounded-lg',
+                            'inline-flex flex-none items-center h-9 space-x-2 px-3 py-0 rounded-lg',
                             'bg-blue-50 border-2 border-dashed border-blue-300 hover:border-blue-400',
                             'hover:bg-blue-100 transition-all duration-200',
                             'focus:outline-none',

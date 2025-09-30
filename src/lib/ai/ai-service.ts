@@ -9,7 +9,7 @@ export interface AIMessage {
 }
 
 export interface AIResponse {
-  type: 'text' | 'plan' | 'error' | 'done' | 'thinking' | 'thinking_end'
+  type: 'text' | 'plan' | 'plan_chunk' | 'error' | 'done' | 'thinking' | 'thinking_end'
   content: string
   plan?: ExecutionPlan
   conversationId: string
@@ -226,6 +226,7 @@ export class AIService {
 1. 深度分析用户的旅游需求
 2. 基于你的知识推荐合适的地点
 3. 生成结构化的执行计划，供前端实时执行
+4. 基于用户的需求，生成合理的标记链；如果是多日行程，需按“天（Day 1 / Day 2 / …）”输出多条行程链，每条链只包含当天的地点
 
 ## 输出格式
 <think>
@@ -241,8 +242,32 @@ export class AIService {
       "name": "create_marker_v2",
       "args": {
         "places": [
-          {"name": "地点名称", "iconType": "landmark", "content": "详细介绍"}
+          {"name": "地点A", "iconType": "landmark", "content": "亮点/时间/备注"},
+          {"name": "地点B", "iconType": "food", "content": "亮点/时间/备注"}
         ]
+      }
+    },
+    {
+      "name": "create_travel_chain",
+      "args": {
+        "chainName": "Day 1",
+        "description": "第1天路线描述，含交通/时长/用餐等"
+      }
+    },
+    {
+      "name": "create_marker_v2",
+      "args": {
+        "places": [
+          {"name": "地点C", "iconType": "culture", "content": "亮点/时间/备注"},
+          {"name": "地点D", "iconType": "shopping", "content": "亮点/时间/备注"}
+        ]
+      }
+    },
+    {
+      "name": "create_travel_chain",
+      "args": {
+        "chainName": "Day 2",
+        "description": "第2天路线描述，含交通/时长/用餐等"
       }
     }
   ]
@@ -284,92 +309,157 @@ export class AIService {
       messages.push({ role: 'user', content: message })
 
       let fullResponse = ''
+      let buffer = ''
       let isInThinkTag = false
       let isInPlanTag = false
       let planContent = ''
 
-      // 流式生成
+      // 流式生成（带缓冲与完整标签解析）
+      // 在关闭某个标签（</think> 或 </plan>）后，等缓冲累计到一定长度再继续解析，避免把未完整的下一个标签前缀当作文本清空
+      const MIN_BUFFER_AFTER_CLOSE = 15
+      let recentlyClosedTag = false
       for await (const chunk of this.aiEngine.generateStream(messages)) {
         fullResponse += chunk
+        buffer += chunk
 
-        // 处理思考标签
-        if (chunk.includes('<think>')) {
-          isInThinkTag = true
-          // 去掉标签后剩余内容如果有则作为thinking输出
-          const afterTag = chunk.split('<think>')[1] || ''
-          if (afterTag.trim()) {
-            yield {
-              type: 'thinking',
-              content: afterTag,
-              conversationId
+        parseLoop: while (true) {
+          // 思考段内，直到遇到 </think>
+          if (isInThinkTag) {
+            const endIdx = buffer.indexOf('</think>')
+            if (endIdx === -1) {
+              if (buffer) {
+                yield { type: 'thinking', content: buffer, conversationId }
+                buffer = ''
+              }
+              break parseLoop
+            } else {
+              const beforeEnd = buffer.slice(0, endIdx)
+              if (beforeEnd) {
+                yield { type: 'thinking', content: beforeEnd, conversationId }
+              }
+              buffer = buffer.slice(endIdx + '</think>'.length)
+              isInThinkTag = false
+              yield { type: 'thinking_end', content: '', conversationId }
+              // 标记刚刚关闭过标签，等后续缓冲更充足再解析
+              recentlyClosedTag = true
+              continue
             }
           }
-          continue
-        }
-        if (chunk.includes('</think>')) {
-          // 结束前输出结束信号，去掉结束标签前的残留内容
-          const beforeEnd = chunk.split('</think>')[0] || ''
-          if (beforeEnd.trim()) {
-            yield {
-              type: 'thinking',
-              content: beforeEnd,
-              conversationId
-            }
-          }
-          isInThinkTag = false
-          yield {
-            type: 'thinking_end',
-            content: '',
-            conversationId
-          }
-          continue
-        }
-        if (isInThinkTag) {
-          // 思考内容实时输出
-          if (chunk.trim()) {
-            yield {
-              type: 'thinking',
-              content: chunk,
-              conversationId
-            }
-          }
-          continue
-        }
 
-        // 处理计划标签
-        if (chunk.includes('<plan>')) {
-          isInPlanTag = true
-          planContent = ''
-          continue
+          // 计划段内，直到遇到 </plan>
+          if (isInPlanTag) {
+            const endIdx = buffer.indexOf('</plan>')
+            if (endIdx === -1) {
+              if (buffer) {
+                // 增量产出 plan 草案片段
+                planContent += buffer
+                yield { type: 'plan_chunk', content: buffer, conversationId }
+                buffer = ''
+              }
+              break parseLoop
+            } else {
+              planContent += buffer.slice(0, endIdx)
+              buffer = buffer.slice(endIdx + '</plan>'.length)
+              isInPlanTag = false
+
+              const plan = PlanParser.extractPlan(`<plan>${planContent}</plan>`)
+              if (plan) {
+                yield { type: 'plan', content: '已生成执行计划', plan, conversationId }
+              }
+              planContent = ''
+              // 标记刚刚关闭过标签，等后续缓冲更充足再解析
+              recentlyClosedTag = true
+              continue
+            }
+          }
+
+          // 如果刚关闭过标签，而当前缓冲长度不足阈值，则等待更多数据，避免把例如 "<plan" 冲掉
+          if (!isInThinkTag && !isInPlanTag && recentlyClosedTag) {
+            if (buffer.length < MIN_BUFFER_AFTER_CLOSE) {
+              break parseLoop
+            } else {
+              recentlyClosedTag = false
+            }
+          }
+
+          // 查找下一个标签的开头
+          const thinkStart = buffer.indexOf('<think>')
+          const planStart = buffer.indexOf('<plan>')
+          const candidates = [thinkStart, planStart].filter(i => i !== -1)
+
+          if (candidates.length === 0) {
+            // 保护：如果缓冲以未闭合的标签前缀开头（例如 "<plan" 但没有 ">"），不要当作文本输出
+            const trimmed = buffer.trimStart()
+            const startsWithPlanPrefix = trimmed.startsWith('<plan')
+            const startsWithThinkPrefix = trimmed.startsWith('<think')
+            if ((startsWithPlanPrefix || startsWithThinkPrefix) && trimmed.indexOf('>') === -1) {
+              break parseLoop
+            }
+            if (buffer) {
+              // 无标签时，作为普通文本输出并清空
+              yield { type: 'text', content: buffer, conversationId }
+              buffer = ''
+            }
+            break parseLoop
+          }
+
+          console.log('buffer', buffer)
+          const nextIdx = Math.min(...candidates)
+          if (nextIdx > 0) {
+            const plain = buffer.slice(0, nextIdx)
+            if (plain) {
+              yield { type: 'text', content: plain, conversationId }
+            }
+            buffer = buffer.slice(nextIdx)
+          }
+
+          // 现在 buffer 必然以某个标签起始
+          if (buffer.startsWith('<think>')) {
+            buffer = buffer.slice('<think>'.length)
+            isInThinkTag = true
+            continue
+          }
+          if (buffer.startsWith('<plan>')) {
+            buffer = buffer.slice('<plan>'.length)
+            isInPlanTag = true
+            planContent = ''
+            continue
+          }
+
+          // 标签文本不完整，等待下一轮数据
+          break parseLoop
         }
-        if (chunk.includes('</plan>')) {
-          isInPlanTag = false
-          
-          // 解析并发送计划
+      }
+
+      // 流结束时的收尾处理
+      if (isInThinkTag) {
+        if (buffer) {
+          yield { type: 'thinking', content: buffer, conversationId }
+        }
+        yield { type: 'thinking_end', content: '', conversationId }
+        buffer = ''
+        isInThinkTag = false
+      }
+      if (isInPlanTag) {
+        // 兜底：若计划未正常闭合，输出剩余草案，并尝试解析
+        if (planContent || buffer) {
+          if (buffer) {
+            planContent += buffer
+            yield { type: 'plan_chunk', content: buffer, conversationId }
+            buffer = ''
+          }
           const plan = PlanParser.extractPlan(`<plan>${planContent}</plan>`)
           if (plan) {
-            yield {
-              type: 'plan',
-              content: '已生成执行计划',
-              plan,
-              conversationId
-            }
-          }
-          continue
-        }
-        if (isInPlanTag) {
-          planContent += chunk
-          continue
-        }
-
-        // 输出正常文本
-        if (chunk.trim()) {
-          yield {
-            type: 'text',
-            content: chunk,
-            conversationId
+            yield { type: 'plan', content: '已生成执行计划', plan, conversationId }
           }
         }
+        isInPlanTag = false
+        planContent = ''
+      }
+      if (!isInPlanTag && buffer) {
+        // 非标签上下文中的残留文本
+        yield { type: 'text', content: buffer, conversationId }
+        buffer = ''
       }
 
       // 保存对话历史
