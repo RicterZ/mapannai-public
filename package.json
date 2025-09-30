@@ -19,6 +19,7 @@
         "@uiw/react-md-editor": "^4.0.8",
         "autoprefixer": "^10.4.20",
         "aws-sdk": "^2.1691.0",
+        "axios": "^1.12.2",
         "clsx": "^2.1.1",
         "cos-nodejs-sdk-v5": "^2.15.4",
         "https-proxy-agent": "^7.0.6",

@@ -79,6 +79,10 @@ interface MapStore {
     openSidebar: () => void
     closeSidebar: () => void
 
+    // AI Sidebar actions
+    openAiSidebar: () => void
+    closeAiSidebar: () => void
+
     // Editor actions
     updateMarkerContent: (markerId: string, content: { title?: string; headerImage?: string; markdownContent: string; next?: string[] }) => void
 
@@ -151,6 +155,7 @@ export const useMapStore = create<MapStore>()(
                 displayedMarkerId: null,
                 isPopupOpen: false,
                 isSidebarOpen: false,
+                isAiSidebarOpen: false,
                 pendingCoordinates: null,
                 popupCoordinates: null,
                 placeName: null,
@@ -531,6 +536,25 @@ export const useMapStore = create<MapStore>()(
                         selectedMarkerId: null,
                     },
                 }), false, 'closeSidebar')
+            },
+
+            // AI侧边栏 actions
+            openAiSidebar: () => {
+                set(state => ({
+                    interactionState: {
+                        ...state.interactionState,
+                        isAiSidebarOpen: true,
+                    },
+                }), false, 'openAiSidebar')
+            },
+
+            closeAiSidebar: () => {
+                set(state => ({
+                    interactionState: {
+                        ...state.interactionState,
+                        isAiSidebarOpen: false,
+                    },
+                }), false, 'closeAiSidebar')
             },
 
             updateMarkerContent: (markerId, content) => {
