@@ -307,12 +307,33 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       const jsonMatch = executeBlock.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         try {
-          const toolCall = JSON.parse(jsonMatch[0])
+          // 清理JSON字符串，移除可能的额外字符
+          let jsonStr = jsonMatch[0].trim()
+          
+          // 尝试找到完整的JSON对象
+          let braceCount = 0
+          let endIndex = -1
+          
+          for (let i = 0; i < jsonStr.length; i++) {
+            if (jsonStr[i] === '{') braceCount++
+            if (jsonStr[i] === '}') braceCount--
+            if (braceCount === 0) {
+              endIndex = i
+              break
+            }
+          }
+          
+          if (endIndex !== -1) {
+            jsonStr = jsonStr.substring(0, endIndex + 1)
+          }
+          
+          console.log('尝试解析JSON:', jsonStr)
+          const toolCall = JSON.parse(jsonStr)
           if (toolCall.tool && toolCall.arguments) {
             toolCalls.push(toolCall)
           }
         } catch (e) {
-          console.warn('JSON解析失败:', e)
+          console.warn('JSON解析失败:', e, '原始内容:', executeBlock)
         }
       }
 
@@ -328,18 +349,39 @@ export const AiChat = ({ onClose }: AiChatProps) => {
     try {
       const toolCalls: Array<{tool: string, arguments: any}> = []
       
-      // 匹配包含"tool"和"arguments"的JSON对象
-      const jsonRegex = /\{[^{}]*"tool"[^{}]*"arguments"[^{}]*\}/g
+      // 使用更宽松的正则表达式匹配JSON对象
+      const jsonRegex = /\{[^{}]*(?:"tool"|"arguments")[^{}]*\}/g
       const matches = text.match(jsonRegex) || []
       
       for (const match of matches) {
         try {
-          const toolCall = JSON.parse(match)
+          // 清理JSON字符串
+          let jsonStr = match.trim()
+          
+          // 尝试找到完整的JSON对象
+          let braceCount = 0
+          let endIndex = -1
+          
+          for (let i = 0; i < jsonStr.length; i++) {
+            if (jsonStr[i] === '{') braceCount++
+            if (jsonStr[i] === '}') braceCount--
+            if (braceCount === 0) {
+              endIndex = i
+              break
+            }
+          }
+          
+          if (endIndex !== -1) {
+            jsonStr = jsonStr.substring(0, endIndex + 1)
+          }
+          
+          console.log('提取JSON工具调用:', jsonStr)
+          const toolCall = JSON.parse(jsonStr)
           if (toolCall.tool && toolCall.arguments) {
             toolCalls.push(toolCall)
           }
         } catch (e) {
-          console.warn('JSON解析失败:', e)
+          console.warn('JSON解析失败:', e, '匹配内容:', match)
         }
       }
 
