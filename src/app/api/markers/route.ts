@@ -5,6 +5,15 @@ import { v4 as uuidv4 } from 'uuid';
 import { datasetService } from '@/lib/api/dataset-service';
 import { config } from '@/lib/config';
 import { isWithinDistance, calculateDistance } from '@/utils/distance';
+import crypto from 'crypto';
+
+// 生成坐标哈希，用于唯一标识
+function generateCoordinateHash(latitude: number, longitude: number): string {
+  // 将坐标四舍五入到6位小数，减少精度差异
+  const lat = Math.round(latitude * 1000000) / 1000000;
+  const lng = Math.round(longitude * 1000000) / 1000000;
+  return crypto.createHash('md5').update(`${lat},${lng}`).digest('hex');
+}
 
 // 获取所有标记
 export async function GET() {
@@ -78,78 +87,80 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 生成坐标哈希用于唯一标识
+    const coordinateHash = generateCoordinateHash(coordinates.latitude, coordinates.longitude);
+    
     // 检查是否存在相近的标记（10米范围内）
     const datasetId = config.map.mapbox.dataset?.datasetId;
-    console.log('🔍 检查重复标记 - 数据集ID:', datasetId);
-    console.log('🔍 新标记坐标:', coordinates);
     
     if (datasetId) {
       try {
-        const existingFeatures = await datasetService.getAllFeatures(datasetId);
-        console.log('🔍 现有标记数量:', existingFeatures.features?.length || 0);
+        // 使用坐标哈希作为特征ID的一部分，确保唯一性
+        const coordinateBasedId = `coord_${coordinateHash}`;
         
-        const nearbyMarker = existingFeatures.features.find(feature => {
-          if (!feature.geometry || !feature.geometry.coordinates) return false;
+        // 首先尝试通过坐标哈希查找现有标记
+        let existingMarker = null;
+        try {
+          const allFeatures = await datasetService.getAllFeatures(datasetId);
+          const existingFeature = allFeatures.features.find(feature => feature.id === coordinateBasedId);
+          if (existingFeature) {
+            existingMarker = existingFeature;
+          }
+        } catch (error) {
+          // 如果通过坐标哈希没找到，继续使用距离检查
+        }
+        
+        // 如果坐标哈希没找到，使用距离检查作为备用方案
+        if (!existingMarker) {
+          const existingFeatures = await datasetService.getAllFeatures(datasetId);
           
-          const [lng, lat] = feature.geometry.coordinates;
-          const distance = calculateDistance(
-            coordinates.latitude,
-            coordinates.longitude,
-            lat,
-            lng
-          );
+          const nearbyMarker = existingFeatures.features.find(feature => {
+            if (!feature.geometry || !feature.geometry.coordinates) return false;
+            
+            const [lng, lat] = feature.geometry.coordinates;
+            
+            return isWithinDistance(
+              coordinates.latitude,
+              coordinates.longitude,
+              lat,
+              lng,
+              10 // 10米范围内
+            );
+          });
           
-          console.log(`🔍 检查标记 ${feature.id}: 距离 ${distance.toFixed(2)}米`);
-          
-          return isWithinDistance(
-            coordinates.latitude,
-            coordinates.longitude,
-            lat,
-            lng,
-            10 // 10米范围内
-          );
-        });
+          if (nearbyMarker) {
+            existingMarker = nearbyMarker;
+          }
+        }
 
-        if (nearbyMarker) {
-          console.log('✅ 找到相近标记，返回现有标记:', nearbyMarker.id);
+        if (existingMarker) {
           // 找到相近标记，直接返回现有标记信息，客户端无感知
-          const existingMarker = {
-            id: nearbyMarker.id,
+          const marker = {
+            id: existingMarker.id,
             coordinates: {
-              latitude: nearbyMarker.geometry.coordinates[1],
-              longitude: nearbyMarker.geometry.coordinates[0],
+              latitude: existingMarker.geometry.coordinates[1],
+              longitude: existingMarker.geometry.coordinates[0],
             },
             content: {
-              id: nearbyMarker.id,
-              title: nearbyMarker.properties?.metadata?.title || '未命名标记',
-              iconType: nearbyMarker.properties?.iconType || 'location',
-              markdownContent: nearbyMarker.properties?.markdownContent || '',
-              next: nearbyMarker.properties?.next || [],
-              createdAt: nearbyMarker.properties?.metadata?.createdAt 
-                ? new Date(nearbyMarker.properties.metadata.createdAt) 
+              id: existingMarker.id,
+              title: existingMarker.properties?.metadata?.title || '未命名标记',
+              iconType: existingMarker.properties?.iconType || 'location',
+              markdownContent: existingMarker.properties?.markdownContent || '',
+              next: existingMarker.properties?.next || [],
+              createdAt: existingMarker.properties?.metadata?.createdAt 
+                ? new Date(existingMarker.properties.metadata.createdAt) 
                 : new Date(),
-              updatedAt: nearbyMarker.properties?.metadata?.updatedAt 
-                ? new Date(nearbyMarker.properties.metadata.updatedAt) 
+              updatedAt: existingMarker.properties?.metadata?.updatedAt 
+                ? new Date(existingMarker.properties.metadata.updatedAt) 
                 : new Date(),
             },
           };
 
-          return NextResponse.json(existingMarker);
-        } else {
-          console.log('❌ 未找到相近标记，将创建新标记');
+          return NextResponse.json(marker);
         }
       } catch (error) {
         console.warn('检查相近标记时出错，继续创建新标记:', error);
       }
-    } else {
-      console.warn('❌ 数据集ID未配置，跳过重复检查');
-    }
-
-    // 临时解决方案：如果数据集ID未配置，使用内存缓存来防止重复
-    // 这是一个简单的内存缓存，用于在没有数据集的情况下防止重复
-    if (!datasetId) {
-      console.log('⚠️ 使用内存缓存防止重复标记');
-      // 这里可以添加内存缓存逻辑，但为了简单起见，我们先让数据集检查生效
     }
 
     // 创建标记对象
@@ -183,10 +194,17 @@ export async function POST(request: NextRequest) {
           createdAt: marker.content.createdAt.toISOString(),
           updatedAt: marker.content.updatedAt.toISOString(),
           isPublished: true,
+          coordinateHash: coordinateHash, // 添加坐标哈希到元数据
         },
       };
 
-      await datasetService.upsertFeature(datasetId, markerId, coordinates, properties);
+      // 使用坐标哈希作为特征ID，确保相同坐标的标记会被覆盖而不是重复创建
+      const featureId = `coord_${coordinateHash}`;
+      
+      await datasetService.upsertFeature(datasetId, featureId, coordinates, properties);
+      
+      // 保持用户友好的UUID作为返回ID，但内部使用坐标哈希防止重复
+      // marker.id 和 marker.content.id 保持为原来的UUID，用户看到的是有意义的ID
     }
 
     return NextResponse.json(marker);
