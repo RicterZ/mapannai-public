@@ -85,6 +85,7 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       let buffer = ''
       let currentContent = ''
       let isThinking = false
+      let thinkingContent = ''
 
       if (reader) {
         while (true) {
@@ -99,22 +100,50 @@ export const AiChat = ({ onClose }: AiChatProps) => {
             if (line.trim()) {
               try {
                 const data = JSON.parse(line)
+                console.log('Received data:', data)
                 if (data.response) {
                   const content = data.response
+                  console.log('Content:', content)
                   
-                  // 检查是否是思考内容
-                  if (content.includes('<think>') && content.includes('</think>')) {
+                  // 检查是否在思考阶段
+                  if (content.includes('<think>')) {
                     if (!isThinking) {
-                      // 添加思考消息
+                      isThinking = true
+                      thinkingContent = ''
+                      // 创建思考消息
                       const thinkingMessage: Message = {
                         id: (Date.now() + 2).toString(),
                         type: 'thinking',
-                        content: content.match(/<think>([\s\S]*?)<\/think>/)?.[1] || '',
+                        content: '',
                         timestamp: new Date()
                       }
                       setMessages(prev => [...prev, thinkingMessage])
-                      isThinking = true
                     }
+                    thinkingContent += content
+                    
+                    // 更新思考消息
+                    setMessages(prev => prev.map(msg => 
+                      msg.type === 'thinking' 
+                        ? { ...msg, content: thinkingContent }
+                        : msg
+                    ))
+                  } else if (content.includes('</think>')) {
+                    // 思考结束
+                    thinkingContent += content
+                    setMessages(prev => prev.map(msg => 
+                      msg.type === 'thinking' 
+                        ? { ...msg, content: thinkingContent }
+                        : msg
+                    ))
+                    isThinking = false
+                  } else if (isThinking) {
+                    // 仍在思考中
+                    thinkingContent += content
+                    setMessages(prev => prev.map(msg => 
+                      msg.type === 'thinking' 
+                        ? { ...msg, content: thinkingContent }
+                        : msg
+                    ))
                   } else {
                     // 正常输出内容
                     currentContent += content

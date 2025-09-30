@@ -271,45 +271,8 @@ export class AiService {
       throw new Error(`Ollama API错误: ${response.status}`);
     }
 
-    // 创建自定义流来处理Ollama的响应
-    return new ReadableStream({
-      async start(controller) {
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        if (reader) {
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split('\n');
-              buffer = lines.pop() || '';
-
-              for (const line of lines) {
-                if (line.trim()) {
-                  try {
-                    const data = JSON.parse(line);
-                    if (data.response) {
-                      // 发送JSON格式的响应
-                      const jsonResponse = JSON.stringify({ response: data.response }) + '\n';
-                      controller.enqueue(new TextEncoder().encode(jsonResponse));
-                    }
-                  } catch (e) {
-                    // 忽略解析错误
-                  }
-                }
-              }
-            }
-          } finally {
-            reader.releaseLock();
-          }
-        }
-        controller.close();
-      }
-    });
+    // 直接返回Ollama的流式响应
+    return response.body!;
   }
 
   private async callOllama(message: string): Promise<string> {
