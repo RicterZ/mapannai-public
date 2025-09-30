@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AIServiceV3 } from '@/lib/ai/ai-service-v3'
+import { AIService } from '@/lib/ai/ai-service'
 
-const aiService = new AIServiceV3()
+const aiService = new AIService()
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,10 +14,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 处理消息并生成计划
-    const response = await aiService.processMessage(message, conversationId)
+    // 通过流式处理提取最终的计划
+    let finalPlan: any = null
+    let lastError: string | null = null
+    for await (const chunk of aiService.processMessageStream(message, conversationId || '')) {
+      if (chunk.type === 'plan' && chunk.plan) {
+        finalPlan = chunk.plan
+      }
+      if (chunk.type === 'error') {
+        lastError = chunk.content || '计划生成失败'
+      }
+    }
 
-    return NextResponse.json(response)
+    if (lastError) {
+      return NextResponse.json(
+        { error: lastError },
+        { status: 500 }
+      )
+    }
+
+    if (!finalPlan) {
+      return NextResponse.json(
+        { error: '未生成计划' },
+        { status: 502 }
+      )
+    }
+
+    return NextResponse.json({ plan: finalPlan })
   } catch (error) {
     console.error('AI计划生成失败:', error)
     return NextResponse.json(
