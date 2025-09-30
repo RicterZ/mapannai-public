@@ -331,22 +331,13 @@ export function AIChat({ onExecutePlan, className, showTimestamp = true }: AICha
 
   return (
     <Card className={`flex flex-col h-full ${className}`}>
-      <CardHeader className="flex-shrink-0">
-        <div className="flex items-center">
-          <CardTitle className="flex items-center gap-2">
-            <Bot className="h-5 w-5" />
-            AI旅游助手
-          </CardTitle>
-        </div>
-      </CardHeader>
-
       <CardContent className="flex-1 flex flex-col p-0 min-h-0">
         <ScrollArea ref={scrollRef} className="flex-1 min-h-0 p-4 custom-scrollbar">
           <div className="space-y-4">
             {messages.length === 0 && (
               <div className="text-center text-muted-foreground py-8">
                 <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>你好！我是AI旅游助手，可以帮你规划旅游行程。</p>
+                <p>你好！我可以帮你规划旅游行程。</p>
                 <p className="text-sm mt-2">试试问我："帮我规划东京三日游"</p>
               </div>
             )}
@@ -399,7 +390,6 @@ export function AIChat({ onExecutePlan, className, showTimestamp = true }: AICha
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <CardTitle className="text-lg">{message.plan.title}</CardTitle>
                           <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
                             {message.plan.description}
                           </p>
