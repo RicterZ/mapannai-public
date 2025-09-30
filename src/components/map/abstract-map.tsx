@@ -708,6 +708,7 @@ export const AbstractMap = () => {
         title?: string
         headerImage?: string
         markdownContent: string
+        iconType?: MarkerIconType
     }) => {
         try {
             updateMarkerFromModal(data)

@@ -67,7 +67,7 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const { title, headerImage, markdownContent } = body;
+    const { title, headerImage, markdownContent, iconType } = body;
 
     const datasetId = config.map.mapbox.dataset?.datasetId;
     if (!datasetId) {
@@ -98,6 +98,7 @@ export async function PUT(
     if (title) metadata.title = title;
     if (headerImage) properties.headerImage = headerImage;
     if (markdownContent) properties.markdownContent = markdownContent;
+    if (iconType) properties.iconType = iconType;
     
     metadata.updatedAt = new Date().toISOString();
     properties.metadata = metadata;

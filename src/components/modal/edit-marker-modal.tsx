@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Marker } from '@/types/marker'
+import { Marker, MarkerIconType } from '@/types/marker'
 import { uploadFileToS3 } from '@/lib/upload/direct-upload'
 import MDEditor from '@uiw/react-md-editor'
 import { commands } from '@uiw/react-md-editor'
+import { IconSelector } from '@/components/ui/icon-selector'
 
 interface EditMarkerModalProps {
     marker: Marker | null
@@ -15,6 +16,7 @@ interface EditMarkerModalProps {
         title?: string
         headerImage?: string
         markdownContent: string
+        iconType?: MarkerIconType
     }) => void
 }
 
@@ -22,6 +24,7 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
     const [title, setTitle] = useState('')
     const [headerImage, setHeaderImage] = useState('')
     const [markdownContent, setMarkdownContent] = useState('')
+    const [iconType, setIconType] = useState<MarkerIconType>('location')
     const [isUploading, setIsUploading] = useState(false)
     const [isMarkdownUploading, setIsMarkdownUploading] = useState(false)
     const [markdownUploadProgress, setMarkdownUploadProgress] = useState(0)
@@ -44,6 +47,7 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
         if (marker && isOpen) {
             setTitle(marker.content.title || '')
             setHeaderImage(marker.content.headerImage || '')
+            setIconType((marker.content.iconType as MarkerIconType) || 'location')
             
             // 设置Markdown内容
             const initialMarkdown = marker.content.markdownContent || ''
@@ -81,7 +85,8 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
                 markerId: marker.id,
                 title: title.trim() || undefined,
                 headerImage: headerImage || undefined,
-                markdownContent: markdownContent
+                markdownContent: markdownContent,
+                iconType: iconType
             }
 
             onSave(saveData)
@@ -98,6 +103,7 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
             setTitle(marker.content.title || '')
             setHeaderImage(marker.content.headerImage || '')
             setMarkdownContent(marker.content.markdownContent || '')
+            setIconType((marker.content.iconType as MarkerIconType) || 'location')
         }
         onClose()
     }
@@ -146,8 +152,8 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
                     {/* 基本信息区域 - 上下布局 */}
                     <div className="p-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
                         <div className="max-w-4xl mx-auto space-y-4">
-                            {/* 标题输入框 */}
-                            <div>
+                            {/* 标题与类型 */}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-center">
                                 <input
                                     type="text"
                                     value={title}
@@ -155,6 +161,12 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-sm"
                                     placeholder="标记标题"
                                 />
+                                <div className="lg:col-span-1">
+                                    <IconSelector
+                                        selectedIcon={iconType}
+                                        onSelect={(val) => setIconType(val)}
+                                    />
+                                </div>
                             </div>
                             
                             {/* 首图上传 - 全宽显示，限制高度 */}
