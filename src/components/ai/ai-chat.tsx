@@ -263,9 +263,17 @@ export const AiChat = ({ onClose }: AiChatProps) => {
   const formatMessageContent = (content: string) => {
     if (!content) return content
     
+    // 先转义HTML标签，防止XSS
+    let escapedContent = content
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+    
     // 将execute块用代码格式包裹
-    const formattedContent = content.replace(
-      /<execute>([\s\S]*?)<\/execute>/g,
+    const formattedContent = escapedContent.replace(
+      /&lt;execute&gt;([\s\S]*?)&lt;\/execute&gt;/g,
       (match, code) => {
         return `<pre class="bg-gray-100 p-2 rounded text-sm font-mono overflow-x-auto"><code>${code.trim()}</code></pre>`
       }
