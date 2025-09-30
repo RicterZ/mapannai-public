@@ -110,10 +110,8 @@ export const AiChat = ({ onClose }: AiChatProps) => {
             if (line.trim()) {
               try {
                 const data = JSON.parse(line)
-                console.log('Received data:', data)
                 if (data.response) {
                   const content = data.response
-                  console.log('Content:', content)
                   fullResponse += content
                   
                   // 检查是否在思考阶段
@@ -153,7 +151,6 @@ export const AiChat = ({ onClose }: AiChatProps) => {
 
       // 流式响应完成后，检查是否有工具调用
       if (fullResponse.includes('<execute>')) {
-        console.log('检测到工具调用，开始处理...')
         await handleToolCalls(fullResponse, aiMessageId)
       }
 
@@ -208,18 +205,13 @@ export const AiChat = ({ onClose }: AiChatProps) => {
         executeBlocks.push(match[1].trim())
       }
       
-      console.log('找到execute块:', executeBlocks)
-      
       for (const block of executeBlocks) {
         const toolCalls = parseToolCalls(block)
-        console.log('解析的工具调用:', toolCalls)
         
         for (const toolCall of toolCalls) {
-          console.log('执行工具调用:', toolCall)
           
           try {
             const result = await executeToolCall(toolCall)
-            console.log('工具调用结果:', result)
             
             // 添加工具执行结果到消息
             const resultMessage = `\n\n[工具执行结果]\n${JSON.stringify(result, null, 2)}\n\n`
