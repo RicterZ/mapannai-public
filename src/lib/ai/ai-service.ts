@@ -609,8 +609,9 @@ export class AiService {
                 continue;
               }
 
-              // 使用API客户端的方法，它会自动处理地理编码
-              const response = await fetch('/api/markers/v2', {
+              // 使用完整的URL调用API
+              const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001';
+              const response = await fetch(`${baseUrl}/api/markers/v2`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -641,7 +642,8 @@ export class AiService {
             throw new Error('地点名称不能为空');
           }
 
-          const response = await fetch('/api/markers/v2', {
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001';
+          const response = await fetch(`${baseUrl}/api/markers/v2`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
