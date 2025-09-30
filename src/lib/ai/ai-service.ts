@@ -9,7 +9,7 @@ export interface AIMessage {
 }
 
 export interface AIResponse {
-  type: 'text' | 'plan' | 'error' | 'done'
+  type: 'text' | 'plan' | 'error' | 'done' | 'thinking' | 'thinking_end'
   content: string
   plan?: ExecutionPlan
   conversationId: string
@@ -74,10 +74,12 @@ class ConversationManager {
 class AIEngine {
   private baseUrl: string
   private model: string
+  private timeoutMs: number
 
-  constructor(baseUrl: string, model: string) {
+  constructor(baseUrl: string, model: string, timeoutMs: number) {
     this.baseUrl = baseUrl
     this.model = model
+    this.timeoutMs = timeoutMs
   }
 
   async *generateStream(messages: AIMessage[]): AsyncGenerator<string> {
@@ -92,7 +94,7 @@ class AIEngine {
           messages,
           stream: true
         }),
-        signal: AbortSignal.timeout(60000)
+        signal: AbortSignal.timeout(this.timeoutMs)
       })
 
       if (!response.ok) {
@@ -209,14 +211,16 @@ export class AIService {
   constructor() {
     const baseUrl = process.env.OLLAMA_URL || 'http://localhost:11434'
     const model = process.env.OLLAMA_MODEL || 'deepseek-r1:8b'
+    const timeoutSec = Number(process.env.AI_REQUEST_TIMEOUT_SEC || '180')
+    const timeoutMs = Number.isFinite(timeoutSec) && timeoutSec > 0 ? timeoutSec * 1000 : 180000
     
     this.systemPrompt = this.buildSystemPrompt()
-    this.aiEngine = new AIEngine(baseUrl, model)
+    this.aiEngine = new AIEngine(baseUrl, model, timeoutMs)
     this.conversationManager = new ConversationManager(this.systemPrompt)
   }
 
   private buildSystemPrompt(): string {
-    return `你是旅游规划助手，专门负责分析用户需求并生成地图标记创建计划。
+    return `你是旅游规划助手，精通日本相关旅游信息，专门负责分析用户需求并生成地图标记创建计划。
 
 ## 核心任务
 1. 深度分析用户的旅游需求
@@ -291,14 +295,45 @@ export class AIService {
         // 处理思考标签
         if (chunk.includes('<think>')) {
           isInThinkTag = true
+          // 去掉标签后剩余内容如果有则作为thinking输出
+          const afterTag = chunk.split('<think>')[1] || ''
+          if (afterTag.trim()) {
+            yield {
+              type: 'thinking',
+              content: afterTag,
+              conversationId
+            }
+          }
           continue
         }
         if (chunk.includes('</think>')) {
+          // 结束前输出结束信号，去掉结束标签前的残留内容
+          const beforeEnd = chunk.split('</think>')[0] || ''
+          if (beforeEnd.trim()) {
+            yield {
+              type: 'thinking',
+              content: beforeEnd,
+              conversationId
+            }
+          }
           isInThinkTag = false
+          yield {
+            type: 'thinking_end',
+            content: '',
+            conversationId
+          }
           continue
         }
         if (isInThinkTag) {
-          continue // 跳过思考内容
+          // 思考内容实时输出
+          if (chunk.trim()) {
+            yield {
+              type: 'thinking',
+              content: chunk,
+              conversationId
+            }
+          }
+          continue
         }
 
         // 处理计划标签
