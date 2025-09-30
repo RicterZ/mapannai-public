@@ -29,10 +29,20 @@ export const AiChat = ({ onClose }: AiChatProps) => {
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const isMountedRef = useRef(true)
+
+  // 组件卸载时标记
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   // 自动滚动到底部
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (isMountedRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }
 
   useEffect(() => {
@@ -54,9 +64,17 @@ export const AiChat = ({ onClose }: AiChatProps) => {
     setInputValue('')
     setIsLoading(true)
 
+    // 重置textarea高度
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto'
+    }
+
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
+    let aiMessageId = ''
+
     try {
-      console.log('发送消息到AI API:', userMessage.content);
-      // 调用AI流式API
+      console.log('发送消息到AI API:', userMessage.content)
+      
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
@@ -66,13 +84,17 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       })
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('AI API错误:', response.status, errorText);
+        const errorText = await response.text()
+        console.error('AI API错误:', response.status, errorText)
         throw new Error(`AI服务暂时不可用: ${response.status} - ${errorText}`)
       }
 
+      if (!response.body) {
+        throw new Error('响应体为空')
+      }
+
       // 创建AI消息占位符
-      const aiMessageId = (Date.now() + 1).toString()
+      aiMessageId = (Date.now() + 1).toString()
       const aiMessage: Message = {
         id: aiMessageId,
         type: 'ai',
@@ -84,7 +106,7 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       setMessages(prev => [...prev, aiMessage])
 
       // 处理流式响应
-      const reader = response.body?.getReader()
+      reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
       let currentContent = ''
@@ -92,81 +114,111 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       let isInThinking = false
       let fullResponse = ''
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
+      while (true) {
+        if (!isMountedRef.current) {
+          // 组件已卸载，停止读取
+          await reader?.cancel()
+          break
+        }
 
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
+        const { done, value } = await reader.read()
+        
+        if (done) break
 
-          for (const line of lines) {
-            if (line.trim()) {
-              try {
-                const data = JSON.parse(line)
-                if (data.response) {
-                  const content = data.response
-                  fullResponse += content
-                  
-                  // 检查是否在思考阶段
-                  if (content.includes('<think>')) {
-                    isInThinking = true
-                    thinkingContent += content
-                  } else if (content.includes('</think>')) {
-                    // 思考结束
-                    thinkingContent += content
-                    isInThinking = false
-                  } else if (isInThinking) {
-                    // 仍在思考中
-                    thinkingContent += content
-                  } else {
-                    // 正常输出内容
-                    currentContent += content
-                  }
-                  
-                  // 更新AI消息，包含思考内容和正式输出
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === aiMessageId 
-                      ? { 
-                          ...msg, 
-                          content: currentContent,
-                          thinking: thinkingContent
-                        }
-                      : msg
-                  ))
-                }
-              } catch (e) {
-                // 忽略JSON解析错误
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (!line.trim()) continue
+
+          try {
+            const data = JSON.parse(line)
+            
+            // 处理不同类型的响应数据
+            if (data.response) {
+              const content = data.response
+              fullResponse += content
+              
+               // 检查是否在思考阶段
+               if (content.includes('<think>')) {
+                 isInThinking = true
+                 thinkingContent += content
+               } else if (content.includes('</think>')) {
+                 // 思考结束
+                 thinkingContent += content
+                 isInThinking = false
+               } else if (isInThinking) {
+                 // 仍在思考中
+                 thinkingContent += content
+               } else {
+                 // 正常输出内容
+                 currentContent += content
+               }
+              
+              // 安全地更新AI消息
+              if (isMountedRef.current) {
+                setMessages(prev => prev.map(msg => 
+                  msg.id === aiMessageId 
+                    ? { 
+                        ...msg, 
+                        content: currentContent,
+                        thinking: thinkingContent,
+                        isStreaming: true
+                      }
+                    : msg
+                ))
               }
+            } else if (data.error) {
+              console.error('AI API返回错误:', data.error)
+              throw new Error(data.error)
             }
+          } catch (e) {
+            // 忽略JSON解析错误，继续处理下一行
+            console.warn('JSON解析失败，跳过该行:', line)
+            continue
           }
         }
       }
 
       // 流式响应完成后，检查是否有工具调用
-      if (fullResponse.includes('<execute>') || fullResponse.includes('"tool":')) {
+      if (fullResponse && (fullResponse.includes('<execute>') || fullResponse.includes('"tool":'))) {
         await handleToolCalls(fullResponse, aiMessageId)
       }
 
       // 完成流式输出
-      setMessages(prev => prev.map(msg => 
-        msg.id === aiMessageId 
-          ? { ...msg, isStreaming: false }
-          : msg
-      ))
+      if (isMountedRef.current) {
+        setMessages(prev => prev.map(msg => 
+          msg.id === aiMessageId 
+            ? { ...msg, isStreaming: false }
+            : msg
+        ))
+      }
 
     } catch (error) {
       console.error('AI聊天错误:', error)
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'ai',
-        content: '抱歉，服务暂时不可用，请稍后再试。',
-        timestamp: new Date()
+      
+      if (isMountedRef.current) {
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          type: 'ai',
+          content: '抱歉，服务暂时不可用，请稍后再试。',
+          timestamp: new Date()
+        }
+        setMessages(prev => [...prev, errorMessage])
       }
-      setMessages(prev => [...prev, errorMessage])
     } finally {
-      setIsLoading(false)
+      if (isMountedRef.current) {
+        setIsLoading(false)
+      }
+      // 确保reader被关闭
+      if (reader) {
+        try {
+          await reader.cancel()
+        } catch (e) {
+          // 忽略取消时的错误
+        }
+      }
     }
   }
 
@@ -190,6 +242,8 @@ export const AiChat = ({ onClose }: AiChatProps) => {
 
   // 处理工具调用
   const handleToolCalls = async (fullResponse: string, aiMessageId: string) => {
+    if (!isMountedRef.current) return
+
     try {
       let toolCalls: Array<{tool: string, arguments: any}> = []
       
@@ -214,7 +268,17 @@ export const AiChat = ({ onClose }: AiChatProps) => {
         toolCalls.push(...jsonToolCalls)
       }
       
-      for (const toolCall of toolCalls) {
+      // 去重工具调用
+      const uniqueToolCalls = toolCalls.filter((call, index, self) => 
+        index === self.findIndex(c => 
+          c.tool === call.tool && 
+          JSON.stringify(c.arguments) === JSON.stringify(call.arguments)
+        )
+      )
+
+      for (const toolCall of uniqueToolCalls) {
+        if (!isMountedRef.current) break
+
         try {
           console.log(`[MCP CALL] ${toolCall.tool} args:`, JSON.stringify(toolCall.arguments, null, 2))
           const result = await executeToolCall(toolCall)
@@ -223,19 +287,25 @@ export const AiChat = ({ onClose }: AiChatProps) => {
           // 添加工具调用摘要到消息
           const argsSummary = JSON.stringify(toolCall.arguments, null, 2)
           const resultMessage = `\n\n已调用${toolCall.tool}工具，参数：\n${argsSummary}\n`
-          setMessages(prev => prev.map(msg => 
-            msg.id === aiMessageId 
-              ? { ...msg, content: msg.content + resultMessage }
-              : msg
-          ))
+          
+          if (isMountedRef.current) {
+            setMessages(prev => prev.map(msg => 
+              msg.id === aiMessageId 
+                ? { ...msg, content: msg.content + resultMessage }
+                : msg
+            ))
+          }
         } catch (error) {
           console.error('工具调用失败:', error)
           const errorMessage = `\n\n[工具调用失败]\n${error instanceof Error ? error.message : '未知错误'}\n\n`
-          setMessages(prev => prev.map(msg => 
-            msg.id === aiMessageId 
-              ? { ...msg, content: msg.content + errorMessage }
-              : msg
-          ))
+          
+          if (isMountedRef.current) {
+            setMessages(prev => prev.map(msg => 
+              msg.id === aiMessageId 
+                ? { ...msg, content: msg.content + errorMessage }
+                : msg
+            ))
+          }
         }
       }
     } catch (error) {
@@ -251,9 +321,13 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       // 尝试解析JSON格式的工具调用
       const jsonMatch = executeBlock.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
-        const toolCall = JSON.parse(jsonMatch[0])
-        if (toolCall.tool && toolCall.arguments) {
-          toolCalls.push(toolCall)
+        try {
+          const toolCall = JSON.parse(jsonMatch[0])
+          if (toolCall.tool && toolCall.arguments) {
+            toolCalls.push(toolCall)
+          }
+        } catch (e) {
+          console.warn('JSON解析失败:', e)
         }
       }
 
@@ -271,18 +345,16 @@ export const AiChat = ({ onClose }: AiChatProps) => {
       
       // 匹配包含"tool"和"arguments"的JSON对象
       const jsonRegex = /\{[^{}]*"tool"[^{}]*"arguments"[^{}]*\}/g
-      const matches = text.match(jsonRegex)
+      const matches = text.match(jsonRegex) || []
       
-      if (matches) {
-        for (const match of matches) {
-          try {
-            const toolCall = JSON.parse(match)
-            if (toolCall.tool && toolCall.arguments) {
-              toolCalls.push(toolCall)
-            }
-          } catch (e) {
-            // 忽略解析错误的JSON
+      for (const match of matches) {
+        try {
+          const toolCall = JSON.parse(match)
+          if (toolCall.tool && toolCall.arguments) {
+            toolCalls.push(toolCall)
           }
+        } catch (e) {
+          console.warn('JSON解析失败:', e)
         }
       }
 
@@ -297,6 +369,10 @@ export const AiChat = ({ onClose }: AiChatProps) => {
   const executeToolCall = async (toolCall: {tool: string, arguments: any}): Promise<any> => {
     const { tool, arguments: args } = toolCall
     
+    if (!tool || !args) {
+      throw new Error('工具调用参数不完整')
+    }
+
     switch (tool) {
       case 'create_marker_v2':
         // 支持两种格式：places 和 markers
@@ -305,13 +381,24 @@ export const AiChat = ({ onClose }: AiChatProps) => {
           const results = []
           for (const item of batchData) {
             try {
+              if (!item || typeof item !== 'object') {
+                results.push({ error: '无效的地点数据格式' })
+                continue
+              }
+
               // 处理不同的参数格式
               const placeData = {
-                name: item.name || item.title,
-                iconType: item.iconType,
+                name: item.name || item.title || '未命名地点',
+                iconType: item.iconType || 'default',
                 content: item.content || item.description || ''
               }
-              const result = await fetch('/api/markers', {
+
+              if (!placeData.name) {
+                results.push({ error: '地点名称不能为空' })
+                continue
+              }
+
+              const response = await fetch('/api/markers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -321,31 +408,52 @@ export const AiChat = ({ onClose }: AiChatProps) => {
                   content: placeData.content
                 })
               })
-              const marker = await result.json()
+
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${await response.text()}`)
+              }
+
+              const marker = await response.json()
               results.push(marker)
             } catch (error) {
               const itemName = item.name || item.title || '未知地点'
               console.error(`创建标记失败 ${itemName}:`, error)
-              results.push({ error: error instanceof Error ? error.message : '创建失败', place: itemName })
+              results.push({ 
+                error: error instanceof Error ? error.message : '创建失败', 
+                place: itemName 
+              })
             }
           }
           return { type: 'batch', results }
         } else {
           // 单个地点创建
+          if (!args.name) {
+            throw new Error('地点名称不能为空')
+          }
+
           const response = await fetch('/api/markers', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               coordinates: { latitude: 0, longitude: 0 },
               title: args.name,
-              iconType: args.iconType,
+              iconType: args.iconType || 'default',
               content: args.content || ''
             })
           })
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${await response.text()}`)
+          }
+
           return await response.json()
         }
 
       case 'update_marker_content':
+        if (!args.markerId) {
+          throw new Error('标记ID不能为空')
+        }
+
         const updateResponse = await fetch(`/api/markers/${args.markerId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -354,18 +462,32 @@ export const AiChat = ({ onClose }: AiChatProps) => {
             markdownContent: args.markdownContent
           })
         })
+
+        if (!updateResponse.ok) {
+          throw new Error(`HTTP ${updateResponse.status}: ${await updateResponse.text()}`)
+        }
+
         return await updateResponse.json()
 
       case 'create_travel_chain':
+        if (!args.markerIds || !Array.isArray(args.markerIds)) {
+          throw new Error('标记ID列表不能为空')
+        }
+
         const chainResponse = await fetch('/api/chains', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             markerIds: args.markerIds,
-            name: args.chainName,
-            description: args.description
+            name: args.chainName || '未命名行程',
+            description: args.description || ''
           })
         })
+
+        if (!chainResponse.ok) {
+          throw new Error(`HTTP ${chainResponse.status}: ${await chainResponse.text()}`)
+        }
+
         return await chainResponse.json()
 
       default:
