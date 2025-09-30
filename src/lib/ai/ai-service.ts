@@ -319,7 +319,9 @@ export class AiService {
                         console.log('🔍 解析到的工具调用:', toolCalls);
                         for (const toolCall of toolCalls) {
                           try {
+                            console.log('🔍 开始执行工具调用:', toolCall.tool);
                             const result = await this.executeToolCall(toolCall);
+                            console.log('🔍 工具调用执行成功:', result);
                             // 将工具调用结果添加到响应中
                             const toolResult = `\n\n[工具调用结果]\n${JSON.stringify(result, null, 2)}\n`;
                             fullResponse += toolResult;

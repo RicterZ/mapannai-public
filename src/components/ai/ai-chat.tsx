@@ -38,23 +38,30 @@ export const AiChat = ({ onClose }: AiChatProps) => {
   // 处理工具调用结果
   const handleToolCallResult = async (content: string) => {
     try {
+      console.log('🔍 前端接收到工具调用结果:', content);
       // 提取JSON结果
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const result = JSON.parse(jsonMatch[0]);
+        console.log('🔍 解析到的结果:', result);
         
         // 如果是批量结果
         if (result.type === 'batch' && result.results) {
+          console.log('🔍 处理批量结果:', result.results);
           for (const marker of result.results) {
             if (marker && !marker.error) {
+              console.log('🔍 添加标记到store:', marker);
               addMarkerToStore(marker);
             }
           }
         } 
         // 如果是单个标记
         else if (result && !result.error) {
+          console.log('🔍 添加单个标记到store:', result);
           addMarkerToStore(result);
         }
+      } else {
+        console.log('🔍 未找到JSON匹配');
       }
     } catch (error) {
       console.warn('处理工具调用结果失败:', error);
