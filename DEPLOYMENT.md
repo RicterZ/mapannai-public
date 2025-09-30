@@ -1,5 +1,23 @@
 # 部署指南
 
+## 组件与依赖（务必先准备）
+
+- Mapbox 账号与公钥（必需）：用于前端地图渲染
+  - `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`（pk. 开头）
+  - `NEXT_PUBLIC_MAPBOX_STYLE`（推荐中文样式）
+- Mapbox Dataset 写入能力（强烈推荐，用于持久化标记/行程链）
+  - `MAPBOX_SECRET_ACCESS_TOKEN`（sk. 开头）
+  - `MAPBOX_USERNAME`
+  - `MAPBOX_DATASET_ID`
+- Ollama 推理服务（可选：用于 AI 聊天与生成计划）
+  - `OLLAMA_URL`（例如 `http://localhost:11434`）
+  - `OLLAMA_MODEL`（例如 `deepseek-r1:8b`）
+- Google API Key（必需，用于地点搜索与路径规划）
+  - `GOOGLE_API_KEY`
+  - `GOOGLE_API_BASE_URL`（默认 `https://maps.googleapis.com`）
+- 反向代理需支持 SSE（推荐 Nginx，需关闭代理缓冲，见文末配置）
+- 运行环境：Node 18+/Docker（推荐 Docker 部署）
+
 ## Docker 部署
 
 ### 快速开始
@@ -39,29 +57,25 @@ cp env.example .env
 # 然后编辑 .env 文件，填入您的实际配置
 ```
 
-包含以下环境变量：
+包含以下环境变量（按用途分组）：
 
 ```bash
-# 地图提供者配置
-# 注意：现在只支持 Mapbox 地图，无需配置 MAP_PROVIDER
-
-# Mapbox 配置
+# Mapbox（必需）
 MAPBOX_SECRET_ACCESS_TOKEN=sk.your_mapbox_secret_token_here
 MAPBOX_USERNAME=your_mapbox_username
 MAPBOX_DATASET_ID=your_dataset_id_here
 
-# Google API 配置（用于后端搜索和路径规划）
+# Google API（必需，用于地点搜索与路径规划）
 GOOGLE_API_KEY=your_google_api_key_here
 GOOGLE_API_BASE_URL=https://maps.googleapis.com
 
-# 腾讯云 COS 配置
+# 腾讯云 COS（可选，如需上传资产）
 TENCENT_COS_SECRET_ID=your_tencent_secret_id
 TENCENT_COS_SECRET_KEY=your_tencent_secret_key
 TENCENT_COS_REGION=ap-chongqing
 TENCENT_COS_BUCKET=your_bucket_name
 
-# AI 服务（可选：使用本地/私有大模型服务）
-# 不配置也可运行，但 AI 聊天/计划功能将不可用
+# AI 服务（可选：启用 AI 聊天/计划）
 OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=deepseek-r1:8b
 # AI 请求“无活动超时”（秒）。只在流中“无新数据”达到该时间才会超时
@@ -95,16 +109,17 @@ services:
 ```
 
 #### 关键点
-- `NEXT_PUBLIC_*` 变量必须在构建时传递（通过 `args`）
-- 其他变量在运行时传递（通过 `env_file`）
-- 确保 `.env` 文件存在且包含所有必要的变量
-- 根据选择的地图提供者配置相应的环境变量
+- 仅支持 Mapbox；`NEXT_PUBLIC_*` 变量需在构建时通过 `args` 传入
+- 其他变量在运行时通过 `env_file` 注入
+- 确保 `.env` 文件存在且包含必要变量（见上）
 
 > 提示：若使用 AI 功能，请同时在容器/服务器上提供可访问的 OLLAMA_URL 服务。
 
-#### 地图提供者配置
-- **Mapbox**：需要配置 `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` 和 `NEXT_PUBLIC_MAPBOX_STYLE`
-- **Google API**：用于后端搜索和路径规划功能
+#### 地图/AI 配置要点
+- Mapbox：必须配置 `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` 与 `NEXT_PUBLIC_MAPBOX_STYLE`
+- Mapbox Dataset：要持久化标记/行程链，需提供 `MAPBOX_SECRET_ACCESS_TOKEN`、`MAPBOX_USERNAME`、`MAPBOX_DATASET_ID`
+- AI（Ollama）：如需使用 AI 聊天与计划，请提供 `OLLAMA_URL` 与 `OLLAMA_MODEL`
+- Google API：必须提供 `GOOGLE_API_KEY` 与 `GOOGLE_API_BASE_URL` 才能正常进行地点搜索与路径规划
 
 #### 实际配置说明
 - `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`: 您的 Mapbox 公钥令牌（以 `pk.` 开头）
@@ -194,7 +209,7 @@ location /api/ai/ {
 ```
 
 注意事项：
-- 生产环境请确保 `GOOGLE_API_KEY` 可用，否则路径规划会回退为直线连线。
+- 生产环境必须确保 `GOOGLE_API_KEY` 可用，否则搜索与路径规划将不可用（连线可能退化为直线或失败）。
 - Mapbox 需使用有效公钥（`NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`）且数据集 ID 可读写，行程链写入依赖 Dataset 的 upsert 权限。
 - 若后端需要构造绝对 URL，请设置 `NEXT_PUBLIC_BASE_URL` 指向外部可访问的域名。
 
