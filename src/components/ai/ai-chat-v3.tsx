@@ -60,8 +60,8 @@ export const AiChatV3 = ({ className }: AiChatV3Props) => {
     setIsLoading(true)
 
     try {
-      // 调用新的计划生成API
-      const response = await fetch('/api/ai/plan', {
+      // 使用流式API获取AI响应
+      const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -74,43 +74,92 @@ export const AiChatV3 = ({ className }: AiChatV3Props) => {
         throw new Error(`HTTP ${response.status}`)
       }
 
-      const aiResponse = await response.json()
-
-      // 添加AI回复消息
+      // 处理流式响应
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      
+      let assistantMessageId = `msg_${Date.now()}_assistant`
+      let assistantContent = ''
+      
+      // 先添加空的助手消息
       const assistantMessage: Message = {
-        id: `msg_${Date.now()}_assistant`,
+        id: assistantMessageId,
         type: 'assistant',
-        content: aiResponse.content,
+        content: '',
         timestamp: new Date()
       }
-
       setMessages(prev => [...prev, assistantMessage])
 
-      // 如果有执行计划，显示计划消息
-      if (aiResponse.plan) {
-        const planMessage: Message = {
-          id: `msg_${Date.now()}_plan`,
-          type: 'plan',
-          content: `已生成执行计划：${aiResponse.plan.title}`,
-          timestamp: new Date(),
-          plan: aiResponse.plan
-        }
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
 
-        setMessages(prev => [...prev, planMessage])
-        setCurrentPlan(aiResponse.plan)
-        setShowExecutionPanel(true)
+          const chunk = decoder.decode(value)
+          const lines = chunk.split('\n')
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6)
+              if (data === '{"type":"done","content":""}') {
+                break
+              }
+
+              try {
+                const parsed = JSON.parse(data)
+                
+                if (parsed.type === 'message') {
+                  // 累积消息内容
+                  assistantContent += parsed.content
+                  
+                  // 更新助手消息
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantMessageId 
+                      ? { ...msg, content: assistantContent }
+                      : msg
+                  ))
+                } else if (parsed.type === 'plan' && parsed.plan) {
+                  // 添加执行计划消息
+                  const planMessage: Message = {
+                    id: `msg_${Date.now()}_plan`,
+                    type: 'plan',
+                    content: `已生成执行计划：${parsed.plan.title}`,
+                    timestamp: new Date(),
+                    plan: parsed.plan
+                  }
+                  setMessages(prev => [...prev, planMessage])
+                  
+                  // 设置当前计划并显示执行面板
+                  setCurrentPlan(parsed.plan)
+                  setShowExecutionPanel(true)
+                } else if (parsed.type === 'error') {
+                  // 处理错误
+                  const errorMessage: Message = {
+                    id: `msg_${Date.now()}_error`,
+                    type: 'system',
+                    content: `❌ ${parsed.content}`,
+                    timestamp: new Date()
+                  }
+                  setMessages(prev => [...prev, errorMessage])
+                }
+              } catch (parseError) {
+                console.warn('解析流式数据失败:', parseError)
+              }
+            }
+          }
+        }
       }
 
     } catch (error) {
-      console.error('发送消息失败:', error)
+      console.error('AI请求失败:', error)
       
       const errorMessage: Message = {
         id: `msg_${Date.now()}_error`,
         type: 'system',
-        content: '抱歉，处理您的请求时出现了问题。请稍后重试。',
+        content: `❌ 请求失败: ${error instanceof Error ? error.message : '未知错误'}`,
         timestamp: new Date()
       }
-
+      
       setMessages(prev => [...prev, errorMessage])
     } finally {
       setIsLoading(false)

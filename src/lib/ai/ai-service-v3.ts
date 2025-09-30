@@ -183,7 +183,7 @@ export class AIServiceV3 {
   }
 
   /**
-   * 流式处理消息
+   * 流式处理消息 - 过滤AI思考过程
    */
   async *processMessageStream(
     message: string,
@@ -203,25 +203,59 @@ export class AIServiceV3 {
       ]
 
       let fullResponse = ''
+      let isInThinkTag = false
+      let isInPlanTag = false
+      let planContent = ''
       
       // 流式调用AI模型
       for await (const chunk of this.aiEngine.generateStream(messages)) {
         fullResponse += chunk.content
         
+        // 检查是否进入/退出 <think> 标签
+        if (chunk.content.includes('<think>')) {
+          isInThinkTag = true
+          continue // 跳过 <think> 标签内容
+        }
+        if (chunk.content.includes('</think>')) {
+          isInThinkTag = false
+          continue
+        }
+        
+        // 检查是否进入 <plan> 标签
+        if (chunk.content.includes('<plan>')) {
+          isInPlanTag = true
+          continue
+        }
+        if (chunk.content.includes('</plan>')) {
+          isInPlanTag = false
+          // 解析并发送计划
+          const plan = this.parsePlanContent(planContent)
+          if (plan) {
+            yield {
+              type: 'plan',
+              content: '已生成执行计划',
+              plan,
+              conversationId
+            }
+          }
+          continue
+        }
+        
+        // 如果在 <think> 标签内，跳过输出
+        if (isInThinkTag) {
+          continue
+        }
+        
+        // 如果在 <plan> 标签内，收集计划内容
+        if (isInPlanTag) {
+          planContent += chunk.content
+          continue
+        }
+        
+        // 输出正常内容
         yield {
           type: 'message',
           content: chunk.content,
-          conversationId
-        }
-      }
-
-      // 解析完整响应中的计划
-      const plan = this.extractPlanFromResponse(fullResponse)
-      if (plan) {
-        yield {
-          type: 'plan',
-          content: '已生成执行计划',
-          plan,
           conversationId
         }
       }
@@ -275,6 +309,19 @@ export class AIServiceV3 {
       }
 
       const planContent = planMatch[1].trim()
+      return this.parsePlanContent(planContent)
+    } catch (error) {
+      console.error('解析执行计划失败:', error)
+      return null
+    }
+  }
+
+  /**
+   * 解析计划内容
+   */
+  private parsePlanContent(planContent: string): ExecutionPlan | null {
+    try {
+      console.log('📋 解析计划内容:', planContent)
       
       // 尝试解析JSON
       const planData = JSON.parse(planContent)
@@ -301,7 +348,7 @@ export class AIServiceV3 {
       console.log('✅ 成功生成执行计划:', plan.title, `(${plan.steps.length}步骤)`)
       return plan
     } catch (error) {
-      console.error('解析执行计划失败:', error)
+      console.error('解析计划内容失败:', error)
       return null
     }
   }
