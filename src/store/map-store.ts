@@ -47,6 +47,7 @@ interface MapStore {
         title?: string
         headerImage?: string
         markdownContent: string
+        iconType?: MarkerIconType
     }) => void
     deleteMarker: (markerId: string) => void
     selectMarker: (markerId: string | null) => void
@@ -299,6 +300,7 @@ export const useMapStore = create<MapStore>()(
                                     title: data.title,
                                     headerImage: data.headerImage,
                                     markdownContent: data.markdownContent,
+                                    iconType: data.iconType !== undefined ? data.iconType : marker.content.iconType,
                                     updatedAt: now,
                                 },
                             }
