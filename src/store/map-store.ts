@@ -36,6 +36,7 @@ interface MapStore {
 
     // Actions
     addMarker: (coordinates: MarkerCoordinates, content?: string) => string
+    addMarkerToStore: (marker: Marker) => void
     createMarkerFromModal: (data: {
         coordinates: MarkerCoordinates
         name: string
@@ -226,6 +227,19 @@ export const useMapStore = create<MapStore>()(
                 }
 
                 return markerId
+            },
+
+            addMarkerToStore: (marker) => {
+                set(state => ({
+                    markers: [...state.markers, marker],
+                    interactionState: {
+                        ...state.interactionState,
+                        selectedMarkerId: marker.id,
+                        isSidebarOpen: true,
+                        isPopupOpen: false,
+                        pendingCoordinates: null,
+                    },
+                }), false, 'addMarkerToStore')
             },
 
             createMarkerFromModal: async (data) => {

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/utils/cn'
+import { useMapStore } from '@/store/map-store'
 
 interface Message {
   id: string
@@ -30,6 +31,9 @@ export const AiChat = ({ onClose }: AiChatProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const isMountedRef = useRef(true)
+  
+  // 获取store函数
+  const { addMarkerToStore, selectMarker } = useMapStore()
 
   // 组件卸载时标记
   useEffect(() => {
@@ -457,6 +461,9 @@ export const AiChat = ({ onClose }: AiChatProps) => {
 
               const marker = await response.json()
               results.push(marker)
+              
+              // 添加标记到前端地图显示
+              addMarkerToStore(marker)
             } catch (error) {
               const itemName = item.name || item.title || '未知地点'
               console.error(`创建标记失败 ${itemName}:`, error)
@@ -487,7 +494,12 @@ export const AiChat = ({ onClose }: AiChatProps) => {
             throw new Error(`HTTP ${response.status}: ${await response.text()}`)
           }
 
-          return await response.json()
+          const marker = await response.json()
+          
+          // 添加标记到前端地图显示
+          addMarkerToStore(marker)
+          
+          return marker
         }
 
       case 'update_marker_content':
