@@ -203,8 +203,9 @@ export async function POST(request: NextRequest) {
       
       await datasetService.upsertFeature(datasetId, featureId, coordinates, properties);
       
-      // 保持用户友好的UUID作为返回ID，但内部使用坐标哈希防止重复
-      // marker.id 和 marker.content.id 保持为原来的UUID，用户看到的是有意义的ID
+      // 返回数据集中的实际特征ID
+      marker.id = featureId;
+      marker.content.id = featureId;
     }
 
     return NextResponse.json(marker);
