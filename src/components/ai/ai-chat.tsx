@@ -35,17 +35,21 @@ export const AiChat = ({ onClose }: AiChatProps) => {
   // 获取store函数
   const { addMarkerToStore, selectMarker } = useMapStore()
   
-  // 处理工具调用结果
-  const handleToolCallResult = async (content: string) => {
+  // 处理工具调用
+  const handleToolCall = async (content: string) => {
     try {
-      console.log('🔍 前端接收到工具调用结果:', content);
-      // 提取JSON结果
+      console.log('🔍 前端接收到工具调用:', content);
+      // 提取JSON工具调用
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const result = JSON.parse(jsonMatch[0]);
-        console.log('🔍 解析到的结果:', result);
+        const toolCall = JSON.parse(jsonMatch[0]);
+        console.log('🔍 解析到的工具调用:', toolCall);
         
-        // 如果是批量结果
+        // 执行工具调用
+        const result = await executeToolCall(toolCall);
+        console.log('🔍 工具调用执行结果:', result);
+        
+        // 处理结果
         if (result.type === 'batch' && result.results) {
           console.log('🔍 处理批量结果:', result.results);
           for (const marker of result.results) {
@@ -64,7 +68,7 @@ export const AiChat = ({ onClose }: AiChatProps) => {
         console.log('🔍 未找到JSON匹配');
       }
     } catch (error) {
-      console.warn('处理工具调用结果失败:', error);
+      console.warn('处理工具调用失败:', error);
     }
   }
 
@@ -173,9 +177,9 @@ export const AiChat = ({ onClose }: AiChatProps) => {
               const content = data.response
               fullResponse += content
               
-              // 检查是否是工具调用结果
-              if (content.includes('[工具调用结果]')) {
-                await handleToolCallResult(content)
+              // 检查是否是工具调用
+              if (content.includes('[工具调用]')) {
+                await handleToolCall(content)
               }
               
                // 检查是否在思考阶段
