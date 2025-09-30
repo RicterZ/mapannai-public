@@ -687,15 +687,24 @@ class AIMiddleware {
     try {
       switch (toolName) {
         case 'create_marker_v2':
-          if (args.places && Array.isArray(args.places)) {
+          // 支持两种格式：places 和 markers
+          const batchData = args.places || args.markers;
+          if (batchData && Array.isArray(batchData)) {
             const results = [];
-            for (const place of args.places) {
+            for (const item of batchData) {
               try {
-                const result = await this.apiClient.createMarkerFromPlaceName(place);
+                // 处理不同的参数格式
+                const placeData = {
+                  name: item.name || item.title,
+                  iconType: item.iconType,
+                  content: item.content || item.description || ''
+                };
+                const result = await this.apiClient.createMarkerFromPlaceName(placeData);
                 results.push(result);
               } catch (error) {
-                console.error(`创建标记失败 ${place.name}:`, error);
-                results.push({ error: error instanceof Error ? error.message : '创建失败', place: place.name });
+                const itemName = item.name || item.title || '未知地点';
+                console.error(`创建标记失败 ${itemName}:`, error);
+                results.push({ error: error instanceof Error ? error.message : '创建失败', place: itemName });
               }
             }
             return { type: 'batch', results };
