@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AIServiceV3 } from '@/lib/ai/ai-service-v3'
+import { AIService } from '@/lib/ai/ai-service'
 
 // 创建AI服务实例
-const aiService = new AIServiceV3()
+const aiService = new AIService()
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,14 +30,12 @@ export async function POST(request: NextRequest) {
             const data = JSON.stringify(chunk)
             controller.enqueue(encoder.encode(`data: ${data}\n\n`))
           }
-          
-          // 发送结束信号
-          controller.enqueue(encoder.encode('data: {"type":"done","content":""}\n\n'))
         } catch (error) {
           console.error('AI流式处理错误:', error)
           const errorChunk = JSON.stringify({
             type: 'error',
-            content: error instanceof Error ? error.message : '处理消息时发生错误'
+            content: error instanceof Error ? error.message : '处理消息时发生错误',
+            conversationId
           })
           controller.enqueue(encoder.encode(`data: ${errorChunk}\n\n`))
         } finally {
@@ -95,15 +93,12 @@ export async function GET(request: NextRequest) {
           const data = JSON.stringify(chunk)
           controller.enqueue(encoder.encode(`data: ${data}\n\n`))
         }
-        
-        // 发送结束信号
-        console.log('🏁 发送完成信号')
-        controller.enqueue(encoder.encode('data: {"type":"done","content":""}\n\n'))
       } catch (error) {
         console.error('AI流式处理错误:', error)
         const errorChunk = JSON.stringify({
           type: 'error',
-          content: error instanceof Error ? error.message : '处理消息时发生错误'
+          content: error instanceof Error ? error.message : '处理消息时发生错误',
+          conversationId: conversationId || ''
         })
         controller.enqueue(encoder.encode(`data: ${errorChunk}\n\n`))
       } finally {
