@@ -157,9 +157,11 @@ export const AbstractMap = () => {
         openSidebar,
         closeSidebar,
         updatePlaceInfo,
+        openAiSidebar,
+        closeAiSidebar,
     } = useMapStore()
 
-    const { isPopupOpen, popupCoordinates, selectedMarkerId, isSidebarOpen } = interactionState
+    const { isPopupOpen, popupCoordinates, selectedMarkerId, isSidebarOpen, isAiSidebarOpen } = interactionState
 
     // 自定义关闭标记详情函数，在移动端关闭时跳转到正中间
     const handleCloseSidebar = useCallback(() => {
@@ -868,6 +870,30 @@ export const AbstractMap = () => {
                         ) : (
                             <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
+                        )}
+                    </button>
+
+                    {/* AI助手按钮 */}
+                    <button
+                        onClick={interactionState.isAiSidebarOpen ? closeAiSidebar : openAiSidebar}
+                        className={cn(
+                            'w-12 h-12 rounded-full shadow-lg border border-gray-200 bg-white',
+                            'flex items-center justify-center',
+                            'hover:bg-blue-50 hover:border-blue-300 transition-all duration-200',
+                            'focus:outline-none',
+                            interactionState.isAiSidebarOpen && 'bg-red-50 border-red-300 hover:bg-red-100'
+                        )}
+                        aria-label={interactionState.isAiSidebarOpen ? '关闭AI助手' : '打开AI助手'}
+                        title={interactionState.isAiSidebarOpen ? '关闭AI助手' : '打开AI助手'}
+                    >
+                        {interactionState.isAiSidebarOpen ? (
+                            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        ) : (
+                            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                             </svg>
                         )}
                     </button>
