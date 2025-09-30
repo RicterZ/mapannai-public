@@ -251,9 +251,10 @@ export class AiService {
 
   private async callOllama(message: string): Promise<string> {
     const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+    const model = process.env.OLLAMA_MODEL || 'deepseek-r1:8b';
     
     const response = await axios.post(`${ollamaUrl}/api/generate`, {
-      model: 'qwen2.5:7b',
+      model: model,
       prompt: `${prompt}\n\n用户消息: ${message}`,
       stream: false
     });
