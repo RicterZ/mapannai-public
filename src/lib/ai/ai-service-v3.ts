@@ -194,6 +194,7 @@ export class AIServiceV3 {
 
       // 获取对话历史
       const history = this.conversationManager.getHistory(conversationId)
+      console.log('📚 对话历史长度:', history.length)
       
       // 构建消息列表
       const messages: AIMessage[] = [
@@ -201,64 +202,146 @@ export class AIServiceV3 {
         ...history,
         { role: 'user', content: message }
       ]
+      console.log('📝 发送给AI的消息数量:', messages.length)
 
       let fullResponse = ''
       let isInThinkTag = false
       let isInPlanTag = false
       let planContent = ''
+      let chunkCount = 0
+      
+      console.log('🚀 开始调用AI引擎流式生成...')
       
       // 流式调用AI模型
       for await (const chunk of this.aiEngine.generateStream(messages)) {
+        chunkCount++
+        console.log(`🔄 AI chunk ${chunkCount}:`, chunk)
+        
+        // 只处理文本类型的chunk
+        if (chunk.type !== 'text') {
+          console.log('⏭️ 跳过非文本chunk:', chunk.type)
+          continue
+        }
+        
         fullResponse += chunk.content
         
-        // 检查是否进入/退出 <think> 标签
-        if (chunk.content.includes('<think>')) {
+        // 检查标签状态变化
+        let contentToProcess = chunk.content
+        
+        // 处理 <think> 标签
+        if (contentToProcess.includes('<think>')) {
+          console.log('🧠 检测到 <think> 标签')
           isInThinkTag = true
-          continue // 跳过 <think> 标签内容
-        }
-        if (chunk.content.includes('</think>')) {
-          isInThinkTag = false
+          // 移除 <think> 标签及其之前的内容
+          const thinkIndex = contentToProcess.indexOf('<think>')
+          if (thinkIndex >= 0) {
+            const beforeThink = contentToProcess.substring(0, thinkIndex)
+            console.log('💬 <think>前的内容:', JSON.stringify(beforeThink))
+            if (beforeThink && !isInThinkTag && !isInPlanTag) {
+              yield {
+                type: 'message',
+                content: beforeThink,
+                conversationId
+              }
+            }
+          }
           continue
         }
         
-        // 检查是否进入 <plan> 标签
-        if (chunk.content.includes('<plan>')) {
+        if (contentToProcess.includes('</think>')) {
+          console.log('🧠 检测到 </think> 标签，恢复输出')
+          isInThinkTag = false
+          // 移除 </think> 标签及其之前的内容
+          const endThinkIndex = contentToProcess.indexOf('</think>')
+          if (endThinkIndex >= 0) {
+            contentToProcess = contentToProcess.substring(endThinkIndex + 8) // 8 = '</think>'.length
+            console.log('💬 </think>后的内容:', JSON.stringify(contentToProcess))
+          }
+          // 继续处理剩余内容，不要continue
+        }
+        
+        // 处理 <plan> 标签
+        if (contentToProcess.includes('<plan>')) {
+          console.log('📋 检测到 <plan> 标签')
           isInPlanTag = true
+          planContent = '' // 重置计划内容
+          // 移除 <plan> 标签及其之前的内容
+          const planIndex = contentToProcess.indexOf('<plan>')
+          if (planIndex >= 0) {
+            const beforePlan = contentToProcess.substring(0, planIndex)
+            console.log('💬 <plan>前的内容:', JSON.stringify(beforePlan))
+            if (beforePlan && !isInThinkTag && !isInPlanTag) {
+              yield {
+                type: 'message',
+                content: beforePlan,
+                conversationId
+              }
+            }
+          }
           continue
         }
-        if (chunk.content.includes('</plan>')) {
+        
+        if (contentToProcess.includes('</plan>')) {
+          console.log('📋 检测到 </plan> 标签')
+          // 先收集 </plan> 之前的内容
+          const endPlanIndex = contentToProcess.indexOf('</plan>')
+          if (endPlanIndex >= 0) {
+            const planPart = contentToProcess.substring(0, endPlanIndex)
+            console.log('📝 </plan>前的计划内容:', JSON.stringify(planPart))
+            planContent += planPart
+          }
+          
           isInPlanTag = false
+          console.log('📋 完整计划内容:', planContent)
+          
           // 解析并发送计划
           const plan = this.parsePlanContent(planContent)
           if (plan) {
+            console.log('✅ 计划解析成功，发送计划')
             yield {
               type: 'plan',
               content: '已生成执行计划',
               plan,
               conversationId
             }
+          } else {
+            console.log('❌ 计划解析失败')
           }
-          continue
+          
+          // 处理 </plan> 之后的内容
+          if (endPlanIndex >= 0) {
+            contentToProcess = contentToProcess.substring(endPlanIndex + 7) // 7 = '</plan>'.length
+            console.log('💬 </plan>后的内容:', JSON.stringify(contentToProcess))
+          }
+          // 继续处理剩余内容，不要continue
         }
         
         // 如果在 <think> 标签内，跳过输出
         if (isInThinkTag) {
+          console.log('🤫 在思考标签内，跳过输出:', JSON.stringify(chunk.content))
           continue
         }
         
         // 如果在 <plan> 标签内，收集计划内容
         if (isInPlanTag) {
-          planContent += chunk.content
+          console.log('📝 收集计划内容:', JSON.stringify(contentToProcess))
+          planContent += contentToProcess
           continue
         }
         
-        // 输出正常内容
-        yield {
-          type: 'message',
-          content: chunk.content,
-          conversationId
+        // 输出正常内容（如果有剩余内容需要输出）
+        if (contentToProcess && contentToProcess.trim()) {
+          console.log('💬 输出正常内容:', JSON.stringify(contentToProcess))
+          yield {
+            type: 'message',
+            content: contentToProcess,
+            conversationId
+          }
         }
       }
+
+      console.log(`✅ AI流式处理完成，总共处理 ${chunkCount} 个chunk`)
+      console.log('📄 完整响应长度:', fullResponse.length)
 
       // 保存对话历史
       this.conversationManager.addMessage(conversationId, { role: 'user', content: message })
