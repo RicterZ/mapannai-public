@@ -34,6 +34,32 @@ export const AiChat = ({ onClose }: AiChatProps) => {
   
   // 获取store函数
   const { addMarkerToStore, selectMarker } = useMapStore()
+  
+  // 处理工具调用结果
+  const handleToolCallResult = async (content: string) => {
+    try {
+      // 提取JSON结果
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const result = JSON.parse(jsonMatch[0]);
+        
+        // 如果是批量结果
+        if (result.type === 'batch' && result.results) {
+          for (const marker of result.results) {
+            if (marker && !marker.error) {
+              addMarkerToStore(marker);
+            }
+          }
+        } 
+        // 如果是单个标记
+        else if (result && !result.error) {
+          addMarkerToStore(result);
+        }
+      }
+    } catch (error) {
+      console.warn('处理工具调用结果失败:', error);
+    }
+  }
 
   // 组件卸载时标记
   useEffect(() => {
@@ -139,6 +165,11 @@ export const AiChat = ({ onClose }: AiChatProps) => {
             if (data.response) {
               const content = data.response
               fullResponse += content
+              
+              // 检查是否是工具调用结果
+              if (content.includes('[工具调用结果]')) {
+                await handleToolCallResult(content)
+              }
               
                // 检查是否在思考阶段
                if (content.includes('<think>')) {
