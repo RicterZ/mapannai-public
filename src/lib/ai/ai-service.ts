@@ -308,6 +308,7 @@ export class AiService {
                     let match;
                     while ((match = executeRegex.exec(fullResponse)) !== null) {
                       const executeBlockContent = match[1].trim();
+                      console.log('🔍 检测到execute块:', executeBlockContent);
                       const blockHash = this.generateBlockHash(executeBlockContent);
                       
                       if (!processedExecuteBlocks.has(blockHash)) {
@@ -315,6 +316,7 @@ export class AiService {
                         
                         // 解析并执行工具调用
                         const toolCalls = this.parseToolCalls(executeBlockContent);
+                        console.log('🔍 解析到的工具调用:', toolCalls);
                         for (const toolCall of toolCalls) {
                           try {
                             const result = await this.executeToolCall(toolCall);
@@ -525,6 +527,7 @@ export class AiService {
   // 解析工具调用
   private parseToolCalls(executeBlock: string): Array<{tool: string, arguments: any}> {
     try {
+      console.log('🔍 parseToolCalls 输入:', executeBlock);
       const toolCalls: Array<{tool: string, arguments: any}> = [];
       
       // 尝试解析JSON格式的工具调用
@@ -532,6 +535,7 @@ export class AiService {
       if (jsonMatch) {
         try {
           let jsonStr = jsonMatch[0].trim();
+          console.log('🔍 找到JSON匹配:', jsonStr);
           
           // 尝试找到完整的JSON对象
           let braceCount = 0;
@@ -551,14 +555,19 @@ export class AiService {
           }
           
           const toolCall = JSON.parse(jsonStr);
+          console.log('🔍 解析成功:', toolCall);
           if (toolCall.tool && toolCall.arguments) {
             toolCalls.push(toolCall);
+            console.log('🔍 添加工具调用:', toolCall);
           }
         } catch (e) {
-          // JSON解析失败，跳过
+          console.log('🔍 JSON解析失败:', e);
         }
+      } else {
+        console.log('🔍 未找到JSON匹配');
       }
 
+      console.log('🔍 最终工具调用列表:', toolCalls);
       return toolCalls;
     } catch (error) {
       return [];
