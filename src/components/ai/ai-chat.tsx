@@ -5,9 +5,10 @@ import { cn } from '@/utils/cn'
 
 interface Message {
   id: string
-  type: 'user' | 'ai'
+  type: 'user' | 'ai' | 'thinking'
   content: string
   timestamp: Date
+  isStreaming?: boolean
 }
 
 interface AiChatProps {
@@ -53,7 +54,7 @@ export const AiChat = ({ onClose }: AiChatProps) => {
     setIsLoading(true)
 
     try {
-      // 调用AI中间件API
+      // 调用AI流式API
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
@@ -66,16 +67,79 @@ export const AiChat = ({ onClose }: AiChatProps) => {
         throw new Error('AI服务暂时不可用')
       }
 
-      const data = await response.json()
-      
+      // 创建AI消息占位符
+      const aiMessageId = (Date.now() + 1).toString()
       const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: aiMessageId,
         type: 'ai',
-        content: data.response || '抱歉，我暂时无法处理您的请求。',
-        timestamp: new Date()
+        content: '',
+        timestamp: new Date(),
+        isStreaming: true
       }
 
       setMessages(prev => [...prev, aiMessage])
+
+      // 处理流式响应
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let currentContent = ''
+      let isThinking = false
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            if (line.trim()) {
+              try {
+                const data = JSON.parse(line)
+                if (data.response) {
+                  const content = data.response
+                  
+                  // 检查是否是思考内容
+                  if (content.includes('<think>') && content.includes('</think>')) {
+                    if (!isThinking) {
+                      // 添加思考消息
+                      const thinkingMessage: Message = {
+                        id: (Date.now() + 2).toString(),
+                        type: 'thinking',
+                        content: content.match(/<think>([\s\S]*?)<\/think>/)?.[1] || '',
+                        timestamp: new Date()
+                      }
+                      setMessages(prev => [...prev, thinkingMessage])
+                      isThinking = true
+                    }
+                  } else {
+                    // 正常输出内容
+                    currentContent += content
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === aiMessageId 
+                        ? { ...msg, content: currentContent }
+                        : msg
+                    ))
+                  }
+                }
+              } catch (e) {
+                // 忽略JSON解析错误
+              }
+            }
+          }
+        }
+      }
+
+      // 完成流式输出
+      setMessages(prev => prev.map(msg => 
+        msg.id === aiMessageId 
+          ? { ...msg, isStreaming: false }
+          : msg
+      ))
+
     } catch (error) {
       console.error('AI聊天错误:', error)
       const errorMessage: Message = {
@@ -150,10 +214,23 @@ export const AiChat = ({ onClose }: AiChatProps) => {
                 'max-w-xs lg:max-w-md px-4 py-2 rounded-lg',
                 message.type === 'user'
                   ? 'bg-blue-500 text-white'
+                  : message.type === 'thinking'
+                  ? 'bg-gray-50 text-gray-600 border-l-4 border-gray-300'
                   : 'bg-gray-100 text-gray-900'
               )}
             >
-              <div className="whitespace-pre-wrap">{message.content}</div>
+              {message.type === 'thinking' && (
+                <div className="text-xs text-gray-500 mb-1 font-medium">💭 AI思考中...</div>
+              )}
+              <div className={cn(
+                'whitespace-pre-wrap',
+                message.type === 'thinking' && 'font-mono text-sm'
+              )}>
+                {message.content}
+                {message.isStreaming && (
+                  <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1"></span>
+                )}
+              </div>
               <div className={cn(
                 'text-xs mt-1',
                 message.type === 'user' ? 'text-blue-100' : 'text-gray-500'

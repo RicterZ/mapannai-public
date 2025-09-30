@@ -234,19 +234,82 @@ export class AiService {
     this.apiClient = new MapannaiApiClient();
   }
 
-  async processMessage(message: string): Promise<string> {
+  async processMessage(message: string): Promise<ReadableStream<Uint8Array>> {
     try {
-      // 调用Ollama API
-      const ollamaResponse = await this.callOllama(message);
-      
-      // 处理工具调用
-      const result = await this.processToolCalls(ollamaResponse);
-      
-      return result;
+      // 调用Ollama API并返回流
+      return await this.callOllamaStream(message);
     } catch (error) {
       console.error('AI服务处理错误:', error);
-      return '抱歉，AI服务暂时不可用，请稍后再试。';
+      // 返回错误信息的流
+      const errorText = '抱歉，AI服务暂时不可用，请稍后再试。';
+      return new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(errorText));
+          controller.close();
+        }
+      });
     }
+  }
+
+  private async callOllamaStream(message: string): Promise<ReadableStream<Uint8Array>> {
+    const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+    const model = process.env.OLLAMA_MODEL || 'deepseek-r1:8b';
+    
+    const response = await fetch(`${ollamaUrl}/api/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model,
+        prompt: `${prompt}\n\n用户消息: ${message}`,
+        stream: true
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama API错误: ${response.status}`);
+    }
+
+    // 创建自定义流来处理Ollama的响应
+    return new ReadableStream({
+      async start(controller) {
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        if (reader) {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                if (line.trim()) {
+                  try {
+                    const data = JSON.parse(line);
+                    if (data.response) {
+                      // 发送JSON格式的响应
+                      const jsonResponse = JSON.stringify({ response: data.response }) + '\n';
+                      controller.enqueue(new TextEncoder().encode(jsonResponse));
+                    }
+                  } catch (e) {
+                    // 忽略解析错误
+                  }
+                }
+              }
+            }
+          } finally {
+            reader.releaseLock();
+          }
+        }
+        controller.close();
+      }
+    });
   }
 
   private async callOllama(message: string): Promise<string> {
