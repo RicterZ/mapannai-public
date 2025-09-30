@@ -22,16 +22,6 @@ RUN npm ci --silent
 
 COPY . .
 
-# 安装 MCP 服务器依赖
-WORKDIR /app/mcp-server
-RUN npm install
-
-# 构建 MCP 服务器
-RUN npm run build
-
-# 回到主目录
-WORKDIR /app
-
 RUN npm run build
 
 FROM node:20-alpine AS runner
