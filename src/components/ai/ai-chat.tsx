@@ -43,12 +43,18 @@ interface ExecutionStep {
   status: 'pending' | 'running' | 'completed' | 'failed'
 }
 
-interface AIChatProps {
-  onExecutePlan?: (plan: ExecutionPlan) => Promise<void>
-  className?: string
+interface PlanExecutionCallbacks {
+  onStepStart?: (stepId: string) => void
+  onStepComplete?: (stepId: string, success: boolean) => void
 }
 
-export function AIChat({ onExecutePlan, className }: AIChatProps) {
+interface AIChatProps {
+  onExecutePlan?: (plan: ExecutionPlan, callbacks: PlanExecutionCallbacks) => Promise<void>
+  className?: string
+  showTimestamp?: boolean
+}
+
+export function AIChat({ onExecutePlan, className, showTimestamp = true }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -231,7 +237,32 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
     setExecutingPlan(plan.id)
     try {
       console.log('[AIChat] execute_plan_start', { planId: plan.id, steps: plan.steps.map(s => ({ id: s.id, type: s.type })) })
-      await onExecutePlan(plan)
+      await onExecutePlan(plan, {
+        onStepStart: (stepId: string) => {
+          setMessages(prev => prev.map(msg => {
+            if (msg.plan?.id !== plan.id) return msg
+            return {
+              ...msg,
+              plan: {
+                ...msg.plan,
+                steps: msg.plan.steps.map(step => step.id === stepId ? { ...step, status: 'running' as const } : step)
+              }
+            }
+          }))
+        },
+        onStepComplete: (stepId: string, success: boolean) => {
+          setMessages(prev => prev.map(msg => {
+            if (msg.plan?.id !== plan.id) return msg
+            return {
+              ...msg,
+              plan: {
+                ...msg.plan,
+                steps: msg.plan.steps.map(step => step.id === stepId ? { ...step, status: (success ? 'completed' : 'failed') as ExecutionStep['status'] } : step)
+              }
+            }
+          }))
+        }
+      })
       console.log('[AIChat] execute_plan_success', { planId: plan.id })
       
       // 更新计划状态为已完成
@@ -320,7 +351,11 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
               </div>
             )}
 
-            {messages.map((message) => (
+            {messages.map((message) => {
+              if (message.type === 'assistant' && (!message.content || message.content.trim().length === 0)) {
+                return null
+              }
+              return (
               <div key={message.id} className="space-y-2">
                 <div className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {message.type !== 'user' && (
@@ -333,7 +368,7 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
                     </div>
                   )}
                   
-                  <div className={`max-w-[80%] ${message.type === 'user' ? 'order-first' : ''}`}>
+                    <div className={`max-w-[80%] ${message.type === 'user' ? 'order-first' : ''}`}>
                     <div className={`rounded-lg px-3 py-2 ${
                       message.type === 'user' 
                         ? 'bg-primary text-primary-foreground ml-auto' 
@@ -344,9 +379,11 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
                       <p className="whitespace-pre-wrap">{message.content}</p>
                     </div>
                     
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {message.timestamp.toLocaleTimeString()}
-                    </p>
+                    {showTimestamp && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {message.timestamp.toLocaleTimeString()}
+                      </p>
+                    )}
                   </div>
 
                   {message.type === 'user' && (
@@ -396,7 +433,8 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
                   </Card>
                 )}
               </div>
-            ))}
+              )
+            })}
 
             {(isLoading || planDraftText) && (
               <div className="flex gap-3">

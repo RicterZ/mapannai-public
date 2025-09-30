@@ -22,11 +22,12 @@ interface ExecutionStep {
 }
 
 export default function TestAIPage() {
-  const handleExecutePlan = async (plan: ExecutionPlan) => {
+  const handleExecutePlan = async (plan: ExecutionPlan, callbacks: { onStepStart?: (stepId: string) => void; onStepComplete?: (stepId: string, success: boolean) => void }) => {
     console.log('🚀 执行计划:', plan)
     
     // 模拟执行过程
     for (const step of plan.steps) {
+      callbacks.onStepStart?.(step.id)
       console.log(`执行步骤: ${step.description}`)
       
       // 模拟异步操作
@@ -35,9 +36,13 @@ export default function TestAIPage() {
       if (step.type === 'create_markers') {
         console.log('创建地图标记:', step.args)
         // 这里会调用实际的地图标记创建逻辑
+        callbacks.onStepComplete?.(step.id, true)
       } else if (step.type === 'create_chain') {
         console.log('创建行程链:', step.args)
         // 这里会调用实际的行程链创建逻辑
+        callbacks.onStepComplete?.(step.id, true)
+      } else {
+        callbacks.onStepComplete?.(step.id, true)
       }
     }
     

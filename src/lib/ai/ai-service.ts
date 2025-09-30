@@ -85,7 +85,9 @@ class AIEngine {
   async *generateStream(messages: AIMessage[]): AsyncGenerator<string> {
     try {
       console.log('🤖 调用AI模型:', this.model)
-      
+      // 使用“无活动超时”策略：只要有数据持续到达，就不断重置计时器，不会中断
+      const abortController = new AbortController()
+
       const response = await fetch(`${this.baseUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -94,7 +96,8 @@ class AIEngine {
           messages,
           stream: true
         }),
-        signal: AbortSignal.timeout(this.timeoutMs)
+        // 不使用固定总时长超时；改为外部可控的 abortController，以便做“无活动超时”
+        signal: abortController.signal
       })
 
       if (!response.ok) {
@@ -108,11 +111,29 @@ class AIEngine {
 
       const decoder = new TextDecoder()
       let buffer = ''
+      // 无活动超时：若在 timeoutMs 内未读到任何新数据，则中止（认为上游卡住）
+      // 若持续有数据到达，则不断重置定时器，不会超时。
+      const inactivityMs = this.timeoutMs
+      let inactivityTimer: ReturnType<typeof setTimeout> | null = null
+      const resetInactivityTimer = () => {
+        if (!Number.isFinite(inactivityMs) || inactivityMs <= 0) return
+        if (inactivityTimer) clearTimeout(inactivityTimer)
+        inactivityTimer = setTimeout(() => {
+          try {
+            abortController.abort()
+          } catch {}
+        }, inactivityMs)
+      }
+      // 初始启动看门狗
+      resetInactivityTimer()
 
       try {
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
+
+          // 收到数据，重置无活动计时器
+          resetInactivityTimer()
 
           buffer += decoder.decode(value, { stream: true })
           const lines = buffer.split('\n')
@@ -132,6 +153,7 @@ class AIEngine {
           }
         }
       } finally {
+        if (inactivityTimer) clearTimeout(inactivityTimer)
         reader.releaseLock()
       }
     } catch (error) {
@@ -227,6 +249,9 @@ export class AIService {
 2. 基于你的知识推荐合适的地点
 3. 生成结构化的执行计划，供前端实时执行
 4. 基于用户的需求，生成合理的标记链；如果是多日行程，需按“天（Day 1 / Day 2 / …）”输出多条行程链，每条链只包含当天的地点
+5. 注意输出格式，一定要记住<plan>和</plan>的闭合标签
+6. 根据情创建标记链，如果只有一个标记，则不用创建标记链
+7. 服从用户的指令，如果用户特别要求做什么，就不要私自增加任何额外的操作
 
 ## 输出格式
 <think>
