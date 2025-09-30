@@ -240,10 +240,20 @@ export class AiService {
   async processMessage(message: string): Promise<ReadableStream<Uint8Array>> {
     try {
       console.log('AI服务开始处理消息:', message);
-      // 调用Ollama API并返回流
-      const stream = await this.callOllamaStream(message);
-      console.log('Ollama流创建成功:', stream);
-      return stream;
+      
+      // 创建自定义流来处理工具调用
+      return new ReadableStream({
+        start: async (controller) => {
+          try {
+            await this.processWithToolCalls(message, controller);
+          } catch (error) {
+            console.error('处理消息时出错:', error);
+            const errorText = '抱歉，AI服务处理出错，请稍后再试。';
+            controller.enqueue(new TextEncoder().encode(errorText));
+            controller.close();
+          }
+        }
+      });
     } catch (error) {
       console.error('AI服务处理错误:', error);
       // 返回错误信息的流
@@ -447,5 +457,100 @@ export class AiService {
     // 这里可以添加逻辑来生成下一步的响应
     // 目前返回null表示不需要继续处理
     return null;
+  }
+
+  private async processWithToolCalls(message: string, controller: ReadableStreamDefaultController<Uint8Array>) {
+    const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+    const model = process.env.OLLAMA_MODEL || 'deepseek-r1:8b';
+    
+    console.log('开始处理工具调用:', { ollamaUrl, model });
+    
+    // 调用Ollama获取初始响应
+    const response = await fetch(`${ollamaUrl}/api/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model,
+        prompt: `${prompt}\n\n用户消息: ${message}`,
+        stream: false
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama API错误: ${response.status}`);
+    }
+
+    const data = await response.json();
+    let fullResponse = data.response || '';
+    
+    console.log('Ollama初始响应:', fullResponse);
+    
+    // 发送初始响应
+    controller.enqueue(new TextEncoder().encode(JSON.stringify({ response: fullResponse }) + '\n'));
+    
+    // 处理工具调用
+    let shouldContinue = true;
+    let iterationCount = 0;
+    const maxIterations = 10;
+    
+    // 重置状态
+    this.processedExecuteBlocks.clear();
+    this.toolExecutionStates.clear();
+
+    while (shouldContinue && iterationCount < maxIterations) {
+      iterationCount++;
+      console.log(`工具调用迭代 ${iterationCount}`);
+      
+      // 检查是否有工具调用
+      const executeBlocks = this.extractExecuteBlocks(fullResponse);
+      const unprocessedBlocks = executeBlocks.filter(block => 
+        !this.processedExecuteBlocks.has(block)
+      );
+      
+      if (unprocessedBlocks.length === 0) {
+        shouldContinue = false;
+        break;
+      }
+      
+      // 处理第一个未处理的工具调用
+      const block = unprocessedBlocks[0];
+      this.processedExecuteBlocks.add(block);
+      
+      console.log('处理工具调用块:', block);
+      
+      const toolCalls = this.parseToolCalls(block);
+      if (toolCalls.length > 0) {
+        const toolCall = toolCalls[0];
+        console.log('执行工具调用:', toolCall);
+        
+        try {
+          const result = await this.callTool(toolCall.tool, toolCall.arguments);
+          console.log('工具调用结果:', result);
+          
+          // 存储工具执行结果
+          this.toolExecutionStates.set(toolCall.tool, result);
+          
+          // 发送工具执行结果
+          const resultMessage = `\n\n[工具执行结果]\n${JSON.stringify(result, null, 2)}\n\n`;
+          controller.enqueue(new TextEncoder().encode(JSON.stringify({ response: resultMessage }) + '\n'));
+          
+          // 生成下一步响应
+          const nextResponse = await this.generateNextResponse(fullResponse, result);
+          if (nextResponse) {
+            fullResponse = nextResponse;
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ response: nextResponse }) + '\n'));
+          }
+        } catch (error) {
+          console.error('工具调用失败:', error);
+          const errorMessage = `\n\n[工具调用失败]\n${error instanceof Error ? error.message : '未知错误'}\n\n`;
+          controller.enqueue(new TextEncoder().encode(JSON.stringify({ response: errorMessage }) + '\n'));
+        }
+      }
+    }
+    
+    console.log('工具调用处理完成');
+    controller.close();
   }
 }
