@@ -205,9 +205,7 @@ class AIMiddleware {
     this.port = parseInt(process.env.AI_MIDDLEWARE_PORT || '3001');
     
     // 初始化 API 客户端
-    const apiUrl = process.env.MAPANNAI_API_URL || 'http://localhost:3000';
-    const apiKey = process.env.MAPANNAI_API_KEY || '';
-    this.apiClient = new MapannaiApiClient(apiUrl, apiKey);
+    this.apiClient = new MapannaiApiClient();
     
     this.setupMiddleware();
     this.setupRoutes();
@@ -750,7 +748,7 @@ class AIMiddleware {
       console.log(`📡 端口: ${this.port}`);
       console.log(`🧠 Ollama API: ${this.ollamaUrl}`);
       console.log(`🎯 模型: ${this.ollamaModel}`);
-      console.log(`🗺️  Mapannai API: ${process.env.MAPANNAI_API_URL || 'http://localhost:3000'}`);
+      console.log(`🗺️  Mapannai API: 使用内部API路由`);
     });
   }
 }
