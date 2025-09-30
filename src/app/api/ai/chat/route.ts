@@ -14,11 +14,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 使用本地AI服务
-    const response = await aiService.processMessage(message)
+    // 使用本地AI服务，返回流式响应
+    const stream = await aiService.processMessage(message)
     
-    return NextResponse.json({
-      response: response || '抱歉，我暂时无法处理您的请求。'
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
     })
 
   } catch (error) {
