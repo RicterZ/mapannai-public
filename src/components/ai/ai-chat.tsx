@@ -664,7 +664,7 @@ export const AiChat = ({ onClose }: AiChatProps) => {
                <div 
                  className="whitespace-pre-wrap"
                  dangerouslySetInnerHTML={{ 
-                   __html: formatMessageContent(escapeHtml(message.content)) 
+                   __html: formatMessageContent(message.content) 
                  }}
                />
                {message.isStreaming && (
