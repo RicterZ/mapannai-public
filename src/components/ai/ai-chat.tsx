@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { 
   Send, 
-  Trash2, 
   Bot, 
   User, 
   AlertCircle, 
@@ -240,10 +239,7 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
     }
   }
 
-  // 清除对话
-  const handleClearChat = () => {
-    setMessages([])
-  }
+
 
   // 获取步骤图标
   const getStepIcon = (step: ExecutionStep) => {
@@ -274,19 +270,11 @@ export function AIChat({ onExecutePlan, className }: AIChatProps) {
   return (
     <Card className={`flex flex-col h-full ${className}`}>
       <CardHeader className="flex-shrink-0">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center">
           <CardTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5" />
-            AI旅游助手 V4
+            AI旅游助手
           </CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClearChat}
-            disabled={isLoading}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
         </div>
       </CardHeader>
 
