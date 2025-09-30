@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect } from 'react'
+import { Bot } from 'lucide-react'
 import { AIChat } from './ai-chat'
 import { createMarkerV2Tool, createTravelChainTool } from '@/lib/ai/tools/marker-tools'
 import { useMapStore } from '@/store/map-store'
@@ -154,7 +155,10 @@ export function AiSidebar({ isOpen, onToggle }: AiSidebarProps) {
       <div className={`relative ml-auto h-full w-full max-w-full md:max-w-md lg:max-w-lg bg-white shadow-xl flex flex-col overflow-hidden transform transition-transform duration-300 pointer-events-auto ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         {/* 顶部栏：标题 + 关闭按钮 */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-          <div className="text-sm font-medium text-gray-700">AI 旅游助手</div>
+          <div className="text-sm font-medium text-gray-700 flex items-center gap-2">
+            <Bot className="h-5 w-5 text-blue-gray" />
+            旅游助手
+          </div>
           <button
             onClick={onToggle}
             className="p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
