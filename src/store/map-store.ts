@@ -101,6 +101,9 @@ interface MapStore {
 
     // Chain building - update next relations in local state
     setMarkerNext: (markerId: string, nextIds: string[]) => void
+
+    // 重试同步失败的标记
+    retrySyncMarker: (markerId: string) => Promise<void>
 }
 
 // 检查是否在服务器端API路由中运行
@@ -256,66 +259,111 @@ export const useMapStore = create<MapStore>()(
 
             createMarkerFromModal: async (data) => {
                 try {
-                    // 使用新的 /api/markers 端点，支持距离检查
-                    const response = await fetch('/api/markers', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            coordinates: data.coordinates,
+                    // 1. 立即创建临时标记（乐观更新）
+                    const tempMarkerId = uuidv4()
+                    const now = new Date()
+                    const tempMarker: Marker = {
+                        id: tempMarkerId,
+                        coordinates: data.coordinates,
+                        content: {
+                            id: tempMarkerId,
                             title: data.name,
                             iconType: data.iconType,
-                            content: '',
-                        }),
-                    })
-
-                    if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}))
-                        throw new Error(`创建标记失败: ${errorData.error || response.status}`)
+                            markdownContent: '',
+                            next: [],
+                            createdAt: now,
+                            updatedAt: now,
+                        },
                     }
 
-                    const result = await response.json()
+                    // 2. 立即添加到本地状态，用户立即看到标记
+                    set(state => ({
+                        markers: [...state.markers, tempMarker],
+                        addMarkerModal: {
+                            isOpen: false,
+                            coordinates: null,
+                            placeName: null,
+                        },
+                        interactionState: {
+                            ...state.interactionState,
+                            selectedMarkerId: null, // 不自动选中新标记
+                            isSidebarOpen: false,
+                            isPopupOpen: false,
+                            popupCoordinates: null,
+                            pendingCoordinates: null,
+                            placeName: null,
+                        },
+                    }), false, 'createMarkerFromModal-optimistic')
 
-                    // 检查标记是否已存在（通过ID检查）
-                    const existingMarker = get().markers.find(m => m.id === result.id)
-                    
-                    if (existingMarker) {
-                        // 标记已存在，选择现有标记
-                        set(state => ({
-                            addMarkerModal: {
-                                isOpen: false,
-                                coordinates: null,
-                                placeName: null,
-                            },
-                            interactionState: {
-                                ...state.interactionState,
-                                selectedMarkerId: result.id,
-                                isSidebarOpen: false,
-                                isPopupOpen: false,
-                                pendingCoordinates: null,
-                            },
-                        }), false, 'createMarkerFromModal')
-                    } else {
-                        // 新标记，添加到本地状态
-                        set(state => ({
-                            markers: [...state.markers, result],
-                            addMarkerModal: {
-                                isOpen: false,
-                                coordinates: null,
-                                placeName: null,
-                            },
-                            interactionState: {
-                                ...state.interactionState,
-                                selectedMarkerId: result.id,
-                                isSidebarOpen: false, // 不自动打开sidebar
-                                isPopupOpen: false,
-                                pendingCoordinates: null,
-                            },
-                        }), false, 'createMarkerFromModal')
+                    // 3. 异步调用API创建标记（不阻塞UI）
+                    const syncMarker = async () => {
+                        try {
+                            const response = await fetch('/api/markers', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    coordinates: data.coordinates,
+                                    title: data.name,
+                                    iconType: data.iconType,
+                                    content: '',
+                                }),
+                            })
+
+                            if (!response.ok) {
+                                const errorData = await response.json().catch(() => ({}))
+                                throw new Error(`创建标记失败: ${errorData.error || response.status}`)
+                            }
+
+                            const result = await response.json()
+
+                            // 4. 更新本地标记为服务器返回的最终标记
+                            set(state => ({
+                                markers: state.markers.map(marker => 
+                                    marker.id === tempMarkerId 
+                                        ? {
+                                            ...result,
+                                            // 保持用户选择的状态
+                                            content: {
+                                                ...result.content,
+                                                title: data.name, // 保持用户输入的名称
+                                            }
+                                        }
+                                        : marker
+                                ),
+                            }), false, 'createMarkerFromModal-sync')
+
+                            return result.id
+                        } catch (error) {
+                            console.error('同步标记到服务器失败:', error)
+                            
+                            // 5. 如果同步失败，标记为临时状态，但不删除
+                            set(state => ({
+                                markers: state.markers.map(marker => 
+                                    marker.id === tempMarkerId 
+                                        ? {
+                                            ...marker,
+                                            content: {
+                                                ...marker.content,
+                                                // 添加临时标记标识
+                                                isTemporary: true,
+                                                syncError: error instanceof Error ? error.message : '同步失败'
+                                            }
+                                        }
+                                        : marker
+                                ),
+                            }), false, 'createMarkerFromModal-error')
+                            
+                            // 不抛出错误，让用户继续使用
+                            return tempMarkerId
+                        }
                     }
 
-                    return result.id
+                    // 异步执行同步，不阻塞UI
+                    syncMarker()
+
+                    return tempMarkerId
                 } catch (error) {
                     console.error('创建标记失败:', error)
                     set({ 
@@ -766,6 +814,90 @@ export const useMapStore = create<MapStore>()(
 
             setLoading: (loading) => {
                 set({ isLoading: loading }, false, 'setLoading')
+            },
+
+            // 重试同步失败的标记
+            retrySyncMarker: async (markerId) => {
+                const state = get()
+                const marker = state.markers.find(m => m.id === markerId)
+                
+                if (!marker || !marker.content.isTemporary) {
+                    console.warn('标记不存在或不是临时标记:', markerId)
+                    return
+                }
+
+                try {
+                    // 清除错误状态，显示同步中
+                    set(state => ({
+                        markers: state.markers.map(m => 
+                            m.id === markerId 
+                                ? {
+                                    ...m,
+                                    content: {
+                                        ...m.content,
+                                        isTemporary: true,
+                                        syncError: undefined
+                                    }
+                                }
+                                : m
+                        ),
+                    }), false, 'retrySyncMarker-start')
+
+                    // 重新调用API
+                    const response = await fetch('/api/markers', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            coordinates: marker.coordinates,
+                            title: marker.content.title,
+                            iconType: marker.content.iconType,
+                            content: marker.content.markdownContent,
+                        }),
+                    })
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}))
+                        throw new Error(`创建标记失败: ${errorData.error || response.status}`)
+                    }
+
+                    const result = await response.json()
+
+                    // 更新为最终标记
+                    set(state => ({
+                        markers: state.markers.map(m => 
+                            m.id === markerId 
+                                ? {
+                                    ...result,
+                                    content: {
+                                        ...result.content,
+                                        title: marker.content.title, // 保持用户输入的名称
+                                    }
+                                }
+                                : m
+                        ),
+                    }), false, 'retrySyncMarker-success')
+
+                } catch (error) {
+                    console.error('重试同步失败:', error)
+                    
+                    // 更新错误状态
+                    set(state => ({
+                        markers: state.markers.map(m => 
+                            m.id === markerId 
+                                ? {
+                                    ...m,
+                                    content: {
+                                        ...m.content,
+                                        isTemporary: true,
+                                        syncError: error instanceof Error ? error.message : '同步失败'
+                                    }
+                                }
+                                : m
+                        ),
+                    }), false, 'retrySyncMarker-error')
+                }
             },
         }),
         {

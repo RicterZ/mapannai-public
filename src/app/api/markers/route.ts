@@ -98,23 +98,15 @@ export async function POST(request: NextRequest) {
         // 使用坐标哈希作为特征ID的一部分，确保唯一性
         const coordinateBasedId = `coord_${coordinateHash}`;
         
+        // 只获取一次所有特征，避免重复API调用
+        const allFeatures = await datasetService.getAllFeatures(datasetId);
+        
         // 首先尝试通过坐标哈希查找现有标记
-        let existingMarker = null;
-        try {
-          const allFeatures = await datasetService.getAllFeatures(datasetId);
-          const existingFeature = allFeatures.features.find(feature => feature.id === coordinateBasedId);
-          if (existingFeature) {
-            existingMarker = existingFeature;
-          }
-        } catch (error) {
-          // 如果通过坐标哈希没找到，继续使用距离检查
-        }
+        let existingMarker = allFeatures.features.find(feature => feature.id === coordinateBasedId);
         
         // 如果坐标哈希没找到，使用距离检查作为备用方案
         if (!existingMarker) {
-          const existingFeatures = await datasetService.getAllFeatures(datasetId);
-          
-          const nearbyMarker = existingFeatures.features.find(feature => {
+          existingMarker = allFeatures.features.find(feature => {
             if (!feature.geometry || !feature.geometry.coordinates) return false;
             
             const [lng, lat] = feature.geometry.coordinates;
@@ -127,10 +119,6 @@ export async function POST(request: NextRequest) {
               10 // 10米范围内
             );
           });
-          
-          if (nearbyMarker) {
-            existingMarker = nearbyMarker;
-          }
         }
 
         if (existingMarker) {

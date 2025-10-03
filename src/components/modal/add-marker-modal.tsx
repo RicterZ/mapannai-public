@@ -37,15 +37,16 @@ export const AddMarkerModal = ({ coordinates, isOpen, onClose, onSave, placeName
         }
 
         try {
-            onSave({
+            await onSave({
                 coordinates,
                 name: name.trim(),
                 iconType
             })
 
-            // 重置表单
+            // 重置表单并关闭模态框
             setName('')
             setIconType('location')
+            onClose()
         } catch (error) {
             console.error('保存失败:', error)
             alert('保存失败，请重试')

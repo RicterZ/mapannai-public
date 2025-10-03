@@ -31,6 +31,10 @@ export const MapMarker = ({
     // 当缩放级别较小时，仅显示纯色小点
     const shouldRenderAsDot = typeof zoom === 'number' && zoom < config.app.zoomThreshold
 
+    // 检查是否为临时标记
+    const isTemporary = marker.content.isTemporary
+    const hasSyncError = marker.content.syncError
+
     return (
         <div
             className={cn(
@@ -46,7 +50,12 @@ export const MapMarker = ({
                     ? 'hover:scale-[0.36] shadow-none' 
                     : 'hover:scale-125 hover:opacity-100 shadow-lg hover:shadow-xl',
                 'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-                isSelected
+                // 临时标记样式
+                isTemporary && !hasSyncError
+                    ? 'bg-yellow-500/75 hover:bg-yellow-500 animate-pulse' // 同步中的临时标记
+                    : hasSyncError
+                    ? 'bg-red-500/75 hover:bg-red-500' // 同步失败的标记
+                    : isSelected
                     ? shouldRenderAsDot 
                         ? 'bg-blue-600 scale-[0.36] z-10' // 圆点状态时，选中圆圈也缩小
                         : 'bg-blue-600 scale-110 z-10' // 正常状态时，选中圆圈放大
@@ -84,6 +93,19 @@ export const MapMarker = ({
             {/* Hover effect indicator */}
             {isHovered && !shouldRenderAsDot && !isSelected && (
                 <div className="absolute -inset-2 bg-white rounded-full opacity-20 animate-pulse" />
+            )}
+
+            {/* 临时标记状态指示器 */}
+            {!shouldRenderAsDot && isTemporary && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center">
+                    {hasSyncError ? (
+                        // 同步失败指示器
+                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title={`同步失败: ${marker.content.syncError}`} />
+                    ) : (
+                        // 同步中指示器
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" title="正在同步到服务器..." />
+                    )}
+                </div>
             )}
         </div>
     )
