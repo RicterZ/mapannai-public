@@ -671,12 +671,15 @@ export const AbstractMap = () => {
         try {
             if (!popupCoordinates) return
 
+            // 关闭popup
+            closePopup()
+            
             // 打开新增弹窗而不是直接添加marker，传递地点名称
             openAddMarkerModal(popupCoordinates, placeName)
         } catch (err) {
             console.error('Add marker error:', err)
         }
-    }, [popupCoordinates, openAddMarkerModal])
+    }, [popupCoordinates, openAddMarkerModal, closePopup])
 
     const handleEditMarker = useCallback((markerId: string) => {
         try {
@@ -707,13 +710,16 @@ export const AbstractMap = () => {
         iconType: MarkerIconType
     }) => {
         try {
+            // 异步创建标记，不阻塞UI
             const markerId = await createMarkerFromModal(data)
             
-            // 创建标记后不再自动打开编辑模态框
+            // 标记创建成功，用户立即看到标记
+            console.log('标记创建成功:', markerId)
         } catch (err) {
             console.error('Save new marker error:', err)
+            // 错误处理已经在store中完成，这里不需要额外处理
         }
-    }, [createMarkerFromModal, openEditMarkerModal])
+    }, [createMarkerFromModal])
 
     const handleUpdateMarker = useCallback((data: {
         markerId: string

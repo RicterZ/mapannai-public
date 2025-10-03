@@ -38,6 +38,9 @@ export interface MarkerContent {
     next: string[] // 下一个标记的ID列表，默认为空数组
     createdAt: Date
     updatedAt: Date
+    // 临时标记相关字段
+    isTemporary?: boolean // 是否为临时标记
+    syncError?: string // 同步错误信息
 }
 
 export interface Marker {

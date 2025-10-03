@@ -31,6 +31,8 @@ export class MapDatasetService implements DatasetService {
     private mapProvider: MapProvider
     private mapConfig: MapProviderConfig
     private mapDataCache: Map<string, DatasetFeatureCollection> = new Map()
+    private cacheTimestamps: Map<string, number> = new Map()
+    private readonly CACHE_DURATION = 5 * 60 * 1000 // 5分钟缓存
 
     constructor() {
         this.mapProvider = mapProviderFactory.createProvider('mapbox')
@@ -41,6 +43,18 @@ export class MapDatasetService implements DatasetService {
     }
 
     async getAllFeatures(datasetId: string): Promise<DatasetFeatureCollection> {
+        // 检查缓存是否有效
+        const now = Date.now()
+        const cacheTimestamp = this.cacheTimestamps.get(datasetId)
+        
+        if (cacheTimestamp && (now - cacheTimestamp) < this.CACHE_DURATION) {
+            const cachedData = this.mapDataCache.get(datasetId)
+            if (cachedData) {
+                console.debug(`[DatasetService] 使用缓存数据 for ${datasetId}`)
+                return cachedData
+            }
+        }
+        
         // 只支持 Mapbox 数据集
         return await this.getMapboxFeatures(datasetId)
     }
@@ -49,8 +63,10 @@ export class MapDatasetService implements DatasetService {
     clearCache(datasetId?: string): void {
         if (datasetId) {
             this.mapDataCache.delete(datasetId)
+            this.cacheTimestamps.delete(datasetId)
         } else {
             this.mapDataCache.clear()
+            this.cacheTimestamps.clear()
         }
     }
 
@@ -82,7 +98,7 @@ export class MapDatasetService implements DatasetService {
             const data = await response.json()
             
             // 转换Mapbox格式到通用格式
-            return {
+            const featureCollection = {
                 type: 'FeatureCollection',
                 features: data.features?.map((feature: any) => ({
                     id: feature.id,
@@ -91,6 +107,12 @@ export class MapDatasetService implements DatasetService {
                     properties: feature.properties
                 })) || []
             }
+            
+            // 更新缓存
+            this.mapDataCache.set(datasetId, featureCollection)
+            this.cacheTimestamps.set(datasetId, Date.now())
+            
+            return featureCollection
         } catch (error) {
             console.error('获取Mapbox数据集失败:', error)
             
@@ -146,6 +168,9 @@ export class MapDatasetService implements DatasetService {
 
             const data = await response.json()
             
+            // 清理缓存，确保下次获取最新数据
+            this.clearCache(datasetId)
+            
             return {
                 id: data.id,
                 type: 'Feature',
@@ -177,6 +202,9 @@ export class MapDatasetService implements DatasetService {
             if (!response.ok) {
                 throw new Error(`Mapbox API 错误: ${response.status}`)
             }
+            
+            // 清理缓存，确保下次获取最新数据
+            this.clearCache(datasetId)
         } catch (error) {
             console.error('删除Mapbox特征失败:', error)
             throw error
