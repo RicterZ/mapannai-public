@@ -98,11 +98,11 @@ export class MapDatasetService implements DatasetService {
             const data = await response.json()
             
             // 转换Mapbox格式到通用格式
-            const featureCollection = {
-                type: 'FeatureCollection',
+            const featureCollection: DatasetFeatureCollection = {
+                type: 'FeatureCollection' as const,
                 features: data.features?.map((feature: any) => ({
                     id: feature.id,
-                    type: 'Feature',
+                    type: 'Feature' as const,
                     geometry: feature.geometry,
                     properties: feature.properties
                 })) || []
