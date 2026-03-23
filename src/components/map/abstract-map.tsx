@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useRef, useEffect, useState, useMemo } from 'react'
+import { toast } from 'sonner'
 
 import { MapProvider, MapCoordinates, MapViewState, MapProviderConfig } from '@/types/map-provider'
 import { mapProviderFactory } from '@/lib/map/providers'
@@ -17,10 +18,10 @@ import { AddMarkerModal } from '@/components/modal/add-marker-modal'
 import { EditMarkerModal } from '@/components/modal/edit-marker-modal'
 import { LeftSidebar } from '@/components/sidebar/left-sidebar'
 import { Sidebar } from '@/components/sidebar/sidebar'
+import { ViewModeBanner } from '@/components/map/view-mode-banner'
 import { cn } from '@/utils/cn'
 import { MarkerIconType } from '@/types/marker'
 import Map, { Marker as MapboxMarker, MapRef, ViewState, MapProvider as ReactMapProvider } from 'react-map-gl'
-import { Bot } from 'lucide-react'
 
 // 根据地图提供者导入相应的样式
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -126,13 +127,10 @@ export const AbstractMap = () => {
     // 城市快速跳转折叠状态
     const [isCityListOpen, setIsCityListOpen] = useState(false)
 
-    // 右下角：搜索浮层与输入状态
-    const [isSearchFabOpen, setIsSearchFabOpen] = useState(false)
+    // 右下角搜索栏状态
     const [fabQuery, setFabQuery] = useState('')
     const [fabResults, setFabResults] = useState<any[]>([])
     const [fabQueryError, setFabQueryError] = useState('')
-    const [fabCoordInput, setFabCoordInput] = useState('')
-    const [fabCoordError, setFabCoordError] = useState('')
     const [isSearching, setIsSearching] = useState(false)
 
     const {
@@ -158,20 +156,25 @@ export const AbstractMap = () => {
         openSidebar,
         closeSidebar,
         updatePlaceInfo,
-        openAiSidebar,
-        closeAiSidebar,
+        activeView,
+        addMarkerToDay,
     } = useMapStore()
 
-    const { isPopupOpen, popupCoordinates, selectedMarkerId, isSidebarOpen, isAiSidebarOpen } = interactionState
+    const { isPopupOpen, popupCoordinates, selectedMarkerId, isSidebarOpen } = interactionState
 
-    // 调试：监听 markers 变化
+    // Compute visibleMarkers based on activeView
+    // Day/Trip 模式仍显示所有标记，让用户可以点击「加入今天」
+    // 视觉区分（高亮/置灰）由 MapMarker 组件负责
+    const visibleMarkers = markers
+
+    // 监听标记同步失败事件
     useEffect(() => {
-        console.debug('[AbstractMap] markers changed:', markers.length)
-        if (markers.length > 0) {
-            const m = markers[markers.length - 1]
-            console.debug('[AbstractMap] last marker:', m?.id, m?.coordinates)
+        const handleSyncFailed = () => {
+            toast.error('标记保存失败，请检查网络后重试', { duration: 5000 })
         }
-    }, [markers])
+        window.addEventListener('syncMarkerFailed', handleSyncFailed)
+        return () => window.removeEventListener('syncMarkerFailed', handleSyncFailed)
+    }, [])
 
     // 自定义关闭标记详情函数，在移动端关闭时跳转到正中间
     const handleCloseSidebar = useCallback(() => {
@@ -272,23 +275,7 @@ export const AbstractMap = () => {
         }
     }, [mapProvider])
 
-    // 右下角悬浮搜索：地点搜索
-    const handleFabSearch = useCallback(async () => {
-        const input = fabQuery.trim()
-        if (!input) {
-            setFabQueryError('请输入搜索关键词')
-            return
-        }
-        try {
-            // 使用统一的搜索服务，支持混合搜索功能
-            const results = await searchService.searchPlaces(input, 10, 'zh-CN')
-            setFabResults(results)
-        } catch (e) {
-            setFabQueryError('搜索失败，请稍后再试')
-        }
-    }, [fabQuery])
-
-    // 自动搜索：防抖处理，当输入字符数>=3时自动搜索
+    // 右下角搜索：防抖自动搜索（输入≥2字）
     useEffect(() => {
         const trimmedQuery = fabQuery.trim()
         
@@ -365,60 +352,23 @@ export const AbstractMap = () => {
             zoomLevel = 16
         }
         
-        // 先关闭搜索框，然后跳转到搜索结果位置
-        setIsSearchFabOpen(false)
-        
-        // 延迟跳转，确保搜索框关闭动画完成
+        // 先清空搜索，然后跳转
+        setFabQuery('')
+        setFabResults([])
+
+        // 延迟跳转，确保结果列表收起
         setTimeout(() => {
             handleFlyTo({ longitude: result.coordinates.longitude, latitude: result.coordinates.latitude }, zoomLevel)
-            
+
             // 自动弹出添加标记的 popup
             setTimeout(() => {
-                // 只支持 Mapbox 地图
                 openPopup({
                     latitude: result.coordinates.latitude,
                     longitude: result.coordinates.longitude
                 })
-            }, 500) // 等待地图跳转动画完成
-        }, 300) // 等待搜索框关闭动画完成
+            }, 500)
+        }, 100)
     }, [handleFlyTo, openPopup])
-
-    // 右下角悬浮搜索：坐标跳转
-    const handleFabCoordinateJump = useCallback(() => {
-        const input = fabCoordInput.trim()
-        if (!input) {
-            setFabCoordError('请输入坐标')
-            return
-        }
-        const patterns = [
-            /^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/,
-            /^(-?\d+\.?\d*)\s+(-?\d+\.?\d*)$/,
-        ]
-        let latitude: number | null = null
-        let longitude: number | null = null
-        for (const pattern of patterns) {
-            const match = input.match(pattern)
-            if (match) {
-                latitude = parseFloat(match[1])
-                longitude = parseFloat(match[2])
-                break
-            }
-        }
-        if (latitude === null || longitude === null) {
-            setFabCoordError('坐标格式错误，请使用"纬度, 经度"格式')
-            return
-        }
-        if (latitude < -90 || latitude > 90) {
-            setFabCoordError('纬度必须在-90到90之间')
-            return
-        }
-        if (longitude < -180 || longitude > 180) {
-            setFabCoordError('经度必须在-180到180之间')
-            return
-        }
-        handleFlyTo({ longitude, latitude }, 16)
-        setIsSearchFabOpen(false)
-    }, [fabCoordInput, handleFlyTo])
 
     // 静默重试加载数据
     const silentRetryLoad = useCallback(async () => {
@@ -692,13 +642,22 @@ export const AbstractMap = () => {
 
     const handleDeleteMarker = useCallback((markerId: string) => {
         try {
-            // 单次确认机制
-            const confirmed = confirm('🗑️ 确定要删除这个标记吗？删除后无法恢复。')
-            if (confirmed) {
-                const { deleteMarker } = useMapStore.getState()
-                deleteMarker(markerId)
-                closePopup()
-            }
+            toast('确定要删除这个标记吗？', {
+                description: '删除后无法恢复',
+                action: {
+                    label: '删除',
+                    onClick: () => {
+                        const { deleteMarker } = useMapStore.getState()
+                        deleteMarker(markerId)
+                        closePopup()
+                        toast.success('标记已删除')
+                    }
+                },
+                cancel: {
+                    label: '取消',
+                    onClick: () => {}
+                },
+            })
         } catch (err) {
             console.error('Delete marker error:', err)
         }
@@ -710,16 +669,31 @@ export const AbstractMap = () => {
         iconType: MarkerIconType
     }) => {
         try {
-            // 异步创建标记，不阻塞UI
-            const markerId = await createMarkerFromModal(data)
-            
-            // 标记创建成功，用户立即看到标记
-            console.log('标记创建成功:', markerId)
+            const { activeView: view } = useMapStore.getState()
+            const tripId = view.tripId
+            const dayId = view.dayId
+
+            await createMarkerFromModal({
+                ...data,
+                // Day/Trip 模式：等 API 返回真实 ID 后再归属，避免 tempId 污染
+                onSynced: tripId && dayId ? async (realMarkerId) => {
+                    try {
+                        await addMarkerToDay(tripId, dayId, realMarkerId)
+                        toast.success('标记已创建并加入今天行程')
+                    } catch {
+                        toast.success('标记已创建')
+                    }
+                } : undefined,
+            })
+
+            // 没有旅行模式时只提示创建成功（onSynced 为空时执行）
+            if (!tripId || !dayId) {
+                // toast 由 add-marker-modal 已处理，无需重复
+            }
         } catch (err) {
             console.error('Save new marker error:', err)
-            // 错误处理已经在store中完成，这里不需要额外处理
         }
-    }, [createMarkerFromModal])
+    }, [createMarkerFromModal, addMarkerToDay])
 
     const handleUpdateMarker = useCallback((data: {
         markerId: string
@@ -828,123 +802,28 @@ export const AbstractMap = () => {
                 </div>
             )}
 
-            {/* 城市快速跳转（可折叠） */}
+            {/* 左上角：标记列表按钮 */}
             <div className="absolute left-4 top-4 z-50">
-                <div className="flex flex-col items-start space-y-2">
-                    {/* 标记按钮：打开左侧栏（标记列表） */}
-                    <button
-                        onClick={toggleLeftSidebar}
-                        className={cn(
-                            'w-12 h-12 rounded-full shadow-lg border border-gray-200 bg-white',
-                            'flex items-center justify-center',
-                            'hover:bg-blue-50 hover:border-blue-300 transition-all duration-200',
-                            'focus:outline-none'
-                        )}
-                        aria-label="打开标记列表"
-                        title="打开标记列表"
-                    >
-                        <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                    </button>
-
-                    {/* 搜索悬浮按钮：打开半屏浮层 */}
-                    <button
-                        onClick={() => setIsSearchFabOpen(true)}
-                        className={cn(
-                            'w-12 h-12 rounded-full shadow-lg border border-gray-200 bg-white',
-                            'flex items-center justify-center',
-                            'hover:bg-blue-50 hover:border-blue-300 transition-all duration-200',
-                            'focus:outline-none'
-                        )}
-                        aria-label="查找或跳转"
-                        title="查找或跳转"
-                    >
-                        <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </button>
-
-                    {/* AI助手按钮 */}
-                    <button
-                        onClick={interactionState.isAiSidebarOpen ? closeAiSidebar : openAiSidebar}
-                        className={cn(
-                            'w-12 h-12 rounded-full shadow-lg border border-gray-200 bg-white',
-                            'flex items-center justify-center',
-                            'hover:bg-blue-50 hover:border-blue-300 transition-all duration-200',
-                            'focus:outline-none',
-                            interactionState.isAiSidebarOpen && 'bg-blue-50 border-blue-300'
-                        )}
-                        aria-label={interactionState.isAiSidebarOpen ? '关闭AI助手' : '打开AI助手'}
-                        title={interactionState.isAiSidebarOpen ? '关闭AI助手' : '打开AI助手'}
-                    >
-                        <Bot className={cn(
-                            'w-5 h-5',
-                            interactionState.isAiSidebarOpen ? 'text-blue-600' : 'text-gray-700'
-                        )} />
-                    </button>
-
-                    {/* 城市快速跳转按钮 */}
-                    <button
-                        onClick={() => setIsCityListOpen(!isCityListOpen)}
-                        className={cn(
-                            'w-12 h-12 rounded-full shadow-lg border border-gray-200 bg-white',
-                            'flex items-center justify-center',
-                            'hover:bg-blue-50 hover:border-blue-300 transition-all duration-200',
-                            'focus:outline-none'
-                        )}
-                        aria-expanded={isCityListOpen}
-                        aria-label={isCityListOpen ? '收起城市快速跳转' : '展开城市快速跳转'}
-                        title={isCityListOpen ? '收起城市快速跳转' : '展开城市快速跳转'}
-                    >
-                        {isCityListOpen ? (
-                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                            </svg>
-                        ) : (
-                            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                            </svg>
-                        )}
-                    </button>
-
-                    {/* 城市列表：向下展开 */}
-                    <div className={cn(
-                        'overflow-hidden transition-all duration-300 ease-out',
-                        isCityListOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'
-                    )}>
-                        <div className="flex flex-col items-start space-y-2 mt-2">
-                            {Object.entries(config.cities).map(([cityKey, city]) => (
-                                <button
-                                    key={cityKey}
-                                    onClick={() => handleCityJump(cityKey as keyof typeof config.cities)}
-                                    className={cn(
-                                        'px-4 py-2 bg-white rounded-lg shadow-lg border border-gray-200',
-                                        'text-sm font-medium text-gray-700',
-                                        'hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700',
-                                        'transition-all duration-200',
-                                        'focus:outline-none',
-                                        'flex items-center space-x-2',
-                                        'transform transition-transform duration-200',
-                                        isCityListOpen ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
-                                    )}
-                                    style={{
-                                        transitionDelay: isCityListOpen ? `${Object.keys(config.cities).indexOf(cityKey) * 50}ms` : '0ms'
-                                    }}
-                                    title={`跳转到${city.name}`}
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    </svg>
-                                    <span>{city.name}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                <button
+                    onClick={toggleLeftSidebar}
+                    className={cn(
+                        'w-12 h-12 rounded-full shadow-lg border border-gray-200 bg-white',
+                        'flex items-center justify-center',
+                        'hover:bg-blue-50 hover:border-blue-300 transition-all duration-200',
+                        'focus:outline-none'
+                    )}
+                    aria-label="打开标记列表"
+                    title="打开标记列表"
+                >
+                    <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </button>
             </div>
+
+            {/* 视图模式面包屑 Banner */}
+            <ViewModeBanner />
 
             {/* 左侧边栏 */}
             <LeftSidebar onFlyTo={handleFlyTo} />
@@ -989,10 +868,10 @@ export const AbstractMap = () => {
                     }}
                 >
                 {/* Render connection lines */}
-                <ConnectionLines markers={markers} zoom={viewState.zoom} />
+                <ConnectionLines markers={visibleMarkers} zoom={viewState.zoom} />
 
                 {/* Render existing markers - 添加安全检查 */}
-                {markers && markers.length > 0 && markers.map((marker) => {
+                {visibleMarkers && visibleMarkers.length > 0 && visibleMarkers.map((marker) => {
                     // 确保marker有必要的属性
                     if (!marker || !marker.id || !marker.coordinates) {
                         return null
@@ -1030,142 +909,102 @@ export const AbstractMap = () => {
                 )}
                 </MapboxMapComponent>
 
-            {/* 右下角：搜索侧边栏（桌面端右侧弹出，移动端半屏） */}
-            {isSearchFabOpen && (
-                <div className="fixed inset-0 z-[60]">
-                    <div className="absolute inset-0 bg-black/40 animate-fade-in" onClick={() => setIsSearchFabOpen(false)} />
-                    <div className={cn(
-                        'absolute bg-white shadow-2xl flex flex-col',
-                        // 移动端：下半屏显示，全宽
-                        'right-0 bottom-0 h-[50vh] w-full animate-slide-in-bottom',
-                        // PC端：正常右侧显示
-                        'lg:right-0 lg:top-0 lg:bottom-0 lg:w-80 lg:h-auto lg:max-w-sm lg:animate-slide-in-right'
-                    )} style={{ 
-                        paddingBottom: 'env(safe-area-inset-bottom, 0px)'
-                    }}>
-                        <div className="w-full flex items-center justify-center py-2 lg:hidden">
-                            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
-                        </div>
-                        <div className="px-4 py-3 border-b border-gray-200 bg-blue-50 flex-shrink-0">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-2">
-                                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                        </svg>
-                                    </div>
-                                    <h3 className="text-lg font-semibold text-gray-900">搜索</h3>
-                                </div>
+            {/* 右下角：城市快速跳转 + 搜索栏 */}
+            <div className="fixed bottom-6 right-4 z-30 flex flex-col items-end gap-2">
+                {/* 搜索结果列表（向上弹出，与输入框等宽） */}
+                {fabResults.length > 0 && (
+                    <div className="w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-scale-in">
+                        <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                            {fabResults.map((r: any, idx: number) => (
                                 <button
-                                    onClick={() => setIsSearchFabOpen(false)}
-                                    className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                    key={`${r.name}-${idx}`}
+                                    onClick={() => handleFabResultClick(r)}
+                                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors text-left border-b border-gray-50 last:border-0"
                                 >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4 min-h-0">
-                            <div className="space-y-6">
-                                {/* 坐标跳转 - 上方 */}
-                                <div className="space-y-3">
-                                    <h4 className="text-sm font-medium text-gray-800 flex items-center">
-                                        <svg className="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <span className="text-blue-500 flex-shrink-0">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                         </svg>
-                                        坐标跳转
-                                    </h4>
-                                    <div className="relative">
-                                        <input type="text" value={fabCoordInput} onChange={(e) => { setFabCoordInput(e.target.value); if (fabCoordError) setFabCoordError('') }} onKeyDown={(e) => { if (e.key === 'Enter') handleFabCoordinateJump() }} placeholder="输入坐标，如: 35.452, 139.638" className={cn('w-full h-9 pl-9 pr-12 border rounded-md text-sm', fabCoordError ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500', 'focus:outline-none transition-colors duration-200')} />
-                                        <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            </svg>
-                                        </div>
-                                        <button onClick={handleFabCoordinateJump} className={cn('absolute right-2 top-1/2 -translate-y-1/2', 'px-2 py-1 text-xs font-medium rounded', 'bg-blue-600 text-white hover:bg-blue-700', 'focus:outline-none', 'transition-colors duration-200')}>跳转</button>
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium text-gray-900 truncate">{r.name}</div>
+                                        {r.address && <div className="text-xs text-gray-400 truncate mt-0.5">{r.address}</div>}
                                     </div>
-                                    {fabCoordError && <div className="text-xs text-red-600 bg-red-50 p-2 rounded-md">{fabCoordError}</div>}
-                                </div>
-
-                                {/* 地点搜索 - 下方 */}
-                                <div className="space-y-3">
-                                    <h4 className="text-sm font-medium text-gray-800 flex items-center">
-                                        <svg className="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                        </svg>
-                                        地点搜索
-                                    </h4>
-                                    <div className="relative">
-                                        <input 
-                                            type="text" 
-                                            value={fabQuery} 
-                                            onChange={(e) => { 
-                                                setFabQuery(e.target.value); 
-                                                if (fabQueryError) setFabQueryError(''); 
-                                                if (e.target.value.trim() === '') setFabResults([]) 
-                                            }} 
-                                            onKeyDown={(e) => { 
-                                                if (e.key === 'Enter') handleFabSearch() 
-                                            }} 
-                                            placeholder="输入关键字，如：东京" 
-                                            className={cn(
-                                                'w-full h-9 pl-9 pr-4 border rounded-md text-sm',
-                                                fabQueryError ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500',
-                                                'focus:outline-none transition-colors duration-200'
-                                            )} 
-                                        />
-                                        <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                            </svg>
-                                        </div>
-                                        {/* 搜索状态指示器和清除按钮 */}
-                                        {isSearching && (
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                            </div>
-                                        )}
-                                        {/* 清除按钮 - 当有输入内容且不在搜索中时显示 */}
-                                        {!isSearching && fabQuery.trim().length > 0 && (
-                                            <button
-                                                onClick={() => {
-                                                    setFabQuery('')
-                                                    setFabResults([])
-                                                    setFabQueryError('')
-                                                }}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors duration-200"
-                                                title="清除搜索"
-                                            >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                </svg>
-                                            </button>
-                                        )}
-                                    </div>
-                                    {fabQueryError && <div className="text-xs text-red-600 bg-red-50 p-2 rounded-md">{fabQueryError}</div>}
-                                    {fabResults.length > 0 && (
-                                        <div className="space-y-2 animate-pop-in">
-                                            {fabResults.map((r: any, idx: number) => (
-                                                <button key={`${r.name}-${idx}`} onClick={() => handleFabResultClick(r)} className={cn('w-full p-3 bg-white rounded-lg border border-gray-200', 'hover:border-blue-300 hover:shadow-md', 'transition-all duration-200', 'focus:outline-none', 'text-left')}>
-                                                    <div className="flex items-start space-x-3">
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center justify-between">
-                                                                <h4 className="text-sm font-medium text-gray-900 truncate">{r.name}</h4>
-                                                            </div>
-                                                            <p className="text-xs text-gray-500 mt-1 truncate">{r.coordinates?.latitude?.toFixed?.(6)}, {r.coordinates?.longitude?.toFixed?.(6)}</p>
-                                                        </div>
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                                </button>
+                            ))}
                         </div>
                     </div>
+                )}
+
+                {/* 城市快速跳转标签（可横向收起） */}
+                <div className="flex items-center gap-1.5 justify-end">
+                    {/* 收起/展开按钮 */}
+                    <button
+                        onClick={() => setIsCityListOpen(!isCityListOpen)}
+                        className="w-7 h-7 rounded-full bg-white/90 backdrop-blur shadow border border-gray-200 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-all flex-shrink-0"
+                        title={isCityListOpen ? '收起' : '展开城市跳转'}
+                    >
+                        <svg className={cn('w-3.5 h-3.5 transition-transform duration-200', isCityListOpen ? 'rotate-0' : 'rotate-180')} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+
+                    {/* 城市标签：横向收起 */}
+                    <div className={cn(
+                        'flex items-center gap-1.5 overflow-hidden transition-all duration-300 ease-in-out',
+                        isCityListOpen ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'
+                    )}>
+                        {Object.entries(config.cities).map(([cityKey, city]) => (
+                            <button
+                                key={cityKey}
+                                onClick={() => handleCityJump(cityKey as keyof typeof config.cities)}
+                                className="px-3 py-1.5 bg-white/90 backdrop-blur rounded-full shadow border border-gray-200 text-xs font-medium text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all whitespace-nowrap"
+                            >
+                                {city.name}
+                            </button>
+                        ))}
+                    </div>
                 </div>
-            )}
+
+                {/* 搜索输入框 */}
+                <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                        {isSearching ? (
+                            <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        )}
+                    </div>
+                    <input
+                        type="text"
+                        value={fabQuery}
+                        onChange={e => {
+                            setFabQuery(e.target.value)
+                            if (fabQueryError) setFabQueryError('')
+                            if (!e.target.value.trim()) setFabResults([])
+                        }}
+                        onKeyDown={e => {
+                            if (e.key === 'Escape') { setFabQuery(''); setFabResults([]) }
+                            if (e.key === 'Enter' && fabResults.length > 0) handleFabResultClick(fabResults[0])
+                        }}
+                        placeholder="搜索地点…"
+                        className="w-72 h-11 pl-9 pr-8 bg-white rounded-2xl shadow-lg border border-gray-200 text-sm placeholder-gray-400 focus:outline-none transition-all"
+                    />
+                    {fabQuery && !isSearching && (
+                        <button
+                            onClick={() => { setFabQuery(''); setFabResults([]) }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
+                        >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    )}
+                </div>
+            </div>
             {/* 新增标记弹窗 */}
             <AddMarkerModal
                 coordinates={addMarkerModal.coordinates || { latitude: 0, longitude: 0 }}

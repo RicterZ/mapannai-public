@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { Marker, MarkerCoordinates, MarkerIconType, MapInteractionState, DetailedPlaceInfo } from '@/types/marker'
+import { Trip, TripDay, ActiveView } from '@/types/trip'
 import { v4 as uuidv4 } from 'uuid'
 
 interface MapStore {
@@ -33,6 +34,10 @@ interface MapStore {
         isEnabled: boolean
     }
 
+    // ── Trip 系统 ──────────────────────────────────
+    trips: Trip[]
+    tripDays: TripDay[]
+    activeView: ActiveView
 
     // Actions
     addMarker: (coordinates: MarkerCoordinates, content?: string) => string
@@ -41,6 +46,7 @@ interface MapStore {
         coordinates: MarkerCoordinates
         name: string
         iconType: MarkerIconType
+        onSynced?: (realMarkerId: string) => void
     }) => Promise<string>
     updateMarker: (markerId: string, updates: Partial<Marker>) => void
     updateMarkerFromModal: (data: {
@@ -80,10 +86,6 @@ interface MapStore {
     openSidebar: () => void
     closeSidebar: () => void
 
-    // AI Sidebar actions
-    openAiSidebar: () => void
-    closeAiSidebar: () => void
-
     // Editor actions
     updateMarkerContent: (markerId: string, content: { title?: string; headerImage?: string; markdownContent: string; next?: string[] }) => void
 
@@ -104,6 +106,19 @@ interface MapStore {
 
     // 重试同步失败的标记
     retrySyncMarker: (markerId: string) => Promise<void>
+
+    // ── Trip actions ───────────────────────────────
+    loadTripsFromDataset: () => Promise<void>
+    setActiveView: (mode: ActiveView['mode'], tripId?: string | null, dayId?: string | null) => void
+    createTrip: (data: { name: string; description?: string; startDate: string; endDate: string }) => Promise<Trip>
+    updateTrip: (tripId: string, data: Partial<Trip>) => Promise<void>
+    deleteTrip: (tripId: string) => Promise<void>
+    createTripDay: (tripId: string, data: { date: string; title?: string }) => Promise<TripDay>
+    updateTripDay: (tripId: string, dayId: string, data: Partial<TripDay>) => Promise<void>
+    deleteTripDay: (tripId: string, dayId: string) => Promise<void>
+    addMarkerToDay: (tripId: string, dayId: string, markerId: string) => Promise<void>
+    removeMarkerFromDay: (tripId: string, dayId: string, markerId: string) => Promise<void>
+    reorderDayMarkers: (tripId: string, dayId: string, newOrder: string[]) => Promise<void>
 }
 
 // 检查是否在服务器端API路由中运行
@@ -124,6 +139,7 @@ const saveMarkerToDataset = async (marker: Marker) => {
         headerImage: marker.content.headerImage || null,
         iconType: marker.content.iconType || 'location', // 添加iconType支持
         next: marker.content.next || [], // 添加next字段支持
+        tripDayEntries: marker.content.tripDayEntries || [],
         metadata: {
             id: marker.id,
             title: marker.content.title || '新标记',
@@ -162,7 +178,6 @@ export const useMapStore = create<MapStore>()(
                 displayedMarkerId: null,
                 isPopupOpen: false,
                 isSidebarOpen: false,
-                isAiSidebarOpen: false,
                 pendingCoordinates: null,
                 popupCoordinates: null,
                 placeName: null,
@@ -170,6 +185,11 @@ export const useMapStore = create<MapStore>()(
             },
             isLoading: false,
             error: null,
+
+            // ── Trip 初始状态 ──
+            trips: [],
+            tripDays: [],
+            activeView: { mode: 'overview', tripId: null, dayId: null },
 
             // 新增弹窗初始状态
             addMarkerModal: {
@@ -241,12 +261,10 @@ export const useMapStore = create<MapStore>()(
                     const existingIndex = state.markers.findIndex(m => m.id === marker.id);
                     if (existingIndex !== -1) {
                         // 如果存在，跳过添加但返回现有标记信息
-                        console.debug('[useMapStore] addMarkerToStore skip existing:', marker.id);
                         return state;
                     } else {
                         // 如果不存在，添加新标记
                         const next = { markers: [...state.markers, marker] } as any
-                        console.debug('[useMapStore] addMarkerToStore added:', marker.id, 'total ->', (state.markers.length + 1))
                         return next;
                     }
                 }, false, 'addMarkerToStore')
@@ -286,7 +304,7 @@ export const useMapStore = create<MapStore>()(
                         },
                         interactionState: {
                             ...state.interactionState,
-                            selectedMarkerId: null, // 不自动选中新标记
+                            selectedMarkerId: null,
                             isSidebarOpen: false,
                             isPopupOpen: false,
                             popupCoordinates: null,
@@ -300,9 +318,7 @@ export const useMapStore = create<MapStore>()(
                         try {
                             const response = await fetch('/api/markers', {
                                 method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
+                                headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     coordinates: data.coordinates,
                                     title: data.name,
@@ -318,35 +334,37 @@ export const useMapStore = create<MapStore>()(
 
                             const result = await response.json()
 
-                            // 4. 更新本地标记为服务器返回的最终标记
+                            // 4. 更新本地标记为服务器返回的最终标记（修复Date类型）
                             set(state => ({
-                                markers: state.markers.map(marker => 
-                                    marker.id === tempMarkerId 
+                                markers: state.markers.map(marker =>
+                                    marker.id === tempMarkerId
                                         ? {
                                             ...result,
-                                            // 保持用户选择的状态
                                             content: {
                                                 ...result.content,
-                                                title: data.name, // 保持用户输入的名称
+                                                title: data.name,
+                                                tripDayEntries: result.content?.tripDayEntries || [],
+                                                createdAt: result.content?.createdAt ? new Date(result.content.createdAt) : new Date(),
+                                                updatedAt: result.content?.updatedAt ? new Date(result.content.updatedAt) : new Date(),
                                             }
                                         }
                                         : marker
                                 ),
                             }), false, 'createMarkerFromModal-sync')
 
+                            // 5. 通知调用者实际 ID（用于 day 归属等后续操作）
+                            data.onSynced?.(result.id)
+
                             return result.id
                         } catch (error) {
                             console.error('同步标记到服务器失败:', error)
-                            
-                            // 5. 如果同步失败，标记为临时状态，但不删除
                             set(state => ({
-                                markers: state.markers.map(marker => 
-                                    marker.id === tempMarkerId 
+                                markers: state.markers.map(marker =>
+                                    marker.id === tempMarkerId
                                         ? {
                                             ...marker,
                                             content: {
                                                 ...marker.content,
-                                                // 添加临时标记标识
                                                 isTemporary: true,
                                                 syncError: error instanceof Error ? error.message : '同步失败'
                                             }
@@ -354,14 +372,16 @@ export const useMapStore = create<MapStore>()(
                                         : marker
                                 ),
                             }), false, 'createMarkerFromModal-error')
-                            
-                            // 不抛出错误，让用户继续使用
                             return tempMarkerId
                         }
                     }
 
                     // 异步执行同步，不阻塞UI
-                    syncMarker()
+                    syncMarker().catch(() => {
+                        if (typeof window !== 'undefined') {
+                            window.dispatchEvent(new CustomEvent('syncMarkerFailed'))
+                        }
+                    })
 
                     return tempMarkerId
                 } catch (error) {
@@ -612,25 +632,6 @@ export const useMapStore = create<MapStore>()(
                 }), false, 'closeSidebar')
             },
 
-            // AI侧边栏 actions
-            openAiSidebar: () => {
-                set(state => ({
-                    interactionState: {
-                        ...state.interactionState,
-                        isAiSidebarOpen: true,
-                    },
-                }), false, 'openAiSidebar')
-            },
-
-            closeAiSidebar: () => {
-                set(state => ({
-                    interactionState: {
-                        ...state.interactionState,
-                        isAiSidebarOpen: false,
-                    },
-                }), false, 'closeAiSidebar')
-            },
-
             updateMarkerContent: (markerId, content) => {
                 set(state => ({
                     markers: state.markers.map(marker =>
@@ -746,6 +747,7 @@ export const useMapStore = create<MapStore>()(
                                             iconType: properties.iconType, // 添加iconType
                                             markdownContent: properties.markdownContent || '',
                                             next: properties.next || [], // 处理缺失的next字段，默认为空数组
+                                            tripDayEntries: properties.tripDayEntries || [],
                                             createdAt: metadata.createdAt ? new Date(metadata.createdAt) : new Date(),
                                             updatedAt: metadata.updatedAt ? new Date(metadata.updatedAt) : new Date(),
                                         },
@@ -771,6 +773,11 @@ export const useMapStore = create<MapStore>()(
                 } finally {
                     set({ isLoading: false })
                 }
+
+                // 同时加载旅行数据（不阻塞主流程）
+                get().loadTripsFromDataset().catch(err => {
+                    console.error('加载旅行数据失败:', err)
+                })
             },
 
             deleteMarkerFromDataset: async (markerId: string) => {
@@ -898,6 +905,207 @@ export const useMapStore = create<MapStore>()(
                         ),
                     }), false, 'retrySyncMarker-error')
                 }
+            },
+
+            // ── Trip Actions ──────────────────────────────────────────────────
+
+            loadTripsFromDataset: async () => {
+                try {
+                    const response = await fetch('/api/trips')
+                    if (!response.ok) throw new Error('加载旅行失败')
+                    const data = await response.json()
+                    const trips = data.map((t: any) => ({ ...t, days: undefined }))
+                    const tripDays = data.flatMap((t: any) => t.days || [])
+                    set({ trips, tripDays }, false, 'loadTripsFromDataset')
+                } catch (error) {
+                    console.error('loadTripsFromDataset error:', error)
+                }
+            },
+
+            setActiveView: (mode, tripId = null, dayId = null) => {
+                set({ activeView: { mode, tripId, dayId } }, false, 'setActiveView')
+            },
+
+            createTrip: async (data) => {
+                const response = await fetch('/api/trips', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                })
+                if (!response.ok) throw new Error('创建旅行失败')
+                const result = await response.json()
+                const trip: Trip = { ...result, days: undefined }
+                const days: TripDay[] = result.days || []
+                set(state => ({
+                    trips: [...state.trips, trip],
+                    tripDays: [...state.tripDays, ...days],
+                }), false, 'createTrip')
+                return trip
+            },
+
+            updateTrip: async (tripId, data) => {
+                const response = await fetch(`/api/trips/${tripId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                })
+                if (!response.ok) throw new Error('更新旅行失败')
+                const updated: Trip = await response.json()
+                set(state => ({
+                    trips: state.trips.map(t => t.id === tripId ? updated : t),
+                }), false, 'updateTrip')
+            },
+
+            deleteTrip: async (tripId) => {
+                const response = await fetch(`/api/trips/${tripId}`, { method: 'DELETE' })
+                if (!response.ok) throw new Error('删除旅行失败')
+                set(state => ({
+                    trips: state.trips.filter(t => t.id !== tripId),
+                    tripDays: state.tripDays.filter(d => d.tripId !== tripId),
+                    activeView: state.activeView.tripId === tripId
+                        ? { mode: 'overview', tripId: null, dayId: null }
+                        : state.activeView,
+                }), false, 'deleteTrip')
+            },
+
+            createTripDay: async (tripId, data) => {
+                const response = await fetch(`/api/trips/${tripId}/days`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                })
+                if (!response.ok) throw new Error('新增天失败')
+                const day: TripDay = await response.json()
+                set(state => ({ tripDays: [...state.tripDays, day] }), false, 'createTripDay')
+                return day
+            },
+
+            updateTripDay: async (tripId, dayId, data) => {
+                const response = await fetch(`/api/trips/${tripId}/days/${dayId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                })
+                if (!response.ok) throw new Error('更新天失败')
+                const updated: TripDay = await response.json()
+                set(state => ({
+                    tripDays: state.tripDays.map(d => d.id === dayId ? updated : d),
+                }), false, 'updateTripDay')
+            },
+
+            deleteTripDay: async (tripId, dayId) => {
+                const response = await fetch(`/api/trips/${tripId}/days/${dayId}`, { method: 'DELETE' })
+                if (!response.ok) throw new Error('删除天失败')
+                set(state => ({
+                    tripDays: state.tripDays.filter(d => d.id !== dayId),
+                    activeView: state.activeView.dayId === dayId
+                        ? { mode: 'trip', tripId, dayId: null }
+                        : state.activeView,
+                }), false, 'deleteTripDay')
+            },
+
+            addMarkerToDay: async (tripId, dayId, markerId) => {
+                // 1. 立即更新本地 state（optimistic）
+                set(state => ({
+                    tripDays: state.tripDays.map(d =>
+                        d.id === dayId && !d.markerIds.includes(markerId)
+                            ? { ...d, markerIds: [...d.markerIds, markerId] }
+                            : d
+                    ),
+                    markers: state.markers.map(m =>
+                        m.id === markerId
+                            ? {
+                                ...m,
+                                content: {
+                                    ...m.content,
+                                    tripDayEntries: [
+                                        ...(m.content.tripDayEntries || []).filter(
+                                            e => !(e.tripId === tripId && e.dayId === dayId)
+                                        ),
+                                        { tripId, dayId },
+                                    ],
+                                },
+                            }
+                            : m
+                    ),
+                }), false, 'addMarkerToDay-optimistic')
+
+                // 2. 异步持久化到服务端（失败时回滚）
+                fetch(`/api/trips/${tripId}/days/${dayId}/markers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ markerId }),
+                }).then(res => {
+                    if (!res.ok) throw new Error('添加标记到天失败')
+                }).catch(() => {
+                    // 回滚
+                    set(state => ({
+                        tripDays: state.tripDays.map(d =>
+                            d.id === dayId
+                                ? { ...d, markerIds: d.markerIds.filter(id => id !== markerId) }
+                                : d
+                        ),
+                        markers: state.markers.map(m =>
+                            m.id === markerId
+                                ? {
+                                    ...m,
+                                    content: {
+                                        ...m.content,
+                                        tripDayEntries: (m.content.tripDayEntries || []).filter(
+                                            e => !(e.tripId === tripId && e.dayId === dayId)
+                                        ),
+                                    },
+                                }
+                                : m
+                        ),
+                    }), false, 'addMarkerToDay-rollback')
+                    if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('syncMarkerFailed'))
+                    }
+                })
+            },
+
+            removeMarkerFromDay: async (tripId, dayId, markerId) => {
+                const response = await fetch(`/api/trips/${tripId}/days/${dayId}/markers`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ markerId }),
+                })
+                if (!response.ok) throw new Error('从天移除标记失败')
+                set(state => ({
+                    tripDays: state.tripDays.map(d =>
+                        d.id === dayId
+                            ? { ...d, markerIds: d.markerIds.filter(id => id !== markerId) }
+                            : d
+                    ),
+                    markers: state.markers.map(m =>
+                        m.id === markerId
+                            ? {
+                                ...m,
+                                content: {
+                                    ...m.content,
+                                    tripDayEntries: (m.content.tripDayEntries || []).filter(
+                                        e => !(e.tripId === tripId && e.dayId === dayId)
+                                    ),
+                                },
+                            }
+                            : m
+                    ),
+                }), false, 'removeMarkerFromDay')
+            },
+
+            reorderDayMarkers: async (tripId, dayId, newOrder) => {
+                const response = await fetch(`/api/trips/${tripId}/days/${dayId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ markerIds: newOrder }),
+                })
+                if (!response.ok) throw new Error('重排顺序失败')
+                set(state => ({
+                    tripDays: state.tripDays.map(d =>
+                        d.id === dayId ? { ...d, markerIds: newOrder } : d
+                    ),
+                }), false, 'reorderDayMarkers')
             },
         }),
         {

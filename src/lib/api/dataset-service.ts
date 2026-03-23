@@ -5,6 +5,7 @@ import { config } from '@/lib/config'
 import { MarkerCoordinates, Marker } from '@/types/marker'
 import { useMapStore } from '@/store/map-store'
 import { mapDataService } from '@/lib/map/map-data-service'
+import { Trip, TripDay } from '@/types/trip'
 
 export interface DatasetFeature {
     id: string
@@ -50,7 +51,6 @@ export class MapDatasetService implements DatasetService {
         if (cacheTimestamp && (now - cacheTimestamp) < this.CACHE_DURATION) {
             const cachedData = this.mapDataCache.get(datasetId)
             if (cachedData) {
-                console.debug(`[DatasetService] 使用缓存数据 for ${datasetId}`)
                 return cachedData
             }
         }
@@ -523,3 +523,50 @@ export class MapDatasetService implements DatasetService {
 
 // 单例实例
 export const datasetService = new MapDatasetService()
+
+// ─────────────────────────────────────────────────
+// Trip / TripDay helpers — stored as Mapbox Dataset features
+// with a virtual geometry at [0,0] and featureType field
+// ─────────────────────────────────────────────────
+
+const NULL_GEOMETRY: DatasetFeature['geometry'] = { type: 'Point', coordinates: [0, 0] }
+
+export async function getAllTrips(datasetId: string): Promise<Trip[]> {
+    const fc = await datasetService.getAllFeatures(datasetId)
+    return fc.features
+        .filter(f => f.properties?.featureType === 'trip')
+        .map(f => f.properties.data as Trip)
+}
+
+export async function upsertTrip(datasetId: string, trip: Trip): Promise<void> {
+    await datasetService.upsertFeature(
+        datasetId,
+        trip.id,
+        { latitude: 0, longitude: 0 },
+        { featureType: 'trip', data: trip }
+    )
+}
+
+export async function deleteTrip(datasetId: string, tripId: string): Promise<void> {
+    await datasetService.deleteFeature(datasetId, tripId)
+}
+
+export async function getAllTripDays(datasetId: string): Promise<TripDay[]> {
+    const fc = await datasetService.getAllFeatures(datasetId)
+    return fc.features
+        .filter(f => f.properties?.featureType === 'tripDay')
+        .map(f => f.properties.data as TripDay)
+}
+
+export async function upsertTripDay(datasetId: string, day: TripDay): Promise<void> {
+    await datasetService.upsertFeature(
+        datasetId,
+        day.id,
+        { latitude: 0, longitude: 0 },
+        { featureType: 'tripDay', data: day }
+    )
+}
+
+export async function deleteTripDay(datasetId: string, dayId: string): Promise<void> {
+    await datasetService.deleteFeature(datasetId, dayId)
+}

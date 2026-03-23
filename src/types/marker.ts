@@ -10,11 +10,12 @@ export type MarkerIconType =
     | 'location'      // 📍 位置
     | 'hotel'         // 🏨 酒店
     | 'shopping'      // 🛍️ 购物
-    | 'food'          // 🍚 美食
+    | 'food'          // 🍜 美食
     | 'landmark'      // 🌆 地标建筑
     | 'park'          // 🎡 游乐场
     | 'natural'       // 🗻 自然景观
     | 'culture'       // ⛩️ 人文景观
+    | 'transit'       // 🚉 交通
 
 // 图标配置
 export const MARKER_ICONS: Record<MarkerIconType, { name: string; emoji: string; description: string; bgClass: string; hoverBgClass: string }> = {
@@ -27,6 +28,7 @@ export const MARKER_ICONS: Record<MarkerIconType, { name: string; emoji: string;
     park: { name: '游乐场', emoji: '🎡', description: '公园和游乐场', bgClass: 'bg-slate-500/75', hoverBgClass: 'hover:bg-slate-500' },
     natural: { name: '自然景观', emoji: '🗻', description: '自然景观', bgClass: 'bg-fuchsia-500/75', hoverBgClass: 'hover:bg-fuchsia-500' },
     culture: { name: '人文景观', emoji: '⛩️', description: '人文景观', bgClass: 'bg-gray-500/75', hoverBgClass: 'hover:bg-gray-500' },
+    transit: { name: '交通', emoji: '🚉', description: '车站、机场、港口等交通枢纽', bgClass: 'bg-blue-500/75', hoverBgClass: 'hover:bg-blue-500' },
 }
 
 export interface MarkerContent {
@@ -41,6 +43,8 @@ export interface MarkerContent {
     // 临时标记相关字段
     isTemporary?: boolean // 是否为临时标记
     syncError?: string // 同步错误信息
+    // 旅行分组：多对多关系，一个 marker 可属于多次旅行的多天
+    tripDayEntries?: Array<{ tripId: string; dayId: string }>
 }
 
 export interface Marker {
@@ -73,7 +77,6 @@ export interface MapInteractionState {
     displayedMarkerId: string | null // 用于在边栏中显示内容的标记ID
     isPopupOpen: boolean
     isSidebarOpen: boolean
-    isAiSidebarOpen: boolean // AI侧边栏状态
     pendingCoordinates: MarkerCoordinates | null
     popupCoordinates: MarkerCoordinates | null
     placeName: string | null // 地点名称（保持向后兼容）

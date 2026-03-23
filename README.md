@@ -1,86 +1,142 @@
-# マップ案内 Plus (MapAnNai Plus) - 交互式地图 AI 编辑器
+# MapAnNai Plus — 交互式旅行地图编辑器
 
-一个基于Next.js的交互式地图标记编辑平台，使用Mapbox地图服务，提供富文本内容编辑、坐标跳转、标记分类等功能。
+基于 Next.js + Mapbox 的旅行规划平台。在地图上创建和管理地点标记，按旅行/天组织行程，并通过 **MCP 协议**让 AI 助手（Claude Desktop、Cursor 等）直接操作地图。
 
 <img width="1236" height="906" alt="image" src="https://github.com/user-attachments/assets/b5c90caf-3545-495a-9ebc-eceefb7aa8b8" />
-<img width="1236" height="906" alt="image" src="https://github.com/user-attachments/assets/44897d0a-3ef0-4ee6-89c6-777a70876d69" />
-<img width="1236" height="906" alt="image" src="https://github.com/user-attachments/assets/1869b0cc-8c9e-4b7d-aed3-4dc487700b12" />
 
-## 🚀 部署
+---
 
-### 环境变量配置
+## 快速开始
+
+### 1. 环境变量
+
 ```bash
-# 复制环境变量示例文件
 cp env.example .env
-# 编辑 .env 文件，填入您的实际配置
+# 编辑 .env，填入以下配置
 ```
 
-详细的配置说明请参考：[环境变量配置指南](DEPLOYMENT.md#1-环境变量配置)
+| 变量 | 说明 |
+|------|------|
+| `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` | Mapbox 公开 token（`pk.`开头），用于地图渲染 |
+| `MAPBOX_SECRET_ACCESS_TOKEN` | Mapbox 私密 token（`sk.`开头），用于 Dataset 读写 |
+| `MAPBOX_USERNAME` | Mapbox 用户名 |
+| `MAPBOX_DATASET_ID` | Mapbox Dataset ID，所有标记数据存储在此 |
+| `GOOGLE_API_KEY` | Google Maps API Key，用于地点搜索和路径规划 |
+| `GOOGLE_API_BASE_URL` | Google API 地址，默认 `https://maps.googleapis.com`（国内可填代理） |
+| `TENCENT_COS_*` | 腾讯云 COS 配置，用于图片上传 |
 
-### 服务配置
-**详细配置步骤请参考：**
-- [DEPLOYMENT.md](DEPLOYMENT.md) - 当前版本的配置指南
-- [原版本配置指南](https://github.com/OikuraAmatsume/mapannai-public) - 包含 Mapbox 和 AWS S3 的详细配置步骤
+### 2. 本地开发
 
-### 城市配置
-在 `cities` 配置中添加您需要的城市：
+```bash
+npm install
+npm run dev       # http://localhost:3000
+npm run type-check
+```
 
-```typescript
-cities: {
-    // 现有城市...
-    yourCity: {
-        name: '您的城市名',
-        coordinates: { longitude: 经度, latitude: 纬度 },
-        zoom: 缩放级别
-    },
+### 3. Docker 部署
+
+```bash
+docker-compose up -d mapannai
+docker-compose logs -f mapannai
+```
+
+详细部署步骤见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+
+---
+
+## MCP 接入（AI 助手操作地图）
+
+MapAnNai 内置 MCP Server，任何支持 MCP 协议的 AI 客户端都可以直接创建标记、规划行程。
+
+### Claude Desktop 配置
+
+编辑 `~/Library/Application Support/Claude/claude_desktop_config.json`：
+
+```json
+{
+  "mcpServers": {
+    "mapannai": {
+      "url": "http://localhost:3000/api/mcp"
+    }
+  }
 }
 ```
 
+> 远程部署时将 `localhost:3000` 替换为实际域名。
 
-## 🎯 功能详情
+### 可用工具
 
-#### 1. 标记分类
-优化了标记按照类型分组显示，优化部分交互逻辑。
+| 分类 | 工具 | 说明 |
+|------|------|------|
+| **旅行** | `create_trip` | 创建旅行，自动按日期生成每天行程 |
+| | `list_trips` | 列出所有旅行 |
+| | `get_trip_detail` | 获取旅行详情（含每天地点） |
+| | `add_day_to_trip` | 手动新增一天 |
+| | `delete_trip` | 删除旅行（不删标记） |
+| **行程规划** | `plan_trip_day` | ⭐ 批量创建地点并加入指定天，一步完成 |
+| | `assign_marker_to_day` | 将已有标记加入某天 |
+| | `reorder_day_markers` | 调整当天地点顺序 |
+| **标记** | `create_marker` | 按地名创建标记（支持批量） |
+| | `list_markers` | 列出地图上所有标记 |
+| | `update_marker` | 更新标记内容/图标 |
+| | `delete_marker` | 删除标记 |
+| **搜索** | `search_places` | 搜索地点（返回坐标） |
+| | `get_place_details` | 获取地点详情（电话、评分、营业时间） |
+| | `get_walking_directions` | 获取步行路线 |
+| **路线** | `create_trip_chain` | 将标记连线为路线 |
+| | `list_trip_chains` | 列出所有路线 |
 
-- **活动** 🎯：活动和娱乐场所
-- **位置** 📍：一般地点标记
-- **酒店** 🏨：住宿和酒店
-- **购物** 🛍️：购物中心和商店
-- **美食** 🍜：美食和小吃
-- **地标** 🌆：地标性建筑和知名地点
-- **游乐场** 🎡：公园和游乐场
-- **自然景观** 🗻：自然景观
-- **人文景观** ⛩️：人文景观
+### 推荐 Workflow
 
-#### 2. Markdown 编辑
-修改了原版的 UI 和编辑器。
+**规划一次新旅行：**
+```
+1. create_trip("东京2024春", "2024-03-01", "2024-03-05")
+   → 返回 trip.id 和 days[0..4].id
 
-- 支持 Markdown 格式的富文本编辑
-- 支持标题、段落、列表、引用
-- 支持代码块、链接和图片
-- 实时预览编辑效果
+2. plan_trip_day(tripId, days[0].id, [
+     { name: "新宿御苑", iconType: "park" },
+     { name: "东京塔", iconType: "landmark" },
+     { name: "筑地市场", iconType: "food" }
+   ])
+   → 一步创建标记并加入第1天
 
-#### 3. 数据同步
-使用腾讯云 COS 进行数据存储。
+3. 重复步骤2为每天规划地点
+```
 
-- 标记数据自动保存到 Mapbox Dataset
-- 图片自动上传到腾讯云 COS
-- 支持多人协作编辑
+**继续规划已有旅行：**
+```
+list_trips() → get_trip_detail(tripId) → plan_trip_day(...)
+```
 
+连接后可调用 `workflow` prompt 让 AI 自动获取使用指南。
 
-## 🤝 贡献指南
+---
 
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
+## 标记类型
 
-## 📞 支持
+| 图标 | 类型 | 说明 |
+|------|------|------|
+| 🎯 | `activity` | 活动和娱乐 |
+| 📍 | `location` | 一般地点 |
+| 🏨 | `hotel` | 住宿 |
+| 🛍️ | `shopping` | 购物 |
+| 🍜 | `food` | 美食 |
+| 🌆 | `landmark` | 地标建筑 |
+| 🎡 | `park` | 公园游乐 |
+| 🗻 | `natural` | 自然景观 |
+| ⛩️ | `culture` | 人文景观 |
+| 🚉 | `transit` | 交通枢纽 |
 
-如果您遇到问题或有建议，请：
+---
 
-1. 查看 [Issues](../../issues) 页面
-2. 创建新的 Issue
-3. 联系项目维护者
+## 城市快速跳转配置
 
+在 `src/lib/config.ts` 的 `cities` 中添加城市：
+
+```typescript
+yourCity: {
+    name: '城市名',
+    coordinates: { longitude: 135.0, latitude: 35.0 },
+    zoom: 12
+}
+```

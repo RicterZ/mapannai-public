@@ -13,12 +13,12 @@ interface MapMarkerProps {
     zoom?: number
 }
 
-export const MapMarker = ({ 
-    marker, 
-    isSelected, 
-    onClick, 
+export const MapMarker = React.memo(function MapMarker({
+    marker,
+    isSelected,
+    onClick,
     zoom
-}: MapMarkerProps) => {
+}: MapMarkerProps) {
     const [isHovered, setIsHovered] = useState(false)
     const iconType = marker.content.iconType || 'location'
     
@@ -109,4 +109,12 @@ export const MapMarker = ({
             )}
         </div>
     )
-} 
+}, (prev, next) => {
+    return prev.marker.id === next.marker.id &&
+        prev.isSelected === next.isSelected &&
+        prev.zoom === next.zoom &&
+        prev.marker.content.iconType === next.marker.content.iconType &&
+        prev.marker.content.title === next.marker.content.title &&
+        prev.marker.content.isTemporary === next.marker.content.isTemporary &&
+        prev.marker.content.syncError === next.marker.content.syncError
+}) 
