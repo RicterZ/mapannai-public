@@ -1,9 +1,6 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useState } from 'react'
-import { useMapStore } from '@/store/map-store'
-import { cn } from '@/utils/cn'
 
 // 动态导入地图组件，避免SSR问题
 const InteractiveMap = dynamic(() => import('@/components/map/abstract-map').then(mod => ({ default: mod.AbstractMap })), {
@@ -22,14 +19,7 @@ const Sidebar = dynamic(() => import('@/components/sidebar/sidebar').then(mod =>
     ssr: false
 })
 
-const AiSidebar = dynamic(() => import('@/components/ai/ai-sidebar').then(mod => ({ default: mod.AiSidebar })), {
-    ssr: false
-})
-
 export default function HomePage() {
-    const [mapLoaded, setMapLoaded] = useState(false) // This state is not currently used
-    const { interactionState, openAiSidebar, closeAiSidebar } = useMapStore()
-
     return (
         <main className="relative w-full h-screen full-height overflow-hidden">
             {/* Full-screen map */}
@@ -37,12 +27,6 @@ export default function HomePage() {
 
             {/* Floating sidebar */}
             <Sidebar />
-
-            {/* AI Sidebar - 重构版本 */}
-            <AiSidebar 
-                isOpen={interactionState.isAiSidebarOpen} 
-                onToggle={() => interactionState.isAiSidebarOpen ? closeAiSidebar() : openAiSidebar()} 
-            />
 
         </main>
     )

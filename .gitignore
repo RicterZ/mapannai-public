@@ -123,4 +123,4 @@ build/
 dist/
 
 # Misc
-*.tsbuildinfo
+*.tsbuildinfo.mcp.json

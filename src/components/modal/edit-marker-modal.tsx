@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { Marker, MarkerIconType } from '@/types/marker'
 import { uploadFileToS3 } from '@/lib/upload/direct-upload'
 import MDEditor from '@uiw/react-md-editor'
@@ -30,16 +31,24 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
     const [markdownUploadProgress, setMarkdownUploadProgress] = useState(0)
     const [isDesktop, setIsDesktop] = useState(false)
 
-    // 检测屏幕尺寸
+    // 检测屏幕尺寸（debounced）
     useEffect(() => {
         const checkScreenSize = () => {
             setIsDesktop(window.innerWidth >= 1024)
         }
-        
         checkScreenSize()
-        window.addEventListener('resize', checkScreenSize)
-        
-        return () => window.removeEventListener('resize', checkScreenSize)
+
+        let timer: ReturnType<typeof setTimeout>
+        const handleResize = () => {
+            clearTimeout(timer)
+            timer = setTimeout(checkScreenSize, 150)
+        }
+
+        window.addEventListener('resize', handleResize)
+        return () => {
+            clearTimeout(timer)
+            window.removeEventListener('resize', handleResize)
+        }
     }, [])
 
     // 当marker变化时更新表单数据
@@ -67,11 +76,11 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
             if (result.success && result.url) {
                 setHeaderImage(result.url)
             } else {
-                alert('图片上传失败: ' + result.error)
+                toast.error('图片上传失败: ' + result.error)
             }
         } catch (error) {
             console.error('图片上传错误:', error)
-            alert('图片上传失败')
+            toast.error('图片上传失败')
         } finally {
             setIsUploading(false)
         }
@@ -90,10 +99,11 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
             }
 
             onSave(saveData)
+            toast.success('已保存')
             onClose()
         } catch (error) {
             console.error('保存失败:', error)
-            alert('保存失败，请重试')
+            toast.error('保存失败，请重试')
         }
     }
 
@@ -340,7 +350,7 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
                                                         }
                                                     } catch (error) {
                                                         console.error('图片上传失败:', error)
-                                                        alert('图片上传失败，请重试')
+                                                        toast.error('图片上传失败，请重试')
                                                         setIsMarkdownUploading(false)
                                                         setMarkdownUploadProgress(0)
                                                     }

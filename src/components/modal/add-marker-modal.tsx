@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { MarkerCoordinates, MarkerIconType } from '@/types/marker'
 import { IconSelector } from '@/components/ui/icon-selector'
 
@@ -20,6 +21,7 @@ interface AddMarkerModalProps {
 export const AddMarkerModal = ({ coordinates, isOpen, onClose, onSave, placeName, placeAddress }: AddMarkerModalProps) => {
     const [name, setName] = useState('')
     const [iconType, setIconType] = useState<MarkerIconType>('location')
+    const [isSubmitting, setIsSubmitting] = useState(false)
 
     // 当模态框打开且有地点名称时，自动填写
     useEffect(() => {
@@ -32,10 +34,11 @@ export const AddMarkerModal = ({ coordinates, isOpen, onClose, onSave, placeName
 
     const handleSave = async () => {
         if (!name.trim()) {
-            alert('请输入地点名称')
+            toast.error('请输入地点名称')
             return
         }
 
+        setIsSubmitting(true)
         try {
             await onSave({
                 coordinates,
@@ -43,13 +46,16 @@ export const AddMarkerModal = ({ coordinates, isOpen, onClose, onSave, placeName
                 iconType
             })
 
+            toast.success('标记已创建')
             // 重置表单并关闭模态框
             setName('')
             setIconType('location')
             onClose()
         } catch (error) {
             console.error('保存失败:', error)
-            alert('保存失败，请重试')
+            toast.error('保存失败，请重试')
+        } finally {
+            setIsSubmitting(false)
         }
     }
 
@@ -143,9 +149,18 @@ export const AddMarkerModal = ({ coordinates, isOpen, onClose, onSave, placeName
                     </button>
                     <button
                         onClick={handleSave}
-                        className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium shadow-md focus:outline-none"
+                        disabled={isSubmitting}
+                        className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium shadow-md focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                        创建标记
+                        {isSubmitting ? (
+                            <>
+                                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                </svg>
+                                创建中...
+                            </>
+                        ) : '创建标记'}
                     </button>
                 </div>
             </div>

@@ -16,6 +16,7 @@ module.exports = {
         'bg-slate-500/75', 'hover:bg-slate-500',
         'bg-fuchsia-500/75', 'hover:bg-fuchsia-500',
         'bg-gray-500/75', 'hover:bg-gray-500',
+        'bg-blue-500/75', 'hover:bg-blue-500',
         'bg-sky-500/50', 'hover:bg-sky-500',
     ],
     theme: {

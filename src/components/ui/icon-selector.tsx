@@ -24,9 +24,16 @@ export const IconSelector = ({ selectedIcon = 'location', onSelect, className }:
     useEffect(() => {
         if (isOpen && buttonRef.current) {
             const rect = buttonRef.current.getBoundingClientRect()
+            const menuMinWidth = 200
+            // Fixed positioning uses viewport coords — do NOT add scroll offsets
+            const rawLeft = rect.left
+            const rightEdge = rawLeft + menuMinWidth
+            const left = rightEdge > window.innerWidth
+                ? Math.max(0, window.innerWidth - menuMinWidth - 8)
+                : rawLeft
             setPosition({
-                top: rect.bottom + window.scrollY,
-                left: rect.left + window.scrollX,
+                top: rect.bottom,
+                left,
                 width: rect.width
             })
         }

@@ -4,6 +4,7 @@ import { useRef, useCallback, useState, useEffect } from 'react'
 import { useMapStore } from '@/store/map-store'
 import { cn } from '@/utils/cn'
 import { marked } from 'marked'
+import { toast } from 'sonner'
 import { MarkerChain } from './marker-chain'
 
 interface SidebarProps {
@@ -14,6 +15,12 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
     const sidebarRef = useRef<HTMLDivElement>(null)
     const [isAddingToChain, setIsAddingToChain] = useState(false)
     const [targetMarkerId, setTargetMarkerId] = useState<string | null>(null)
+    const [confirmingDelete, setConfirmingDelete] = useState(false)
+    // Touch gesture state for swipe-to-close on mobile
+    const touchStartY = useRef<number>(0)
+    const touchDeltaY = useRef<number>(0)
+    const [dragOffset, setDragOffset] = useState(0)
+    const isDragging = useRef(false)
 
     const {
         markers,
@@ -24,16 +31,21 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
         deleteMarker,
         selectMarker,
         updateMarkerContent,
+        activeView,
+        tripDays,
+        addMarkerToDay,
     } = useMapStore()
 
     // 自定义关闭函数，在移动端关闭时跳转到正中间
     const handleClose = useCallback(() => {
         const { selectedMarkerId } = interactionState
-        
+
         // 关闭添加模式
         setIsAddingToChain(false)
         setTargetMarkerId(null)
-        
+        setConfirmingDelete(false)
+        setDragOffset(0)
+
         closeSidebar()
         
         // 在移动端关闭标记详情时，跳转到正中间（修复之前的偏移）
@@ -210,8 +222,6 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                     'fixed z-50',
                     'w-full max-w-md lg:max-w-lg xl:max-w-xl',
                     'bg-white shadow-2xl',
-                    'transform transition-transform duration-300 ease-in-out',
-                    'animate-slide-in-bottom lg:animate-slide-in-right',
                     'flex flex-col',
                     // iPad特定样式
                     'sidebar-ipad-portrait sidebar-ipad-landscape',
@@ -220,8 +230,34 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                     // PC端：正常右侧显示
                     'lg:right-0 lg:top-0 lg:bottom-0 lg:h-auto'
                 )}
-                style={{ 
-                    paddingBottom: 'env(safe-area-inset-bottom, 0px)'
+                style={{
+                    paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+                    transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined,
+                    transition: isDragging.current ? 'none' : 'transform 0.3s ease-in-out',
+                }}
+                onTouchStart={(e) => {
+                    if (window.innerWidth >= 1024) return
+                    touchStartY.current = e.touches[0].clientY
+                    touchDeltaY.current = 0
+                    isDragging.current = true
+                }}
+                onTouchMove={(e) => {
+                    if (window.innerWidth >= 1024 || !isDragging.current) return
+                    const delta = e.touches[0].clientY - touchStartY.current
+                    if (delta > 0) {
+                        touchDeltaY.current = delta
+                        setDragOffset(delta)
+                    }
+                }}
+                onTouchEnd={() => {
+                    if (window.innerWidth >= 1024) return
+                    isDragging.current = false
+                    if (touchDeltaY.current > 80) {
+                        handleClose()
+                    } else {
+                        setDragOffset(0)
+                    }
+                    touchDeltaY.current = 0
                 }}
             >
                 {/* Header */}
@@ -246,6 +282,36 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
 
                     {selectedMarker && (
                         <div className="flex items-center gap-1 mr-2">
+                            {/* 加入今天 — Day 模式下显示 */}
+                            {(() => {
+                                if (activeView.mode !== 'day' || !activeView.dayId || !activeView.tripId) return null
+                                const currentDay = tripDays.find(d => d.id === activeView.dayId)
+                                if (!currentDay) return null
+                                const alreadyIn = currentDay.markerIds.includes(selectedMarker.id)
+                                if (alreadyIn) return (
+                                    <span className="px-2 py-1 text-xs text-indigo-500 font-medium">✓ 今日</span>
+                                )
+                                return (
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                await addMarkerToDay(activeView.tripId!, activeView.dayId!, selectedMarker.id)
+                                                toast.success('已加入今天行程')
+                                            } catch {
+                                                toast.error('操作失败')
+                                            }
+                                        }}
+                                        className="px-2 py-1 rounded-lg bg-indigo-500 text-white text-xs font-medium hover:bg-indigo-600 transition-colors flex items-center gap-1"
+                                        title="加入今天行程"
+                                    >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        今天
+                                    </button>
+                                )
+                            })()}
+
                             {/* 编辑按钮 */}
                             <button
                                 onClick={() => openEditMarkerModal(selectedMarker.id)}
@@ -261,28 +327,44 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                             </button>
-                            
-                            {/* 删除按钮 */}
-                            <button
-                                onClick={() => {
-                                    // 单次确认机制
-                                    const confirmed = confirm('🗑️ 确定要删除这个标记吗？删除后无法恢复。')
-                                    if (confirmed) {
-                                        deleteMarker(selectedMarker.id)
-                                    }
-                                }}
-                                className={cn(
-                                    'p-2 rounded-lg text-gray-500 hover:text-red-600',
-                                    'hover:bg-red-50 transition-all duration-200',
-                                    'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
-                                    'min-h-[40px] min-w-[40px] flex items-center justify-center'
-                                )}
-                                title="删除标记"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                            </button>
+
+                            {/* 删除按钮 — inline 确认 */}
+                            {confirmingDelete ? (
+                                <div className="flex items-center gap-1 animate-scale-in">
+                                    <span className="text-xs text-red-600 font-medium">确认删除？</span>
+                                    <button
+                                        onClick={() => {
+                                            deleteMarker(selectedMarker.id)
+                                            setConfirmingDelete(false)
+                                            toast.success('标记已删除')
+                                        }}
+                                        className="px-2 py-1 rounded-lg bg-red-500 text-white text-xs font-medium hover:bg-red-600 transition-colors"
+                                    >
+                                        删除
+                                    </button>
+                                    <button
+                                        onClick={() => setConfirmingDelete(false)}
+                                        className="px-2 py-1 rounded-lg bg-gray-200 text-gray-700 text-xs font-medium hover:bg-gray-300 transition-colors"
+                                    >
+                                        取消
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setConfirmingDelete(true)}
+                                    className={cn(
+                                        'p-2 rounded-lg text-gray-500 hover:text-red-600',
+                                        'hover:bg-red-50 transition-all duration-200',
+                                        'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
+                                        'min-h-[40px] min-w-[40px] flex items-center justify-center'
+                                    )}
+                                    title="删除标记"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            )}
                         </div>
                     )}
 
