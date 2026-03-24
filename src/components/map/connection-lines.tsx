@@ -1,10 +1,10 @@
 'use client'
 
-import { useMemo, useEffect, useState, useCallback } from 'react'
-import { Source, Layer } from 'react-map-gl'
+import { useMemo, useEffect, useRef } from 'react'
+import { Source, Layer, useMap } from 'react-map-gl'
+import type { GeoJSONSource } from 'mapbox-gl'
 import { Marker } from '@/types/marker'
 import { useMapStore } from '@/store/map-store'
-import { googleDirectionsService, GoogleDirectionsRequest } from '@/lib/api/google-directions-service'
 import { config } from '@/lib/config'
 
 // 检查连线是否在完整的标记链中
@@ -28,6 +28,63 @@ const isLineInHighlightedChain = (line: ConnectionLine, highlightedChainIds: str
     return false
 }
 
+/** 计算贝塞尔控制点 */
+function getControlPoint(
+    from: { lat: number; lng: number },
+    to: { lat: number; lng: number }
+): { lat: number; lng: number } {
+    const midLat = (from.lat + to.lat) / 2
+    const midLng = (from.lng + to.lng) / 2
+    const dLat = to.lat - from.lat
+    const dLng = to.lng - from.lng
+    const dist = Math.sqrt(dLat * dLat + dLng * dLng)
+    if (dist === 0) return { lat: midLat, lng: midLng }
+    const offset = dist * 0.15
+    return {
+        lat: midLat - dLng * offset / dist,
+        lng: midLng + dLat * offset / dist,
+    }
+}
+
+/** 计算二次贝塞尔曲线在参数 t 处的坐标 [lng, lat] */
+function bezierPoint(
+    from: { lat: number; lng: number },
+    ctrl: { lat: number; lng: number },
+    to: { lat: number; lng: number },
+    t: number
+): [number, number] {
+    const lng = (1 - t) * (1 - t) * from.lng + 2 * (1 - t) * t * ctrl.lng + t * t * to.lng
+    const lat = (1 - t) * (1 - t) * from.lat + 2 * (1 - t) * t * ctrl.lat + t * t * to.lat
+    return [lng, lat]
+}
+
+/**
+ * 生成二次贝塞尔曲线坐标点
+ * 控制点为两点中点向垂直方向偏移，偏移量与两点距离成比例
+ */
+function getBezierPath(
+    from: { lat: number; lng: number },
+    to: { lat: number; lng: number },
+    numPoints = 32
+): Array<[number, number]> {
+    const ctrl = getControlPoint(from, to)
+    if (ctrl.lat === from.lat && ctrl.lng === from.lng) {
+        return [[from.lng, from.lat], [to.lng, to.lat]]
+    }
+
+    // 采样贝塞尔曲线
+    const points: Array<[number, number]> = []
+    for (let i = 0; i <= numPoints; i++) {
+        points.push(bezierPoint(from, ctrl, to, i / numPoints))
+    }
+    return points
+}
+
+const emptyFeatureCollection: GeoJSON.FeatureCollection = {
+    type: 'FeatureCollection',
+    features: []
+}
+
 interface ConnectionLinesProps {
     markers: Marker[]
     zoom?: number
@@ -42,40 +99,16 @@ interface ConnectionLine {
 export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) => {
     const { interactionState } = useMapStore()
     const { highlightedChainIds } = interactionState
-    
-    // 路径缓存状态
-    const [routeCache, setRouteCache] = useState<Map<string, Array<{ lat: number; lng: number }>>>(() => {
-        // 从 localStorage 加载缓存
-        try {
-            const cached = localStorage.getItem('mapbox-route-cache')
-            if (cached) {
-                const parsed = JSON.parse(cached)
-                return new Map(parsed)
-            }
-        } catch (error) {
-            console.warn('Failed to load route cache from localStorage:', error)
-        }
-        return new Map()
-    })
-    const [isLoadingRoutes, setIsLoadingRoutes] = useState(false)
-    
-    // 保存缓存到 localStorage
-    const saveCacheToStorage = (cache: Map<string, Array<{ lat: number; lng: number }>>) => {
-        try {
-            const serialized = JSON.stringify(Array.from(cache.entries()))
-            localStorage.setItem('mapbox-route-cache', serialized)
-        } catch (error) {
-            console.warn('Failed to save route cache to localStorage:', error)
-        }
-    }
-    
-    
-    // 移除CSS transition动画效果，确保连接线显示/隐藏而不是渐变
-    
+    const { current: map } = useMap()
+
+    // rAF handle and animation progress (not React state to avoid re-renders)
+    const rafRef = useRef<number | null>(null)
+    const tRef = useRef(0)
+
     // 计算所有连接线
     const connectionLines = useMemo(() => {
         const lines: ConnectionLine[] = []
-        
+
         markers.forEach(marker => {
             // 检查当前标记是否有 next 字段且不为空
             if (marker.content.next && marker.content.next.length > 0) {
@@ -92,7 +125,7 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
                 })
             }
         })
-        
+
         return lines
     }, [markers])
 
@@ -103,7 +136,7 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
         }
 
         const highlightedIds = new Set<string>()
-        
+
         // 遍历所有连接线，检查是否应该高亮
         connectionLines.forEach(line => {
             // 检查这条连线是否在完整的标记链中
@@ -112,103 +145,74 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
                 highlightedIds.add(line.id)
             }
         })
-        
+
         return Array.from(highlightedIds)
     }, [connectionLines, highlightedChainIds, markers])
 
-    // 计算步行+公共交通路径
-    const calculateWalkingRoutes = useCallback(async () => {
-        if (connectionLines.length === 0) return
+    // 预计算每条连线的控制点（避免动画循环中重复计算）
+    const lineControlPoints = useMemo(() =>
+        connectionLines.map(line => {
+            const from = { lat: line.from.coordinates.latitude, lng: line.from.coordinates.longitude }
+            const to = { lat: line.to.coordinates.latitude, lng: line.to.coordinates.longitude }
+            return {
+                id: line.id,
+                from,
+                ctrl: getControlPoint(from, to),
+                to,
+            }
+        }),
+        [connectionLines]
+    )
 
-        // 先检查哪些路径需要计算
-        const uncachedLines = connectionLines.filter(line => {
-            const cacheKey = `${line.from.id}-${line.to.id}`
-            return !routeCache.has(cacheKey)
-        })
+    // 小圆球动画
+    useEffect(() => {
+        const mapInstance = map?.getMap()
 
-        // 如果所有路径都已缓存，直接返回
-        if (uncachedLines.length === 0) {
+        // Stop animation when no highlighted lines or map not ready
+        if (!mapInstance || highlightedLineIds.length === 0) {
+            if (rafRef.current !== null) {
+                cancelAnimationFrame(rafRef.current)
+                rafRef.current = null
+            }
+            // Clear dots
+            const src = mapInstance?.getSource('connection-dots') as GeoJSONSource | undefined
+            src?.setData(emptyFeatureCollection)
             return
         }
-        
-        setIsLoadingRoutes(true)
-        
-        try {
-            const routePromises = connectionLines.map(async (line) => {
-                const cacheKey = `${line.from.id}-${line.to.id}`
-                
-                // 检查缓存
-                if (routeCache.has(cacheKey)) {
-                    return { line, path: routeCache.get(cacheKey)! }
-                }
 
-                try {
-                    const request: GoogleDirectionsRequest = {
-                        origin: { lat: line.from.coordinates.latitude, lng: line.from.coordinates.longitude },
-                        destination: { lat: line.to.coordinates.latitude, lng: line.to.coordinates.longitude }
-                    }
+        tRef.current = 0
 
-                    const response = await googleDirectionsService.getWalkingRoute(request)
-                    
-                    // 补全路径：确保路径两端精确连接到标记
-                    const completePath = [
-                        // 起始点：标记位置
-                        { lat: line.from.coordinates.latitude, lng: line.from.coordinates.longitude },
-                        // Google 返回的路径点
-                        ...response.path,
-                        // 结束点：标记位置
-                        { lat: line.to.coordinates.latitude, lng: line.to.coordinates.longitude }
-                    ]
-                    
-                    // 缓存结果
-                    setRouteCache(prev => {
-                        const newCache = new Map(prev.set(cacheKey, completePath))
-                        saveCacheToStorage(newCache)
-                        return newCache
-                    })
-                    
-                    return { line, path: completePath }
-                } catch (error) {
-                    console.warn('计算步行路径失败，使用直线路径:', error)
-                    const fallbackPath = [
-                        { lat: line.from.coordinates.latitude, lng: line.from.coordinates.longitude },
-                        { lat: line.to.coordinates.latitude, lng: line.to.coordinates.longitude }
-                    ]
-                    return { line, path: fallbackPath }
-                }
+        const animate = () => {
+            // Advance progress ~0.008/frame → ~2s per loop at 60fps
+            tRef.current = (tRef.current + 0.008) % 1
+
+            const features: GeoJSON.Feature[] = highlightedLineIds.flatMap(lineId => {
+                const lc = lineControlPoints.find(l => l.id === lineId)
+                if (!lc) return []
+                const [lng, lat] = bezierPoint(lc.from, lc.ctrl, lc.to, tRef.current)
+                return [{
+                    type: 'Feature' as const,
+                    geometry: { type: 'Point' as const, coordinates: [lng, lat] },
+                    properties: { opacity: 1, radius: 7 }
+                }]
             })
 
-            await Promise.all(routePromises)
-        } catch (error) {
-            console.error('路径计算错误:', error)
-        } finally {
-            setIsLoadingRoutes(false)
+            const src = mapInstance.getSource('connection-dots') as GeoJSONSource | undefined
+            src?.setData({ type: 'FeatureCollection', features })
+            rafRef.current = requestAnimationFrame(animate)
         }
-    }, [connectionLines, routeCache, setRouteCache, saveCacheToStorage])
 
-    // 当连接线变化时，计算路径
-    useEffect(() => {
-        if (connectionLines.length > 0) {
-            calculateWalkingRoutes()
-        }
-    }, [connectionLines, calculateWalkingRoutes])
+        rafRef.current = requestAnimationFrame(animate)
 
-    // 监听标记链更新事件，强制重新计算路径
-    useEffect(() => {
-        const handleRefreshConnectionLines = () => {
-            if (connectionLines.length > 0) {
-                calculateWalkingRoutes()
+        return () => {
+            if (rafRef.current !== null) {
+                cancelAnimationFrame(rafRef.current)
+                rafRef.current = null
             }
         }
+    }, [highlightedLineIds, lineControlPoints, map])
 
-        window.addEventListener('refreshConnectionLines', handleRefreshConnectionLines)
-        return () => {
-            window.removeEventListener('refreshConnectionLines', handleRefreshConnectionLines)
-        }
-    }, [calculateWalkingRoutes, connectionLines.length])
-
-
-    // 生成普通连接线的 GeoJSON
+    // 生成贝塞尔曲线连接线的 GeoJSON
     const connectionGeoJSON = useMemo(() => {
         if (connectionLines.length === 0) {
             return {
@@ -218,16 +222,10 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
         }
 
         const features = connectionLines.map(line => {
-            const cacheKey = `${line.from.id}-${line.to.id}`
-            const cachedPath = routeCache.get(cacheKey)
-            
-            // 使用缓存的路径或直线路径
-            const coordinates = cachedPath 
-                ? cachedPath.map(point => [point.lng, point.lat])
-                : [
-                    [line.from.coordinates.longitude, line.from.coordinates.latitude],
-                    [line.to.coordinates.longitude, line.to.coordinates.latitude]
-                ]
+            const coordinates = getBezierPath(
+                { lat: line.from.coordinates.latitude, lng: line.from.coordinates.longitude },
+                { lat: line.to.coordinates.latitude, lng: line.to.coordinates.longitude }
+            )
 
             return {
                 type: 'Feature' as const,
@@ -240,7 +238,7 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
                     fromId: line.from.id,
                     toId: line.to.id,
                     isDragPreview: false,
-                    isWalkingRoute: !!cachedPath
+                    isWalkingRoute: false
                 }
             }
         })
@@ -249,7 +247,7 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
             type: 'FeatureCollection' as const,
             features
         }
-    }, [connectionLines, routeCache])
+    }, [connectionLines])
 
     // 如果没有连接线，不渲染任何内容
     if (connectionLines.length === 0) {
@@ -263,71 +261,107 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
 
     return (
         <>
-            {/* 加载状态指示器 */}
-            {isLoadingRoutes && (
-                <div className="absolute top-4 right-4 bg-white bg-opacity-90 px-3 py-2 rounded-lg shadow-lg text-sm text-gray-600 z-10">
-                    <div className="flex items-center space-x-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                        <span>计算公共交通路径中...</span>
-                    </div>
-                </div>
-            )}
-            
             <Source id="connection-lines" type="geojson" data={connectionGeoJSON}>
-            {/* 普通连接线 */}
-            <Layer
-                id="connection-lines-layer"
-                type="line"
-                paint={{
-                    'line-color': 'rgba(0, 0, 0, 0.4)', // 黑色半透明，降低不透明度
-                    'line-width': [
-                        'interpolate',
-                        ['linear'],
-                        ['zoom'],
-                        10, 3,
-                        15, 4,
-                        20, 5
-                    ], // 根据缩放级别动态调整线宽
-                    'line-opacity': [
-                        'case',
-                        ['>', ['length', ['literal', highlightedLineIds]], 0],
-                        0.3, // 当有高亮时，普通线变暗
-                        0.6  // 无高亮时，正常显示
-                    ], // 根据高亮状态调整透明度，不根据缩放级别渐变
-                }}
-                layout={{
-                    'line-join': 'round',
-                    'line-cap': 'round'
-                }}
-            />
-            
-            {/* 高亮连接线 */}
-            <Layer
-                id="highlighted-connection-lines-layer"
-                type="line"
-                paint={{
-                    'line-color': 'rgba(59, 130, 246, 0.9)', // 蓝色高亮
-                    'line-width': [
-                        'interpolate',
-                        ['linear'],
-                        ['zoom'],
-                        10, 4,
-                        15, 6,
-                        20, 8
-                    ], // 根据缩放级别动态调整线宽
-                    'line-opacity': 1, // 高亮时完全不透明
-                }}
-                layout={{
-                    'line-join': 'round',
-                    'line-cap': 'round'
-                }}
-                filter={highlightedLineIds.length > 0 ? [
-                    'in',
-                    ['get', 'id'],
-                    ['literal', highlightedLineIds]
-                ] : ['literal', false]}
-            />
-        </Source>
+                {/* 白色描边层（casing）— 在所有线层最下面，制造轮廓对比 */}
+                <Layer
+                    id="connection-lines-casing"
+                    type="line"
+                    paint={{
+                        'line-color': 'rgba(255, 255, 255, 0.95)',
+                        'line-width': [
+                            'interpolate', ['linear'], ['zoom'],
+                            10, 6,
+                            15, 8,
+                            20, 10
+                        ],
+                        'line-opacity': [
+                            'case',
+                            ['>', ['length', ['literal', highlightedLineIds]], 0],
+                            0.4,
+                            0.8
+                        ],
+                    }}
+                    layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                />
+
+                {/* 普通连接线 — 靛蓝色，比灰色更易识别 */}
+                <Layer
+                    id="connection-lines-layer"
+                    type="line"
+                    paint={{
+                        'line-color': 'rgb(99, 102, 241)', // indigo-500
+                        'line-width': [
+                            'interpolate', ['linear'], ['zoom'],
+                            10, 3,
+                            15, 4,
+                            20, 5
+                        ],
+                        'line-opacity': [
+                            'case',
+                            ['>', ['length', ['literal', highlightedLineIds]], 0],
+                            0.25,
+                            0.8
+                        ],
+                    }}
+                    layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                />
+
+                {/* 高亮白色描边 */}
+                <Layer
+                    id="highlighted-connection-lines-casing"
+                    type="line"
+                    paint={{
+                        'line-color': 'rgba(255, 255, 255, 0.95)',
+                        'line-width': [
+                            'interpolate', ['linear'], ['zoom'],
+                            10, 8,
+                            15, 11,
+                            20, 14
+                        ],
+                        'line-opacity': 1,
+                    }}
+                    layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                    filter={highlightedLineIds.length > 0 ? [
+                        'in', ['get', 'id'], ['literal', highlightedLineIds]
+                    ] : ['literal', false]}
+                />
+
+                {/* 高亮连接线 */}
+                <Layer
+                    id="highlighted-connection-lines-layer"
+                    type="line"
+                    paint={{
+                        'line-color': 'rgba(59, 130, 246, 1)', // blue-500
+                        'line-width': [
+                            'interpolate', ['linear'], ['zoom'],
+                            10, 4,
+                            15, 6,
+                            20, 8
+                        ],
+                        'line-opacity': 1,
+                    }}
+                    layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                    filter={highlightedLineIds.length > 0 ? [
+                        'in', ['get', 'id'], ['literal', highlightedLineIds]
+                    ] : ['literal', false]}
+                />
+            </Source>
+
+            {/* 小圆球动画层（always mounted so source is available for rAF writes） */}
+            <Source id="connection-dots" type="geojson" data={emptyFeatureCollection}>
+                <Layer
+                    id="connection-dots-layer"
+                    type="circle"
+                    paint={{
+                        'circle-radius': ['get', 'radius'],
+                        'circle-color': 'rgba(59, 130, 246, 1)',
+                        'circle-opacity': ['get', 'opacity'],
+                        'circle-blur': 0.2,
+                        'circle-stroke-width': 1.5,
+                        'circle-stroke-color': 'rgba(255, 255, 255, 0.9)',
+                    }}
+                />
+            </Source>
         </>
     )
 }

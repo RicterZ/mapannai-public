@@ -549,33 +549,30 @@ export const AbstractMap = () => {
                 return
             }
 
-            // 当右侧栏打开时，首次点击仅关闭右侧栏
+            // If popup is open, close it and open new popup at clicked position
+            if (isPopupOpen) {
+                closePopup()
+                selectMarker(null)
+                // 直接在点击位置打开新 popup，而非等待下一次点击
+                setCurrentPlaceName(undefined)
+                setCurrentPlaceAddress(undefined)
+                openPopup(coordinates)
+                getPlaceIdAsync(coordinates)
+                return
+            }
+
+            // If sidebar is open, first click closes sidebar
             if (isSidebarOpen) {
                 handleCloseSidebar()
                 return
             }
 
-            // If popup is open, close it and clear selected marker
-            if (isPopupOpen) {
-                closePopup()
-                // 清除选中的标记状态
-                selectMarker(null)
-            } else {
-                // 如果有选中的标记，只清除选中状态，不打开添加popup
-                if (selectedMarkerId) {
-                    selectMarker(null)
-                } else {
-                    // 清除之前的地点名称和地址，避免显示缓存的结果
-                    setCurrentPlaceName(undefined)
-                    setCurrentPlaceAddress(undefined)
-                    
-                    // 没有选中标记时，打开添加新标记的popup
-                    openPopup(coordinates, placeInfo?.name, placeInfo)
-                    
-                    // 异步获取地点信息
-                    getPlaceIdAsync(coordinates)
-                }
-            }
+            // 无 popup、无 sidebar：在点击位置打开新标记 popup
+            selectMarker(null)
+            setCurrentPlaceName(undefined)
+            setCurrentPlaceAddress(undefined)
+            openPopup(coordinates)
+            getPlaceIdAsync(coordinates)
         } catch (err) {
             console.error('Map click error:', err)
             // 不设置严重错误，只是控制台输出
@@ -587,9 +584,6 @@ export const AbstractMap = () => {
             const marker = markers.find(m => m.id === markerId)
             if (!marker) return
 
-            // 关闭可能存在的弹窗
-            closePopup()
-
             // 检查是否处于添加模式 - 通过自定义事件获取状态
             let isAddingMode = false
             const checkEvent = new CustomEvent('checkAddingMode', {
@@ -600,6 +594,7 @@ export const AbstractMap = () => {
             // 等待回调执行
             setTimeout(() => {
                 if (isAddingMode) {
+                    closePopup()
                     // 触发添加标记事件
                     const addEvent = new CustomEvent('addMarkerToChain', {
                         detail: { markerId }
@@ -608,14 +603,14 @@ export const AbstractMap = () => {
                     return
                 }
 
-                // 选择标记并打开右侧详情栏
+                // 选中标记 + 弹出 popup（携带标记坐标，显示操作按钮）
                 selectMarker(markerId)
-                openSidebar()
+                openPopup(marker.coordinates)
             }, 0)
         } catch (err) {
             console.error('Marker click error:', err)
         }
-    }, [markers, selectMarker, openSidebar, closePopup])
+    }, [markers, selectMarker, openSidebar, closePopup, openPopup])
 
     const handleAddMarker = useCallback((placeName?: string) => {
         try {
@@ -631,33 +626,21 @@ export const AbstractMap = () => {
         }
     }, [popupCoordinates, openAddMarkerModal, closePopup])
 
-    const handleEditMarker = useCallback((markerId: string) => {
+    const handleViewMarker = useCallback((markerId: string) => {
         try {
-            // 打开编辑弹窗而不是直接选择marker
-            openEditMarkerModal(markerId)
+            selectMarker(markerId)
+            openSidebar()
         } catch (err) {
-            console.error('Edit marker error:', err)
+            console.error('View marker error:', err)
         }
-    }, [openEditMarkerModal])
+    }, [selectMarker, openSidebar])
 
     const handleDeleteMarker = useCallback((markerId: string) => {
         try {
-            toast('确定要删除这个标记吗？', {
-                description: '删除后无法恢复',
-                action: {
-                    label: '删除',
-                    onClick: () => {
-                        const { deleteMarker } = useMapStore.getState()
-                        deleteMarker(markerId)
-                        closePopup()
-                        toast.success('标记已删除')
-                    }
-                },
-                cancel: {
-                    label: '取消',
-                    onClick: () => {}
-                },
-            })
+            const { deleteMarker } = useMapStore.getState()
+            deleteMarker(markerId)
+            closePopup()
+            toast.success('标记已删除')
         } catch (err) {
             console.error('Delete marker error:', err)
         }
@@ -667,6 +650,7 @@ export const AbstractMap = () => {
         coordinates: MarkerCoordinates
         name: string
         iconType: MarkerIconType
+        address?: string
     }) => {
         try {
             const { activeView: view } = useMapStore.getState()
@@ -900,7 +884,7 @@ export const AbstractMap = () => {
                         coordinates={popupCoordinates}
                         selectedMarkerId={selectedMarkerId}
                         onAddMarker={handleAddMarker}
-                        onEditMarker={handleEditMarker}
+                        onViewMarker={handleViewMarker}
                         onDeleteMarker={handleDeleteMarker}
                         onClose={closePopup}
                         placeName={currentPlaceName}

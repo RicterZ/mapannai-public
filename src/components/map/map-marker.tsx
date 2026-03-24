@@ -1,10 +1,71 @@
 'use client'
 
-import React, { useRef, useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Marker } from '@/types/marker'
 import { MARKER_ICONS } from '@/types/marker'
 import { cn } from '@/utils/cn'
 import { config } from '@/lib/config'
+import { useMapStore } from '@/store/map-store'
+
+/**
+ * 找到当前 marker 所属的完整链，返回链中所有 marker id。
+ * 支持一个 marker 属于多条链（如 A→B→C 和 D→B→E 时 hover B 返回两条链的并集）。
+ */
+function getChainIdsForMarker(markerId: string, markers: Marker[]): string[] {
+    // Build next map: markerId -> nextIds[]
+    const nextMap = new Map<string, string[]>()
+    markers.forEach(m => {
+        if (m.content.next && m.content.next.length > 0) {
+            nextMap.set(m.id, m.content.next)
+        }
+    })
+
+    // Build prev map: markerId -> prevIds[] (who points to me)
+    const prevMap = new Map<string, string[]>()
+    nextMap.forEach((nexts, fromId) => {
+        nexts.forEach(toId => {
+            if (!prevMap.has(toId)) prevMap.set(toId, [])
+            prevMap.get(toId)!.push(fromId)
+        })
+    })
+
+    // Check if this marker is part of any chain at all
+    const isInChain = nextMap.has(markerId) || prevMap.has(markerId)
+    if (!isInChain) return []
+
+    // Find all chain heads reachable from this marker (walk backwards)
+    // A "head" is a node with no predecessor
+    const visitedBack = new Set<string>()
+    const heads: string[] = []
+    const walkBack = (id: string) => {
+        if (visitedBack.has(id)) return
+        visitedBack.add(id)
+        const prevs = prevMap.get(id)
+        if (!prevs || prevs.length === 0) {
+            heads.push(id)
+        } else {
+            prevs.forEach(walkBack)
+        }
+    }
+    walkBack(markerId)
+
+    // From each head, do BFS forward to collect all marker ids in that chain
+    const result = new Set<string>()
+    heads.forEach(head => {
+        const queue = [head]
+        const visitedFwd = new Set<string>()
+        while (queue.length > 0) {
+            const cur = queue.shift()!
+            if (visitedFwd.has(cur)) continue
+            visitedFwd.add(cur)
+            result.add(cur)
+            const nexts = nextMap.get(cur)
+            if (nexts) nexts.forEach(n => queue.push(n))
+        }
+    })
+
+    return Array.from(result)
+}
 
 interface MapMarkerProps {
     marker: Marker
@@ -21,6 +82,21 @@ export const MapMarker = React.memo(function MapMarker({
 }: MapMarkerProps) {
     const [isHovered, setIsHovered] = useState(false)
     const iconType = marker.content.iconType || 'location'
+
+    const handleMouseEnter = useCallback(() => {
+        setIsHovered(true)
+        // Compute which chain(s) this marker belongs to and highlight them
+        const { markers: allMarkers, setHighlightedChain } = useMapStore.getState()
+        const chainIds = getChainIdsForMarker(marker.id, allMarkers)
+        if (chainIds.length > 0) {
+            setHighlightedChain(chainIds)
+        }
+    }, [marker.id])
+
+    const handleMouseLeave = useCallback(() => {
+        setIsHovered(false)
+        useMapStore.getState().clearHighlightedChain()
+    }, [])
     
     // 安全获取图标配置，如果不存在则使用默认的 location 配置
     const iconConfig = MARKER_ICONS[iconType] || MARKER_ICONS['location']
@@ -61,8 +137,8 @@ export const MapMarker = React.memo(function MapMarker({
                         : 'bg-blue-600 scale-110 z-10' // 正常状态时，选中圆圈放大
                     : markerColor
             )}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
             onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()

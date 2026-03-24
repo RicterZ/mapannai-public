@@ -54,6 +54,7 @@ export async function GET() {
           content: {
             id: metadata.id || markerId,
             title: metadata.title || '未命名标记',
+            address: properties.address || undefined,
             headerImage: properties.headerImage,
             iconType: properties.iconType,
             markdownContent: properties.markdownContent || '',
@@ -78,7 +79,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { coordinates, title, iconType, content } = body;
+    const { coordinates, title, iconType, address, content } = body;
 
     if (!coordinates || !title || !iconType) {
       return NextResponse.json(
@@ -158,8 +159,9 @@ export async function POST(request: NextRequest) {
       id: markerId,
       coordinates,
       content: {
-        id: uuidv4(),
+        id: markerId,
         title,
+        address: address || undefined,
         iconType: iconType as MarkerIconType,
         markdownContent: content || '',
         next: [],
@@ -173,6 +175,7 @@ export async function POST(request: NextRequest) {
       const properties = {
         markdownContent: marker.content.markdownContent,
         headerImage: marker.content.headerImage || null,
+        address: marker.content.address || null,
         iconType: marker.content.iconType || 'location',
         next: marker.content.next || [],
         metadata: {
