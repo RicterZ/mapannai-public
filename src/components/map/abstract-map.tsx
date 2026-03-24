@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { MapProvider, MapCoordinates, MapViewState, MapProviderConfig } from '@/types/map-provider'
 import { mapProviderFactory } from '@/lib/map/providers'
 import { config } from '@/lib/config'
+import { installZoomThresholdBackdoor } from '@/lib/zoom-threshold'
 import { searchService } from '@/lib/api/search-service'
 // 移除 Google Places 相关导入
 // 移除 Google Maps 加载函数
@@ -391,6 +392,11 @@ export const AbstractMap = () => {
             }, 2000 * (loadingRetryCount + 1)) // 2s, 4s, 6s 延迟
         }
     }, [loadMarkersFromDataset, loadingRetryCount, dataLoaded])
+
+    // 安装 F12 Console backdoor，允许动态调整 zoomThreshold
+    useEffect(() => {
+        installZoomThresholdBackdoor()
+    }, [])
 
     // 页面加载时从 Dataset 加载标记（静默失败，防止重复加载）
     useEffect(() => {

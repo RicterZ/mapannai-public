@@ -34,7 +34,7 @@ export const config = {
         },
         defaultZoom: 11,
         // 缩放级别阈值：小于此值时隐藏连接线和显示简化标记
-        zoomThreshold: 11,
+        zoomThreshold: 9,
     },
     // 城市快速跳转配置
     cities: {

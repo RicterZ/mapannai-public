@@ -1,31 +1,29 @@
 'use client'
 
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo, useEffect, useRef, useSyncExternalStore } from 'react'
 import { Source, Layer, useMap } from 'react-map-gl'
 import type { GeoJSONSource } from 'mapbox-gl'
 import { Marker } from '@/types/marker'
 import { useMapStore } from '@/store/map-store'
-import { config } from '@/lib/config'
+import { getZoomThreshold } from '@/lib/zoom-threshold'
 
 // 检查连线是否在完整的标记链中
 // 算法说明：
-// 1. 检查连线的终点是否在高亮链中
-// 2. 检查连线的起点标记的next数组中是否包含终点标记的ID
-// 3. 这确保了只高亮真正属于完整标记链的连线
-// 例如：如果有链 1-2-3-4 和 1-2-5-6，hover第一条链时：
-// - 会高亮 1-2, 2-3, 3-4 这些连线
-// - 不会高亮 2-5 这条连线，因为虽然2在第一条链中，但2-5不属于第一条链
-const isLineInHighlightedChain = (line: ConnectionLine, highlightedChainIds: string[], markers: Marker[]): boolean => {
-    // 检查连线的终点是否在高亮链中
-    if (highlightedChainIds.includes(line.to.id)) {
-        // 检查这条连线是否在完整的标记链中
-        // 即：from -> to 的连线确实存在于标记的next关系中
-        const fromMarker = markers.find(m => m.id === line.from.id)
-        if (fromMarker && fromMarker.content.next && fromMarker.content.next.includes(line.to.id)) {
-            return true
-        }
-    }
-    return false
+// highlightedChains 是链列表（每条链是独立的 marker id 集合）。
+// 一条连线 from→to 高亮的条件：
+//   存在某条链，使得 from 和 to 同时属于该链，且 from.next 包含 to
+// 这样即使 A 同时出现在链1(X→Y→A→B)和链2(A→B→C→D)中，
+// hover 链2 时，Y→A 不会被高亮，因为 Y 不在链2的集合里。
+const isLineInHighlightedChain = (line: ConnectionLine, highlightedChains: string[][], markers: Marker[]): boolean => {
+    // 先确认 from.next 确实包含 to（是真实存在的边）
+    const fromMarker = markers.find(m => m.id === line.from.id)
+    if (!fromMarker?.content.next?.includes(line.to.id)) return false
+
+    // 检查是否存在某条链，同时包含 from 和 to
+    return highlightedChains.some(chain => {
+        const chainSet = new Set(chain)
+        return chainSet.has(line.from.id) && chainSet.has(line.to.id)
+    })
 }
 
 /** 计算贝塞尔控制点 */
@@ -101,6 +99,16 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
     const { highlightedChainIds } = interactionState
     const { current: map } = useMap()
 
+    // 订阅 zoomThreshold 动态变化（响应 window.__setZoomThreshold 调用）
+    const zoomThreshold = useSyncExternalStore(
+        (cb) => {
+            window.addEventListener('zoomThresholdChange', cb)
+            return () => window.removeEventListener('zoomThresholdChange', cb)
+        },
+        () => getZoomThreshold(),
+        () => getZoomThreshold(),
+    )
+
     // rAF handle and animation progress (not React state to avoid re-renders)
     const rafRef = useRef<number | null>(null)
     const tRef = useRef(0)
@@ -139,7 +147,6 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
 
         // 遍历所有连接线，检查是否应该高亮
         connectionLines.forEach(line => {
-            // 检查这条连线是否在完整的标记链中
             const shouldHighlight = isLineInHighlightedChain(line, highlightedChainIds, markers)
             if (shouldHighlight) {
                 highlightedIds.add(line.id)
@@ -255,7 +262,7 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
     }
 
     // 当缩放级别小于阈值时，隐藏连接线
-    if (zoom < config.app.zoomThreshold) {
+    if (zoom < zoomThreshold) {
         return null
     }
 

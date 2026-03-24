@@ -1,17 +1,25 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useSyncExternalStore } from 'react'
 import { Marker } from '@/types/marker'
 import { MARKER_ICONS } from '@/types/marker'
 import { cn } from '@/utils/cn'
-import { config } from '@/lib/config'
+import { getZoomThreshold } from '@/lib/zoom-threshold'
 import { useMapStore } from '@/store/map-store'
 
 /**
- * 找到当前 marker 所属的完整链，返回链中所有 marker id。
- * 支持一个 marker 属于多条链（如 A→B→C 和 D→B→E 时 hover B 返回两条链的并集）。
+ * 找到当前 marker 所属的所有链，以链列表形式返回（每条链是独立的 marker id 集合）。
+ *
+ * 策略：hover 某个 marker 时，只高亮「包含该 marker 的完整链」中，
+ * 从该链的 head 到末尾的全部节点——但每条链独立存储，不合并。
+ * 这样 isLineInHighlightedChain 可以精确判断：from 和 to 必须同属一条链。
+ *
+ * 对于 A→B→C→D→E 和 X→Y→A 两条独立链（用户视角），
+ * 数据层它们是一整条 X→Y→A→B→C→D→E。
+ * hover A 时，用户期望只高亮 A→B→C→D→E 方向，不高亮 Y→A。
+ * 因此这里只做「从 markerId 出发向前 BFS」，不往上游追溯。
  */
-function getChainIdsForMarker(markerId: string, markers: Marker[]): string[] {
+function getChainsForMarker(markerId: string, markers: Marker[]): string[][] {
     // Build next map: markerId -> nextIds[]
     const nextMap = new Map<string, string[]>()
     markers.forEach(m => {
@@ -20,51 +28,24 @@ function getChainIdsForMarker(markerId: string, markers: Marker[]): string[] {
         }
     })
 
-    // Build prev map: markerId -> prevIds[] (who points to me)
-    const prevMap = new Map<string, string[]>()
-    nextMap.forEach((nexts, fromId) => {
-        nexts.forEach(toId => {
-            if (!prevMap.has(toId)) prevMap.set(toId, [])
-            prevMap.get(toId)!.push(fromId)
-        })
-    })
-
     // Check if this marker is part of any chain at all
-    const isInChain = nextMap.has(markerId) || prevMap.has(markerId)
+    const isInChain = nextMap.has(markerId)
     if (!isInChain) return []
 
-    // Find all chain heads reachable from this marker (walk backwards)
-    // A "head" is a node with no predecessor
-    const visitedBack = new Set<string>()
-    const heads: string[] = []
-    const walkBack = (id: string) => {
-        if (visitedBack.has(id)) return
-        visitedBack.add(id)
-        const prevs = prevMap.get(id)
-        if (!prevs || prevs.length === 0) {
-            heads.push(id)
-        } else {
-            prevs.forEach(walkBack)
-        }
+    // 从 markerId 向前 BFS，收集所有后继节点（含自身）
+    const chain = new Set<string>()
+    const queue = [markerId]
+    const visited = new Set<string>()
+    while (queue.length > 0) {
+        const cur = queue.shift()!
+        if (visited.has(cur)) continue
+        visited.add(cur)
+        chain.add(cur)
+        const nexts = nextMap.get(cur)
+        if (nexts) nexts.forEach(n => queue.push(n))
     }
-    walkBack(markerId)
 
-    // From each head, do BFS forward to collect all marker ids in that chain
-    const result = new Set<string>()
-    heads.forEach(head => {
-        const queue = [head]
-        const visitedFwd = new Set<string>()
-        while (queue.length > 0) {
-            const cur = queue.shift()!
-            if (visitedFwd.has(cur)) continue
-            visitedFwd.add(cur)
-            result.add(cur)
-            const nexts = nextMap.get(cur)
-            if (nexts) nexts.forEach(n => queue.push(n))
-        }
-    })
-
-    return Array.from(result)
+    return [Array.from(chain)]
 }
 
 interface MapMarkerProps {
@@ -83,13 +64,23 @@ export const MapMarker = React.memo(function MapMarker({
     const [isHovered, setIsHovered] = useState(false)
     const iconType = marker.content.iconType || 'location'
 
+    // 订阅 zoomThreshold 动态变化（响应 window.__setZoomThreshold 调用）
+    const zoomThreshold = useSyncExternalStore(
+        (cb) => {
+            window.addEventListener('zoomThresholdChange', cb)
+            return () => window.removeEventListener('zoomThresholdChange', cb)
+        },
+        () => getZoomThreshold(),
+        () => getZoomThreshold(),
+    )
+
     const handleMouseEnter = useCallback(() => {
         setIsHovered(true)
         // Compute which chain(s) this marker belongs to and highlight them
         const { markers: allMarkers, setHighlightedChain } = useMapStore.getState()
-        const chainIds = getChainIdsForMarker(marker.id, allMarkers)
-        if (chainIds.length > 0) {
-            setHighlightedChain(chainIds)
+        const chains = getChainsForMarker(marker.id, allMarkers)
+        if (chains.length > 0) {
+            setHighlightedChain(chains)
         }
     }, [marker.id])
 
@@ -105,7 +96,7 @@ export const MapMarker = React.memo(function MapMarker({
     const markerColor = `${iconConfig.bgClass} ${iconConfig.hoverBgClass}`
 
     // 当缩放级别较小时，仅显示纯色小点
-    const shouldRenderAsDot = typeof zoom === 'number' && zoom < config.app.zoomThreshold
+    const shouldRenderAsDot = typeof zoom === 'number' && zoom < zoomThreshold
 
     // 检查是否为临时标记
     const isTemporary = marker.content.isTemporary
