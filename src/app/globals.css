@@ -72,8 +72,6 @@ body {
 .mapboxgl-popup,
 .maplibregl-popup {
     z-index: 50;
-    animation: scaleIn 0.2s ease-in-out;
-    transform-origin: top center;
 }
 
 .mapboxgl-popup .mapboxgl-popup-content,
@@ -82,6 +80,8 @@ body {
     background: transparent;
     border-radius: 0;
     box-shadow: none;
+    animation: scaleIn 0.2s ease-out;
+    transform-origin: top center;
 }
 
 .mapboxgl-popup-close-button,
@@ -92,6 +92,7 @@ body {
 .mapboxgl-popup-tip,
 .maplibregl-popup-tip {
     border-top-color: white;
+    animation: fadeIn 0.15s ease-out;
 }
 
 /* Editor.js styles */
