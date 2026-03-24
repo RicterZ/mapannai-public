@@ -793,33 +793,50 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                         <p className="text-xs mt-1">点击上方创建你的第一次旅行</p>
                     </div>
                 ) : (
-                    trips
-                        .slice()
-                        .sort((a, b) => b.startDate.localeCompare(a.startDate))
-                        .map(trip => {
-                            const days = tripDays.filter(d => d.tripId === trip.id)
-                            const totalMarkers = Array.from(new Set(days.flatMap(d => d.markerIds))).length
-                            return (
-                                <div key={trip.id} className="border border-gray-200 rounded-xl bg-white overflow-hidden">
-                                    <button
-                                        onClick={() => setActiveView('trip', trip.id, null)}
-                                        className="w-full flex items-center gap-3 px-3 py-3 hover:bg-blue-50 transition-colors text-left"
-                                    >
-                                        <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-lg flex-shrink-0">{trip.emoji ?? '✈️'}</div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-medium text-sm text-gray-900 truncate">{trip.name}</div>
-                                            <div className="text-xs text-gray-500">
-                                                {trip.startDate.replace(/-/g, '/')} ~ {trip.endDate.replace(/-/g, '/')}
-                                                {' · '}{days.length}天 · {totalMarkers}个地点
-                                            </div>
-                                        </div>
-                                        <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            )
+                    (() => {
+                        const sorted = trips.slice().sort((a, b) => b.startDate.localeCompare(a.startDate))
+                        // Group by year
+                        const byYear = new Map<string, typeof sorted>()
+                        sorted.forEach(trip => {
+                            const year = trip.startDate.slice(0, 4)
+                            if (!byYear.has(year)) byYear.set(year, [])
+                            byYear.get(year)!.push(trip)
                         })
+                        return Array.from(byYear.entries()).map(([year, yearTrips]) => (
+                            <div key={year}>
+                                {/* Year divider */}
+                                <div className="flex items-center gap-2 px-1 py-1">
+                                    <div className="flex-1 border-t border-gray-200" />
+                                    <span className="text-[10px] text-gray-400 flex-shrink-0">{year}</span>
+                                    <div className="flex-1 border-t border-gray-200" />
+                                </div>
+                                {yearTrips.map(trip => {
+                                    const days = tripDays.filter(d => d.tripId === trip.id)
+                                    const totalMarkers = Array.from(new Set(days.flatMap(d => d.markerIds))).length
+                                    return (
+                                        <div key={trip.id} className="border border-gray-200 rounded-xl bg-white overflow-hidden mb-2">
+                                            <button
+                                                onClick={() => setActiveView('trip', trip.id, null)}
+                                                className="w-full flex items-center gap-3 px-3 py-3 hover:bg-blue-50 transition-colors text-left"
+                                            >
+                                                <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-lg flex-shrink-0">{trip.emoji ?? '✈️'}</div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="font-medium text-sm text-gray-900 truncate">{trip.name}</div>
+                                                    <div className="text-xs text-gray-500">
+                                                        {trip.startDate.slice(5).replace('-', '/')} ~ {trip.endDate.slice(5).replace('-', '/')}
+                                                        {' · '}{days.length}天 · {totalMarkers}个地点
+                                                    </div>
+                                                </div>
+                                                <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        ))
+                    })()
                 )}
 
                 {/* Unassigned markers — grouped by icon type */}
