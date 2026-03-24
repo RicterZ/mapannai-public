@@ -15,5 +15,8 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    volumes:
+      - mapannai_data:/app/data
 
-
+volumes:
+  mapannai_data:

@@ -8,20 +8,17 @@ import { z } from 'zod'
 import { config } from '@/lib/config'
 import {
     getAllTrips,
+    getTripById,
     upsertTrip,
-    deleteTrip as deleteTripFromDataset,
+    deleteTrip,
     getAllTripDays,
+    getTripDays,
+    getDayById,
     upsertTripDay,
-    datasetService,
-} from '@/lib/api/dataset-service'
+} from '@/lib/db/trip-service'
+import { datasetService } from '@/lib/api/dataset-service'
 import { Trip, TripDay } from '@/types/trip'
 import { v4 as uuidv4 } from 'uuid'
-
-function getDatasetId(): string {
-    const id = config.map.mapbox.dataset?.datasetId
-    if (!id) throw new Error('未配置 MAPBOX_DATASET_ID')
-    return id
-}
 
 export function registerTripTools(server: McpServer) {
 
@@ -31,11 +28,8 @@ export function registerTripTools(server: McpServer) {
         '获取所有旅行列表，包含每次旅行的天数和地点数量',
         {},
         async () => {
-            const datasetId = getDatasetId()
-            const [trips, days] = await Promise.all([
-                getAllTrips(datasetId),
-                getAllTripDays(datasetId),
-            ])
+            const trips = getAllTrips()
+            const days = getAllTripDays()
             const result = trips
                 .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
                 .map(trip => {
@@ -61,18 +55,10 @@ export function registerTripTools(server: McpServer) {
         '获取单次旅行的详情，包含所有天和每天的 marker 列表',
         { tripId: z.string().describe('旅行 ID') },
         async ({ tripId }) => {
-            const datasetId = getDatasetId()
-            const [trips, days] = await Promise.all([
-                getAllTrips(datasetId),
-                getAllTripDays(datasetId),
-            ])
-            const trip = trips.find(t => t.id === tripId)
+            const trip = getTripById(tripId)
             if (!trip) throw new Error(`旅行不存在: ${tripId}`)
 
-            const tripDays = days
-                .filter(d => d.tripId === tripId)
-                .sort((a, b) => a.date.localeCompare(b.date))
-
+            const tripDays = getTripDays(tripId)
             const result = { ...trip, days: tripDays }
             return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
         }
@@ -90,7 +76,6 @@ export function registerTripTools(server: McpServer) {
         },
         async ({ name, startDate, endDate, description }) => {
             if (startDate > endDate) throw new Error('开始日期不能晚于结束日期')
-            const datasetId = getDatasetId()
             const now = new Date().toISOString()
             const tripId = `trip_${uuidv4()}`
 
@@ -112,8 +97,8 @@ export function registerTripTools(server: McpServer) {
                 cursor.setDate(cursor.getDate() + 1)
             }
 
-            await upsertTrip(datasetId, trip)
-            await Promise.all(days.map(d => upsertTripDay(datasetId, d)))
+            upsertTrip(trip)
+            days.forEach(d => upsertTripDay(d))
 
             return {
                 content: [{
@@ -134,9 +119,8 @@ export function registerTripTools(server: McpServer) {
             title: z.string().optional().describe('当天自定义标题'),
         },
         async ({ tripId, date, title }) => {
-            const datasetId = getDatasetId()
             const day: TripDay = { id: `day_${uuidv4()}`, tripId, date, title, markerIds: [] }
-            await upsertTripDay(datasetId, day)
+            upsertTripDay(day)
             return { content: [{ type: 'text', text: JSON.stringify(day, null, 2) }] }
         }
     )
@@ -151,32 +135,11 @@ export function registerTripTools(server: McpServer) {
             markerId: z.string().describe('Marker ID'),
         },
         async ({ tripId, dayId, markerId }) => {
-            const datasetId = getDatasetId()
-            const days = await getAllTripDays(datasetId)
-            const day = days.find(d => d.id === dayId && d.tripId === tripId)
-            if (!day) throw new Error(`天不存在: ${dayId}`)
+            const day = getDayById(dayId)
+            if (!day || day.tripId !== tripId) throw new Error(`天不存在: ${dayId}`)
 
             if (!day.markerIds.includes(markerId)) {
-                const updated = { ...day, markerIds: [...day.markerIds, markerId] }
-                await upsertTripDay(datasetId, updated)
-            }
-
-            // Update marker's tripDayEntries
-            const fc = await datasetService.getAllFeatures(datasetId)
-            const feature = fc.features.find(f => f.id === markerId)
-            if (feature) {
-                const existing = feature.properties?.tripDayEntries || []
-                if (!existing.some((e: any) => e.tripId === tripId && e.dayId === dayId)) {
-                    const updatedProps = {
-                        ...feature.properties,
-                        tripDayEntries: [...existing, { tripId, dayId }],
-                    }
-                    const coords = {
-                        latitude: feature.geometry.coordinates[1],
-                        longitude: feature.geometry.coordinates[0],
-                    }
-                    await datasetService.upsertFeature(datasetId, markerId, coords, updatedProps)
-                }
+                upsertTripDay({ ...day, markerIds: [...day.markerIds, markerId] })
             }
 
             return { content: [{ type: 'text', text: JSON.stringify({ success: true }) }] }
@@ -197,12 +160,12 @@ export function registerTripTools(server: McpServer) {
             })).min(1).describe('按访问顺序排列的地点列表'),
         },
         async ({ tripId, dayId, places }) => {
-            const datasetId = getDatasetId()
-            const days = await getAllTripDays(datasetId)
-            const day = days.find(d => d.id === dayId && d.tripId === tripId)
-            if (!day) throw new Error(`天不存在: ${dayId}`)
+            const day = getDayById(dayId)
+            if (!day || day.tripId !== tripId) throw new Error(`天不存在: ${dayId}`)
 
-            // Use the existing create_marker logic via internal API
+            const datasetId = config.map.mapbox.dataset?.datasetId
+            if (!datasetId) throw new Error('未配置 MAPBOX_DATASET_ID')
+
             const { mapProviderFactory } = await import('@/lib/map/providers')
             const { isWithinDistance } = await import('@/utils/distance')
             const crypto = (await import('crypto')).default
@@ -238,7 +201,6 @@ export function registerTripTools(server: McpServer) {
                             headerImage: null,
                             iconType: place.iconType,
                             next: [],
-                            tripDayEntries: [{ tripId, dayId }],
                             metadata: {
                                 id: featureId, title: place.name,
                                 description: 'MCP 行程规划', isPublished: true,
@@ -246,25 +208,13 @@ export function registerTripTools(server: McpServer) {
                             },
                         })
                     } else {
-                        markerId = existing.id
-                        const existingEntries = existing.properties?.tripDayEntries || []
-                        if (!existingEntries.some((e: any) => e.tripId === tripId && e.dayId === dayId)) {
-                            const coords = {
-                                latitude: existing.geometry.coordinates[1],
-                                longitude: existing.geometry.coordinates[0],
-                            }
-                            await datasetService.upsertFeature(datasetId, markerId, coords, {
-                                ...existing.properties,
-                                tripDayEntries: [...existingEntries, { tripId, dayId }],
-                            })
-                        }
+                        markerId = existing.id as string
                     }
 
-                    // Append to day
-                    const freshDays = await getAllTripDays(datasetId)
-                    const freshDay = freshDays.find(d => d.id === dayId)!
+                    // Append to day (re-read for latest state)
+                    const freshDay = getDayById(dayId)!
                     if (!freshDay.markerIds.includes(markerId)) {
-                        await upsertTripDay(datasetId, { ...freshDay, markerIds: [...freshDay.markerIds, markerId] })
+                        upsertTripDay({ ...freshDay, markerIds: [...freshDay.markerIds, markerId] })
                     }
 
                     results.push({ name: place.name, id: markerId, status: existing ? 'existing' : 'created', coordinates })
@@ -287,11 +237,9 @@ export function registerTripTools(server: McpServer) {
             markerIds: z.array(z.string()).describe('新的 marker 顺序（完整列表）'),
         },
         async ({ tripId, dayId, markerIds }) => {
-            const datasetId = getDatasetId()
-            const days = await getAllTripDays(datasetId)
-            const day = days.find(d => d.id === dayId && d.tripId === tripId)
-            if (!day) throw new Error(`天不存在: ${dayId}`)
-            await upsertTripDay(datasetId, { ...day, markerIds })
+            const day = getDayById(dayId)
+            if (!day || day.tripId !== tripId) throw new Error(`天不存在: ${dayId}`)
+            upsertTripDay({ ...day, markerIds })
             return { content: [{ type: 'text', text: JSON.stringify({ success: true, dayId, markerIds }) }] }
         }
     )
@@ -302,17 +250,10 @@ export function registerTripTools(server: McpServer) {
         '删除旅行及其所有天（不删除 marker 本身）',
         { tripId: z.string().describe('旅行 ID') },
         async ({ tripId }) => {
-            const datasetId = getDatasetId()
-            const days = await getAllTripDays(datasetId)
-            const tripDays = days.filter(d => d.tripId === tripId)
-            await Promise.all([
-                deleteTripFromDataset(datasetId, tripId),
-                ...tripDays.map(d => {
-                    const { deleteTripDay } = require('@/lib/api/dataset-service')
-                    return deleteTripDay(datasetId, d.id)
-                }),
-            ])
-            return { content: [{ type: 'text', text: JSON.stringify({ success: true, deletedDays: tripDays.length }) }] }
+            const days = getTripDays(tripId)
+            // ON DELETE CASCADE handles trip_days cleanup automatically
+            deleteTrip(tripId)
+            return { content: [{ type: 'text', text: JSON.stringify({ success: true, deletedDays: days.length }) }] }
         }
     )
 }

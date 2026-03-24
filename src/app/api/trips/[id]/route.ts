@@ -1,31 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getTripById, upsertTrip, deleteTrip, getTripDays } from '@/lib/db/trip-service'
+import { datasetService } from '@/lib/api/dataset-service'
 import { config } from '@/lib/config'
-import {
-    getAllTrips,
-    upsertTrip,
-    deleteTrip,
-    getAllTripDays,
-    deleteTripDay,
-    datasetService,
-} from '@/lib/api/dataset-service'
 
 export const dynamic = 'force-dynamic'
 
 // GET /api/trips/[id]
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
     try {
-        const datasetId = config.map.mapbox.dataset?.datasetId
-        if (!datasetId) return NextResponse.json({ error: '未配置 MAPBOX_DATASET_ID' }, { status: 500 })
-
-        const trips = await getAllTrips(datasetId)
-        const trip = trips.find(t => t.id === params.id)
+        const trip = getTripById(params.id)
         if (!trip) return NextResponse.json({ error: '旅行不存在' }, { status: 404 })
 
-        const allDays = await getAllTripDays(datasetId)
-        const days = allDays
-            .filter(d => d.tripId === params.id)
-            .sort((a, b) => a.date.localeCompare(b.date))
-
+        const days = getTripDays(params.id)
         return NextResponse.json({ ...trip, days })
     } catch (error) {
         console.error('获取旅行详情失败:', error)
@@ -36,11 +22,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 // PUT /api/trips/[id]
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
     try {
-        const datasetId = config.map.mapbox.dataset?.datasetId
-        if (!datasetId) return NextResponse.json({ error: '未配置 MAPBOX_DATASET_ID' }, { status: 500 })
-
-        const trips = await getAllTrips(datasetId)
-        const trip = trips.find(t => t.id === params.id)
+        const trip = getTripById(params.id)
         if (!trip) return NextResponse.json({ error: '旅行不存在' }, { status: 404 })
 
         const body = await request.json()
@@ -51,7 +33,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             updatedAt: new Date().toISOString(),
         }
 
-        await upsertTrip(datasetId, updated)
+        upsertTrip(updated)
         return NextResponse.json(updated)
     } catch (error) {
         console.error('更新旅行失败:', error)
@@ -59,14 +41,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 }
 
-// DELETE /api/trips/[id] — deletes trip and all its days, clears next links on affected markers
+// DELETE /api/trips/[id] — deletes trip and all its days (CASCADE), clears next links on affected markers
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
     try {
-        const datasetId = config.map.mapbox.dataset?.datasetId
-        if (!datasetId) return NextResponse.json({ error: '未配置 MAPBOX_DATASET_ID' }, { status: 500 })
-
-        const allDays = await getAllTripDays(datasetId)
-        const tripDays = allDays.filter(d => d.tripId === params.id)
+        const tripDays = getTripDays(params.id)
 
         // Collect all marker IDs that belong to this trip's days
         const affectedMarkerIds = new Set<string>()
@@ -74,27 +52,28 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
 
         // Clear next links on affected markers
         if (affectedMarkerIds.size > 0) {
-            const fc = await datasetService.getAllFeatures(datasetId)
-            await Promise.all(
-                fc.features
-                    .filter(f => affectedMarkerIds.has(f.id as string) && (f.properties?.next?.length ?? 0) > 0)
-                    .map(f => {
-                        const coords = {
-                            latitude: f.geometry.coordinates[1],
-                            longitude: f.geometry.coordinates[0],
-                        }
-                        return datasetService.upsertFeature(datasetId, f.id as string, coords, {
-                            ...f.properties,
-                            next: [],
+            const datasetId = config.map.mapbox.dataset?.datasetId
+            if (datasetId) {
+                const fc = await datasetService.getAllFeatures(datasetId)
+                await Promise.all(
+                    fc.features
+                        .filter(f => affectedMarkerIds.has(f.id as string) && (f.properties?.next?.length ?? 0) > 0)
+                        .map(f => {
+                            const coords = {
+                                latitude: f.geometry.coordinates[1],
+                                longitude: f.geometry.coordinates[0],
+                            }
+                            return datasetService.upsertFeature(datasetId, f.id as string, coords, {
+                                ...f.properties,
+                                next: [],
+                            })
                         })
-                    })
-            )
+                )
+            }
         }
 
-        await Promise.all([
-            deleteTrip(datasetId, params.id),
-            ...tripDays.map(d => deleteTripDay(datasetId, d.id)),
-        ])
+        // deleteTrip cascades to trip_days via ON DELETE CASCADE
+        deleteTrip(params.id)
 
         return NextResponse.json({ success: true })
     } catch (error) {
