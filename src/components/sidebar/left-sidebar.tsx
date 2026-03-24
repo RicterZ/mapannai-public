@@ -226,7 +226,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
     const [tripNameDraft, setTripNameDraft] = useState('')
     const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
-    const TRIP_EMOJIS = ['✈️', '🚄', '🚢', '🚗', '🏕️', '🏖️', '🗻', '🏯', '🎒', '📸', '🇨🇳', '🇯🇵', '🇰🇷', '🇸🇬', '🇹🇭', '🇺🇸', '🇫🇷', '🇬🇧', '🇮🇹', '🇩🇪']
+    const TRIP_EMOJIS = ['✈️', '🚞', '🚢', '🚗', '🏍️', '🏕️', '🏖️', '🗻', '🏯', '🎒', '🇨🇳', '🇯🇵', '🇰🇷', '🇸🇬', '🇹🇭', '🇺🇸', '🇫🇷', '🇬🇧', '🇮🇹', '🇩🇪']
 
     useEffect(() => {
         if (!showEmojiPicker) return
