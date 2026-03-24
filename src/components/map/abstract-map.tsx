@@ -821,6 +821,8 @@ export const AbstractMap = () => {
                     }}
                     onError={(event) => {
                         console.error('Map error:', event)
+                        const msg = event?.error?.message || event?.error?.status || JSON.stringify(event?.error) || '未知错误'
+                        toast.error(`地图错误: ${msg}`, { duration: 10000 })
                         setError('地图初始化失败')
                     }}
                 >
