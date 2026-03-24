@@ -244,6 +244,8 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
     // 视图切换动画：向左滑出，从右滑入
     const [slideState, setSlideState] = useState<'idle' | 'exit' | 'enter'>('idle')
     const [displayMode, setDisplayMode] = useState(activeView.mode)
+    const [displayTripId, setDisplayTripId] = useState(activeView.tripId)
+    const [displayDayId, setDisplayDayId] = useState(activeView.dayId)
     const prevModeRef = useRef(activeView.mode)
     const prevTripRef = useRef(activeView.tripId)
     const prevDayRef = useRef(activeView.dayId)
@@ -264,6 +266,8 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         // 2. 内容切换 + 新内容从对面出发位置就位（不可见，立即切换）
         const t = setTimeout(() => {
             setDisplayMode(activeView.mode)
+            setDisplayTripId(activeView.tripId)
+            setDisplayDayId(activeView.dayId)
             setSlideState('enter')
             // 3. 下一帧触发 transition 滑入到 idle(0)
             requestAnimationFrame(() => {
@@ -291,20 +295,20 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
     // ── Derived data ────────────────────────────────────────────────────────
 
     const currentTrip = useMemo(() =>
-        trips.find(t => t.id === activeView.tripId) ?? null,
-        [trips, activeView.tripId]
+        trips.find(t => t.id === displayTripId) ?? null,
+        [trips, displayTripId]
     )
 
     const currentTripDays = useMemo(() =>
         tripDays
-            .filter(d => d.tripId === activeView.tripId)
+            .filter(d => d.tripId === displayTripId)
             .sort((a, b) => a.date.localeCompare(b.date)),
-        [tripDays, activeView.tripId]
+        [tripDays, displayTripId]
     )
 
     const currentDay = useMemo(() =>
-        tripDays.find(d => d.id === activeView.dayId) ?? null,
-        [tripDays, activeView.dayId]
+        tripDays.find(d => d.id === displayDayId) ?? null,
+        [tripDays, displayDayId]
     )
 
     const currentDayMarkers = useMemo(() => {
@@ -673,7 +677,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-blue-50 flex-shrink-0 min-h-[68px]">
             <div className="flex items-center gap-2">
                 {/* Back button */}
-                {activeView.mode === 'trip' && (
+                {displayMode === 'trip' && (
                     <button
                         onClick={() => setActiveView('overview', null, null)}
                         className="mr-1 p-1 rounded-lg text-gray-500 hover:bg-white/80 hover:text-blue-600 transition-colors"
@@ -684,7 +688,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                         </svg>
                     </button>
                 )}
-                {activeView.mode === 'day' && (
+                {displayMode === 'day' && (
                     <button
                         onClick={() => setActiveView('trip', activeView.tripId, null)}
                         className="mr-1 p-1 rounded-lg text-gray-500 hover:bg-white/80 hover:text-blue-600 transition-colors"
@@ -700,16 +704,16 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                     <div
                         className={cn(
                             'w-11 h-11 rounded-xl flex items-center justify-center text-2xl',
-                            activeView.mode === 'trip'
+                            displayMode === 'trip'
                                 ? 'bg-blue-100 cursor-pointer hover:bg-blue-200 transition-colors'
                                 : 'bg-blue-100',
                         )}
-                        onClick={() => activeView.mode === 'trip' && setShowEmojiPicker(v => !v)}
-                        title={activeView.mode === 'trip' ? '更换图标' : undefined}
+                        onClick={() => displayMode === 'trip' && setShowEmojiPicker(v => !v)}
+                        title={displayMode === 'trip' ? '更换图标' : undefined}
                     >
-                        {activeView.mode === 'overview' ? '🗺️' : activeView.mode === 'trip' ? (currentTrip?.emoji ?? '✈️') : '📅'}
+                        {displayMode === 'overview' ? '🗺️' : displayMode === 'trip' ? (currentTrip?.emoji ?? '✈️') : '📅'}
                     </div>
-                    {showEmojiPicker && activeView.mode === 'trip' && currentTrip && (
+                    {showEmojiPicker && displayMode === 'trip' && currentTrip && (
                         <div data-emoji-picker className="absolute left-0 top-9 z-50 bg-white rounded-xl shadow-xl border border-gray-200 p-2 grid grid-cols-5 gap-1 w-44">
                             {TRIP_EMOJIS.map(e => (
                                 <button
@@ -730,7 +734,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                     )}
                 </div>
                 <div>
-                    {activeView.mode === 'trip' && currentTrip && editingTripName ? (
+                    {displayMode === 'trip' && currentTrip && editingTripName ? (
                         <input
                             autoFocus
                             className="text-sm font-semibold text-gray-900 bg-white border border-blue-300 rounded px-1.5 py-0.5 w-40 focus:outline-none"
@@ -752,38 +756,38 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                         <h2
                             className={cn(
                                 'leading-tight',
-                                activeView.mode === 'overview'
+                                displayMode === 'overview'
                                     ? 'text-xl font-normal text-gray-900 tracking-wide'
                                     : 'text-sm font-semibold text-gray-900',
-                                activeView.mode === 'trip' && 'cursor-pointer hover:text-blue-600 transition-colors'
+                                displayMode === 'trip' && 'cursor-pointer hover:text-blue-600 transition-colors'
                             )}
-                            style={activeView.mode === 'overview' ? { fontFamily: 'var(--font-dm-serif)' } : undefined}
+                            style={displayMode === 'overview' ? { fontFamily: 'var(--font-dm-serif)' } : undefined}
                             onClick={() => {
-                                if (activeView.mode === 'trip' && currentTrip) {
+                                if (displayMode === 'trip' && currentTrip) {
                                     setTripNameDraft(currentTrip.name)
                                     setEditingTripName(true)
                                 }
                             }}
-                            title={activeView.mode === 'trip' ? '点击修改名称' : undefined}
+                            title={displayMode === 'trip' ? '点击修改名称' : undefined}
                         >
-                            {activeView.mode === 'overview' && 'MapAnNai'}
-                            {activeView.mode === 'overview' && (
+                            {displayMode === 'overview' && 'MapAnNai'}
+                            {displayMode === 'overview' && (
                                 <span className="block text-xs font-normal text-gray-400 tracking-widest mt-0.5" style={{ fontFamily: 'var(--font-inter, sans-serif)' }}>マップ案内</span>
                             )}
-                            {activeView.mode === 'trip' && (currentTrip ? `${currentTrip.name} · ${currentTrip.startDate.slice(0, 4)}` : '旅行')}
-                            {activeView.mode === 'day' && (currentDay?.title || (() => {
-                                const idx = currentTripDays.findIndex(d => d.id === activeView.dayId)
+                            {displayMode === 'trip' && (currentTrip ? `${currentTrip.name} · ${currentTrip.startDate.slice(0, 4)}` : '旅行')}
+                            {displayMode === 'day' && (currentDay?.title || (() => {
+                                const idx = currentTripDays.findIndex(d => d.id === displayDayId)
                                 return `第${idx + 1}天`
                             })())}
                         </h2>
                     )}
-                    {activeView.mode === 'trip' && currentTrip && (
+                    {displayMode === 'trip' && currentTrip && (
                         <p className="text-xs text-gray-500">
                             {currentTrip.startDate.slice(5).replace('-', '/')} ~ {currentTrip.endDate.slice(5).replace('-', '/')}
                             {' · '}{currentTripDays.length}天
                         </p>
                     )}
-                    {activeView.mode === 'day' && currentDay && (
+                    {displayMode === 'day' && currentDay && (
                         <p className="text-xs text-gray-500">{formatDate(currentDay.date)}</p>
                     )}
                 </div>
