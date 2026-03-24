@@ -1211,15 +1211,15 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
             >
                 {renderHeader()}
 
-                {/* 内容区域：视图切换时新旧内容同时播动画 */}
+                {/* 内容区域：iOS 式层叠导航动画 */}
                 <div className="flex-1 relative overflow-hidden">
-                    {/* 旧视图：退场动画 */}
+                    {/* 旧视图：保持不动（forward）或从右滑出（backward） */}
                     {isExiting && prevView && (
                         <div
                             key={`exit-${prevView.mode}-${prevView.tripId}-${prevView.dayId}`}
                             className={cn(
                                 'absolute inset-0 flex flex-col',
-                                direction === 'forward' ? 'animate-slide-out-left' : 'animate-slide-out-right'
+                                direction === 'backward' ? 'animate-slide-out-right' : ''
                             )}
                         >
                             {prevView.mode === 'overview' && renderOverview()}
@@ -1227,14 +1227,12 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                             {prevView.mode === 'day' && renderDayView()}
                         </div>
                     )}
-                    {/* 新视图：入场动画 */}
+                    {/* 新视图：forward 时从右滑入盖上，backward 时保持不动 */}
                     <div
                         key={`enter-${activeView.mode}-${activeView.tripId}-${activeView.dayId}`}
                         className={cn(
                             'absolute inset-0 flex flex-col',
-                            isExiting
-                                ? (direction === 'forward' ? 'animate-slide-in-right' : 'animate-slide-in-left')
-                                : ''
+                            isExiting && direction === 'forward' ? 'animate-slide-in-right' : ''
                         )}
                     >
                         {activeView.mode === 'overview' && renderOverview()}
