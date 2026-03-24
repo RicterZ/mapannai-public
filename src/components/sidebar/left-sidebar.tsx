@@ -1179,9 +1179,11 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
             >
                 {renderHeader()}
 
+                <div key={`${activeView.mode}-${activeView.tripId}-${activeView.dayId}`} className="flex-1 flex flex-col overflow-hidden animate-slide-in-right">
                 {activeView.mode === 'overview' && renderOverview()}
                 {activeView.mode === 'trip' && renderTripView()}
                 {activeView.mode === 'day' && renderDayView()}
+                </div>
 
                 {/* 底部：添加标记开关 */}
                 <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between flex-shrink-0">
