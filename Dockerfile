@@ -1,8 +1,6 @@
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
-
-RUN apk add --no-cache libc6-compat
 
 ARG NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
 ARG NEXT_PUBLIC_MAPBOX_STYLE
@@ -20,14 +18,12 @@ COPY . .
 
 RUN npm run build
 
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 --gid nodejs nextjs
 
 WORKDIR /app
-
-RUN apk add --no-cache libc6-compat
 
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
