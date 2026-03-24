@@ -197,7 +197,7 @@ interface ChainGroup {
 
 export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: LeftSidebarProps) => {
     const {
-        markers, trips, tripDays, activeView,
+        markers, trips, tripDays, activeView, interactionState,
         leftSidebar, closeLeftSidebar,
         selectMarker, openSidebar,
         setActiveView, deleteTrip, updateTrip,
@@ -564,12 +564,12 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         if (!marker) return
         onFlyTo(marker.coordinates, 15)
         if (addMarkerEnabled) {
-            // 编辑模式：只飞到标记，不打开右侧 sidebar
+            // 编辑模式：只飞到标记，不打开右侧 sidebar；移动端关闭左侧 sidebar
+            if (window.innerWidth < 1024) closeLeftSidebar()
             return
         }
         selectMarker(markerId)
         openSidebar()
-        if (window.innerWidth < 1024) closeLeftSidebar()
     }
 
     // 点选合并：Day 视图孤立标记的点击处理
@@ -621,7 +621,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
     // ── Render helpers ───────────────────────────────────────────────────────
 
     const renderHeader = () => (
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-blue-50 flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-blue-50 flex-shrink-0 min-h-[68px]">
             <div className="flex items-center gap-2">
                 {/* Back button */}
                 {activeView.mode === 'trip' && (
@@ -658,7 +658,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                         onClick={() => activeView.mode === 'trip' && setShowEmojiPicker(v => !v)}
                         title={activeView.mode === 'trip' ? '更换图标' : undefined}
                     >
-                        {activeView.mode === 'overview' ? '🗺' : activeView.mode === 'trip' ? (currentTrip?.emoji ?? '✈️') : '📅'}
+                        {activeView.mode === 'overview' ? '🗺️' : activeView.mode === 'trip' ? (currentTrip?.emoji ?? '✈️') : '📅'}
                     </div>
                     {showEmojiPicker && activeView.mode === 'trip' && currentTrip && (
                         <div data-emoji-picker className="absolute left-0 top-9 z-50 bg-white rounded-xl shadow-xl border border-gray-200 p-2 grid grid-cols-5 gap-1 w-44">
@@ -702,9 +702,13 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                     ) : (
                         <h2
                             className={cn(
-                                'text-sm font-semibold text-gray-900 leading-tight',
+                                'leading-tight',
+                                activeView.mode === 'overview'
+                                    ? 'text-xl font-normal text-gray-900 tracking-wide'
+                                    : 'text-sm font-semibold text-gray-900',
                                 activeView.mode === 'trip' && 'cursor-pointer hover:text-blue-600 transition-colors'
                             )}
+                            style={activeView.mode === 'overview' ? { fontFamily: 'var(--font-dm-serif)' } : undefined}
                             onClick={() => {
                                 if (activeView.mode === 'trip' && currentTrip) {
                                     setTripNameDraft(currentTrip.name)
@@ -713,7 +717,10 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                             }}
                             title={activeView.mode === 'trip' ? '点击修改名称' : undefined}
                         >
-                            {activeView.mode === 'overview' && '全览'}
+                            {activeView.mode === 'overview' && 'MapAnNai'}
+                            {activeView.mode === 'overview' && (
+                                <span className="block text-xs font-normal text-gray-400 tracking-widest mt-0.5" style={{ fontFamily: 'var(--font-inter, sans-serif)' }}>マップ案内</span>
+                            )}
                             {activeView.mode === 'trip' && (currentTrip ? `${currentTrip.name} · ${currentTrip.startDate.slice(0, 4)}` : '旅行')}
                             {activeView.mode === 'day' && (currentDay?.title || (() => {
                                 const idx = currentTripDays.findIndex(d => d.id === activeView.dayId)
@@ -1121,7 +1128,9 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         <>
             <div className={cn(
                     'fixed inset-0 bg-black bg-opacity-25 z-40 lg:hidden',
-                    leftSidebar.isOpen ? 'block' : 'hidden'
+                    leftSidebar.isOpen ? 'block' : 'hidden',
+                    // 右侧详情开着时屏蔽左侧遮罩的点击，防止关闭详情的 ghost click 穿透
+                    interactionState.isSidebarOpen && 'pointer-events-none'
                 )} onClick={closeLeftSidebar} />
 
             <div
@@ -1130,7 +1139,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                     'w-full bg-white shadow-2xl',
                     'transform transition-transform duration-300 ease-in-out',
                     'flex flex-col',
-                    'lg:w-80 lg:max-w-[20rem]',
+                    'lg:w-[360px]',
                     // 移动端：关闭时滑出屏幕；桌面端：始终显示
                     !leftSidebar.isOpen && 'max-lg:-translate-x-full',
                     leftSidebar.isOpen && 'animate-slide-in-left',

@@ -53,7 +53,8 @@ export const MapPopup = ({
             if (popupRef.current && !popupRef.current.contains(event.target as Node)) {
                 if (!(event.target as HTMLElement).closest('.map-marker') &&
                     !(event.target as HTMLElement).closest('.mapboxgl-map') &&
-                    !(event.target as HTMLElement).closest('.left-sidebar')) {
+                    !(event.target as HTMLElement).closest('.left-sidebar') &&
+                    !(event.target as HTMLElement).closest('.right-sidebar')) {
                     onClose()
                 }
             }
