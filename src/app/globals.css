@@ -56,24 +56,18 @@ body {
 /* MapLibre / Mapbox 容器 Safari 修复 */
 .mapboxgl-map,
 .maplibregl-map {
-    height: 100vh !important;
-    height: 100dvh !important;
-    height: -webkit-fill-available !important;
+    height: var(--vh, 100dvh) !important;
 }
 
 /* 确保地图画布占满容器 */
 .mapboxgl-canvas-container,
 .maplibregl-canvas-container {
-    height: 100vh !important;
-    height: 100dvh !important;
-    height: -webkit-fill-available !important;
+    height: var(--vh, 100dvh) !important;
 }
 
 .mapboxgl-canvas,
 .maplibregl-canvas {
-    height: 100vh !important;
-    height: 100dvh !important;
-    height: -webkit-fill-available !important;
+    height: var(--vh, 100dvh) !important;
 }
 
 * {

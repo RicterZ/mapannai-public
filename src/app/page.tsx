@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import { useEffect } from 'react'
 
 // 动态导入地图组件，避免SSR问题
 const InteractiveMap = dynamic(() => import('@/components/map/abstract-map').then(mod => ({ default: mod.AbstractMap })), {
@@ -20,8 +21,22 @@ const Sidebar = dynamic(() => import('@/components/sidebar/sidebar').then(mod =>
 })
 
 export default function HomePage() {
+    useEffect(() => {
+        const setVh = () => {
+            const h = window.visualViewport?.height ?? window.innerHeight
+            document.documentElement.style.setProperty('--vh', `${h}px`)
+        }
+        setVh()
+        window.visualViewport?.addEventListener('resize', setVh)
+        window.addEventListener('resize', setVh)
+        return () => {
+            window.visualViewport?.removeEventListener('resize', setVh)
+            window.removeEventListener('resize', setVh)
+        }
+    }, [])
+
     return (
-        <main className="relative w-full h-screen full-height overflow-hidden">
+        <main className="relative w-full overflow-hidden" style={{ height: 'var(--vh, 100dvh)' }}>
             {/* Full-screen map */}
             <InteractiveMap />
 
