@@ -5,7 +5,7 @@ export const config = {
         provider: 'mapbox' as 'mapbox',
         mapbox: {
             accessToken: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '',
-            style: process.env.NEXT_PUBLIC_MAPBOX_STYLE || 'https://tiles.openfreemap.org/styles/liberty',
+            style: process.env.NEXT_PUBLIC_MAPBOX_STYLE || '/amap-style.json',
         },
         google: {
             accessToken: process.env.GOOGLE_API_KEY || '',
