@@ -328,11 +328,12 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         return result
     }, [chainGroups, isolatedItems])
 
-    // Unassigned markers: those with no tripDayEntries
-    const unassignedMarkers = useMemo(() =>
-        markers.filter(m => !m.content.tripDayEntries?.length),
-        [markers]
-    )
+    // Unassigned markers: those not appearing in any TripDay's markerIds
+    // 以 tripDays 的 markerIds 为权威来源，防止 tripDayEntries 字段不一致时误判
+    const unassignedMarkers = useMemo(() => {
+        const assignedIds = new Set(tripDays.flatMap(d => d.markerIds))
+        return markers.filter(m => !assignedIds.has(m.id))
+    }, [markers, tripDays])
 
     // ── next-link helpers ─────────────────────────────────────────────────────
 
@@ -1033,7 +1034,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                                 ? 'border-blue-400 bg-blue-50'
                                                 : 'border-gray-200 bg-gray-50'
                                         )}
-                                        onMouseEnter={() => setHighlightedChain(chainItemIds)}
+                                        onMouseEnter={() => setHighlightedChain([chainItemIds])}
                                         onMouseLeave={() => clearHighlightedChain()}
                                     >
                                         <div className="text-[10px] text-gray-400 font-medium mb-1.5 px-1">行程链</div>

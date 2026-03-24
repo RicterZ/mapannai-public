@@ -82,7 +82,7 @@ export interface MapInteractionState {
     popupCoordinates: MarkerCoordinates | null
     placeName: string | null // 地点名称（保持向后兼容）
     placeInfo: DetailedPlaceInfo | null // 完整的地点信息
-    highlightedChainIds: string[] // 高亮的标记链ID列表
+    highlightedChainIds: string[][] // 高亮的标记链列表，每个元素是一条链的 marker id 集合
 }
 
 export type MarkerAction =

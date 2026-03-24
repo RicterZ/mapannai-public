@@ -52,7 +52,7 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
   }, [])
 
     const handleMouseEnter = useCallback((chainIds: string[]) => {
-        setHighlightedChain(chainIds)
+        setHighlightedChain([chainIds])
     }, [setHighlightedChain])
     
     const handleMouseLeave = useCallback(() => {

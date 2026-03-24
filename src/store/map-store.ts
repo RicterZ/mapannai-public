@@ -91,7 +91,7 @@ interface MapStore {
     updateMarkerContent: (markerId: string, content: { title?: string; headerImage?: string; markdownContent: string; next?: string[] }) => void
 
     // Chain highlight actions
-    setHighlightedChain: (chainIds: string[]) => void
+    setHighlightedChain: (chains: string[][]) => void
     clearHighlightedChain: () => void
 
     // Dataset actions
