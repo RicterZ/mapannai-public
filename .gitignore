@@ -124,3 +124,8 @@ dist/
 
 # Misc
 *.tsbuildinfo.mcp.json
+
+# SQLite database files
+data/*.db
+data/*.db-wal
+data/*.db-shm

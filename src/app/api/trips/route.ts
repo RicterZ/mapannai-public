@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
-import { config } from '@/lib/config'
-import { getAllTrips, upsertTrip, getAllTripDays, upsertTripDay } from '@/lib/api/dataset-service'
+import { getAllTrips, upsertTrip, getAllTripDays, upsertTripDay } from '@/lib/db/trip-service'
 import { Trip, TripDay } from '@/types/trip'
 
 export const dynamic = 'force-dynamic'
@@ -9,13 +8,8 @@ export const dynamic = 'force-dynamic'
 // GET /api/trips — list all trips
 export async function GET() {
     try {
-        const datasetId = config.map.mapbox.dataset?.datasetId
-        if (!datasetId) return NextResponse.json({ error: '未配置 MAPBOX_DATASET_ID' }, { status: 500 })
-
-        const [trips, days] = await Promise.all([
-            getAllTrips(datasetId),
-            getAllTripDays(datasetId),
-        ])
+        const trips = getAllTrips()
+        const days = getAllTripDays()
 
         // Attach days to each trip for convenience
         const result = trips
@@ -37,9 +31,6 @@ export async function GET() {
 // POST /api/trips — create a trip and auto-generate TripDay for each day in range
 export async function POST(request: NextRequest) {
     try {
-        const datasetId = config.map.mapbox.dataset?.datasetId
-        if (!datasetId) return NextResponse.json({ error: '未配置 MAPBOX_DATASET_ID' }, { status: 500 })
-
         const body = await request.json()
         const { name, description, startDate, endDate } = body
 
@@ -75,9 +66,9 @@ export async function POST(request: NextRequest) {
             cursor.setDate(cursor.getDate() + 1)
         }
 
-        // Persist trip and all days
-        await upsertTrip(datasetId, trip)
-        await Promise.all(days.map(d => upsertTripDay(datasetId, d)))
+        // Persist trip and all days (synchronous SQLite)
+        upsertTrip(trip)
+        days.forEach(d => upsertTripDay(d))
 
         return NextResponse.json({ ...trip, days })
     } catch (error) {
