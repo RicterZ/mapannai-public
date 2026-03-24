@@ -730,7 +730,7 @@ export const AbstractMap = () => {
     }
 
     return (
-        <div className="w-full map-container relative" style={{ height: 'var(--vh, 100dvh)' }}>
+        <div className="fixed inset-0 map-container">
             {/* 数据加载指示器（非阻塞） */}
             {isLoading && (
                 <div className="absolute top-4 right-4 z-50 bg-blue-600 text-white px-3 py-2 rounded-md shadow-lg">

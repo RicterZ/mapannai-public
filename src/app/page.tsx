@@ -40,7 +40,7 @@ export default function HomePage() {
     }, [])
 
     return (
-        <main className="relative w-full overflow-hidden" style={{ height: 'var(--vh, 100dvh)' }}>
+        <main className="fixed inset-0 overflow-hidden">
             {/* Full-screen map */}
             <InteractiveMap />
 

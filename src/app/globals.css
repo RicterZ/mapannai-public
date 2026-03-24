@@ -53,21 +53,15 @@ body {
     height: -webkit-fill-available;
 }
 
-/* MapLibre / Mapbox 容器 Safari 修复 */
+/* MapLibre / Mapbox 容器确保占满 fixed 容器 */
 .mapboxgl-map,
-.maplibregl-map {
-    height: var(--vh, 100dvh) !important;
-}
-
-/* 确保地图画布占满容器 */
+.maplibregl-map,
 .mapboxgl-canvas-container,
-.maplibregl-canvas-container {
-    height: var(--vh, 100dvh) !important;
-}
-
+.maplibregl-canvas-container,
 .mapboxgl-canvas,
 .maplibregl-canvas {
-    height: var(--vh, 100dvh) !important;
+    width: 100% !important;
+    height: 100% !important;
 }
 
 * {
