@@ -2,6 +2,10 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 ARG NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
 ARG NEXT_PUBLIC_MAPBOX_STYLE
 ARG NEXT_PUBLIC_IMAGE_DOMAINS
@@ -12,7 +16,7 @@ ENV NEXT_PUBLIC_IMAGE_DOMAINS=$NEXT_PUBLIC_IMAGE_DOMAINS
 
 COPY package*.json ./
 
-RUN npm ci --silent
+RUN npm ci
 
 COPY . .
 
