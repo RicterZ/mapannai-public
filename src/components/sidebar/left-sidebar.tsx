@@ -241,10 +241,8 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
     const [tripNameDraft, setTripNameDraft] = useState('')
     const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
-    // 视图切换动画：复用 sidebar 开关同款 transition-transform
-    const VIEW_ORDER = ['overview', 'trip', 'day']
+    // 视图切换动画：向左滑出，从右滑入
     const [slideState, setSlideState] = useState<'idle' | 'exit' | 'enter'>('idle')
-    const [slideDir, setSlideDir] = useState<'forward' | 'backward'>('forward')
     const [displayMode, setDisplayMode] = useState(activeView.mode)
     const [displayTripId, setDisplayTripId] = useState(activeView.tripId)
     const [displayDayId, setDisplayDayId] = useState(activeView.dayId)
@@ -257,11 +255,6 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         const tripChanged = prevTripRef.current !== activeView.tripId
         const dayChanged = prevDayRef.current !== activeView.dayId
         if (!modeChanged && !tripChanged && !dayChanged) return
-
-        const fromIdx = VIEW_ORDER.indexOf(prevModeRef.current)
-        const toIdx = VIEW_ORDER.indexOf(activeView.mode)
-        const forward = toIdx >= fromIdx
-        setSlideDir(forward ? 'forward' : 'backward')
 
         prevModeRef.current = activeView.mode
         prevTripRef.current = activeView.tripId
@@ -1223,15 +1216,13 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
             >
                 {renderHeader()}
 
-                {/* 内容区域：transition-transform 滑入滑出，与 sidebar 开关动画完全一致 */}
+                {/* 内容区域：向左滑出，从右滑入 */}
                 <div
                     className={cn(
                         'flex-1 flex flex-col overflow-hidden',
                         'transition-transform duration-300',
-                        slideState === 'exit' && slideDir === 'forward' && '-translate-x-full',
-                        slideState === 'exit' && slideDir === 'backward' && 'translate-x-full',
-                        slideState === 'enter' && slideDir === 'forward' && 'translate-x-full',
-                        slideState === 'enter' && slideDir === 'backward' && '-translate-x-full',
+                        slideState === 'exit' && '-translate-x-full',
+                        slideState === 'enter' && 'translate-x-full',
                     )}
                 >
                     {displayMode === 'overview' && renderOverview()}
