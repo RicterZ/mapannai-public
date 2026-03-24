@@ -15,7 +15,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
     const sidebarRef = useRef<HTMLDivElement>(null)
     const [isAddingToChain, setIsAddingToChain] = useState(false)
     const [targetMarkerId, setTargetMarkerId] = useState<string | null>(null)
-    const [confirmingDelete, setConfirmingDelete] = useState(false)
+    const [confirmingDelete, setConfirmingDelete] = useState(false) // kept for potential future use
     // Touch gesture state for swipe-to-close on mobile
     const touchStartY = useRef<number>(0)
     const touchDeltaY = useRef<number>(0)
@@ -47,7 +47,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
         setDragOffset(0)
 
         closeSidebar()
-        
+
         // 在移动端关闭标记详情时，跳转到正中间（修复之前的偏移）
         if (window.innerWidth < 1024 && selectedMarkerId) {
             const marker = markers.find(m => m.id === selectedMarkerId)
@@ -155,16 +155,23 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
             setTargetMarkerId(null)
         }
 
+        // Popup 触发：「设为下一站」按钮
+        const handleStartAddToChain = (event: CustomEvent) => {
+            handleAddToChain(event.detail.markerId)
+        }
+
         window.addEventListener('addMarkerToChain', handleAddMarkerToChain as EventListener)
         window.addEventListener('checkAddingMode', handleCheckAddingMode as EventListener)
         window.addEventListener('resetAddMode', handleResetAddMode as EventListener)
+        window.addEventListener('startAddToChain', handleStartAddToChain as EventListener)
 
         return () => {
             window.removeEventListener('addMarkerToChain', handleAddMarkerToChain as EventListener)
             window.removeEventListener('checkAddingMode', handleCheckAddingMode as EventListener)
             window.removeEventListener('resetAddMode', handleResetAddMode as EventListener)
+            window.removeEventListener('startAddToChain', handleStartAddToChain as EventListener)
         }
-    }, [isAddingToChain, targetMarkerId, handleMarkerSelection])
+    }, [isAddingToChain, targetMarkerId, handleMarkerSelection, handleAddToChain])
 
     const { isSidebarOpen, selectedMarkerId, displayedMarkerId } = interactionState
 
@@ -201,7 +208,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black bg-opacity-25 z-40 lg:hidden"
+                className="fixed inset-0 bg-black bg-opacity-25 z-[59] lg:hidden"
                 onClick={() => {
                     // 关闭添加模式
                     setIsAddingToChain(false)
@@ -219,7 +226,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
             <div
                 ref={sidebarRef}
                 className={cn(
-                    'fixed z-50',
+                    'right-sidebar fixed z-[60]',
                     'w-full max-w-md lg:max-w-lg xl:max-w-xl',
                     'bg-white shadow-2xl',
                     'flex flex-col',
@@ -328,43 +335,6 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                                 </svg>
                             </button>
 
-                            {/* 删除按钮 — inline 确认 */}
-                            {confirmingDelete ? (
-                                <div className="flex items-center gap-1 animate-scale-in">
-                                    <span className="text-xs text-red-600 font-medium">确认删除？</span>
-                                    <button
-                                        onClick={() => {
-                                            deleteMarker(selectedMarker.id)
-                                            setConfirmingDelete(false)
-                                            toast.success('标记已删除')
-                                        }}
-                                        className="px-2 py-1 rounded-lg bg-red-500 text-white text-xs font-medium hover:bg-red-600 transition-colors"
-                                    >
-                                        删除
-                                    </button>
-                                    <button
-                                        onClick={() => setConfirmingDelete(false)}
-                                        className="px-2 py-1 rounded-lg bg-gray-200 text-gray-700 text-xs font-medium hover:bg-gray-300 transition-colors"
-                                    >
-                                        取消
-                                    </button>
-                                </div>
-                            ) : (
-                                <button
-                                    onClick={() => setConfirmingDelete(true)}
-                                    className={cn(
-                                        'p-2 rounded-lg text-gray-500 hover:text-red-600',
-                                        'hover:bg-red-50 transition-all duration-200',
-                                        'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
-                                        'min-h-[40px] min-w-[40px] flex items-center justify-center'
-                                    )}
-                                    title="删除标记"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
-                            )}
                         </div>
                     )}
 
@@ -398,13 +368,6 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                 <div className="flex-1 overflow-hidden flex flex-col min-h-0">
                     {selectedMarker ? (
                         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-visible custom-scrollbar">
-                            {/* 标记链 */}
-                            <MarkerChain 
-                                currentMarker={selectedMarker} 
-                                onMarkerClick={handleMarkerClick}
-                                onAddMarker={handleAddToChain}
-                            />
-
                             {/* 首图显示 */}
                             {selectedMarker.content.headerImage && (
                                 <div className="w-full">

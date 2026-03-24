@@ -142,9 +142,6 @@ export const AbstractMap = () => {
         }
     }, [])
 
-    // 城市快速跳转折叠状态
-    const [isCityListOpen, setIsCityListOpen] = useState(false)
-
     // 右下角搜索栏状态
     const [fabQuery, setFabQuery] = useState('')
     const [fabResults, setFabResults] = useState<any[]>([])
@@ -281,17 +278,6 @@ export const AbstractMap = () => {
             }
         }
     }, [isSidebarOpen, mapProvider])
-
-    // 城市快速跳转功能 - 只支持 Mapbox
-    const handleCityJump = useCallback((cityKey: keyof typeof config.cities) => {
-        const city = config.cities[cityKey]
-        if (mapRef.current) {
-            mapProvider.flyTo(mapRef.current, {
-                longitude: city.coordinates.longitude,
-                latitude: city.coordinates.latitude,
-            }, city.zoom)
-        }
-    }, [mapProvider])
 
     // 右下角搜索：防抖自动搜索（输入≥2字）
     useEffect(() => {
@@ -550,6 +536,12 @@ export const AbstractMap = () => {
             // Prevent map click when clicking on popup
             if (event.originalEvent?.target &&
                 (event.originalEvent.target as HTMLElement).closest('.map-popup')) {
+                return
+            }
+
+            // Prevent map click when clicking on right sidebar
+            if (event.originalEvent?.target &&
+                (event.originalEvent.target as HTMLElement).closest('.right-sidebar')) {
                 return
             }
 
@@ -920,7 +912,7 @@ export const AbstractMap = () => {
                 )}
                 </MapboxMapComponent>
 
-            {/* 右下角：城市快速跳转 + 搜索栏 */}
+            {/* 右下角：搜索栏 */}
             <div className="fixed bottom-6 right-4 left-4 lg:left-auto lg:w-72 z-30 flex flex-col items-stretch lg:items-end gap-2">
                 {/* 搜索结果列表（向上弹出，与输入框等宽） */}
                 {fabResults.length > 0 && (
@@ -947,36 +939,6 @@ export const AbstractMap = () => {
                         </div>
                     </div>
                 )}
-
-                {/* 城市快速跳转标签（可横向收起） */}
-                <div className="flex items-center gap-1.5 justify-end">
-                    {/* 收起/展开按钮 */}
-                    <button
-                        onClick={() => setIsCityListOpen(!isCityListOpen)}
-                        className="w-7 h-7 rounded-full bg-white/90 backdrop-blur shadow border border-gray-200 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-all flex-shrink-0"
-                        title={isCityListOpen ? '收起' : '展开城市跳转'}
-                    >
-                        <svg className={cn('w-3.5 h-3.5 transition-transform duration-200', isCityListOpen ? 'rotate-0' : 'rotate-180')} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                    </button>
-
-                    {/* 城市标签：横向收起 */}
-                    <div className={cn(
-                        'flex items-center gap-1.5 overflow-hidden transition-all duration-300 ease-in-out',
-                        isCityListOpen ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'
-                    )}>
-                        {Object.entries(config.cities).map(([cityKey, city]) => (
-                            <button
-                                key={cityKey}
-                                onClick={() => handleCityJump(cityKey as keyof typeof config.cities)}
-                                className="px-3 py-1.5 bg-white/90 backdrop-blur rounded-full shadow border border-gray-200 text-xs font-medium text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all whitespace-nowrap"
-                            >
-                                {city.name}
-                            </button>
-                        ))}
-                    </div>
-                </div>
 
                 {/* 搜索输入框 */}
                 <div className="relative">

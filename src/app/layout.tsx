@@ -1,9 +1,14 @@
 import './globals.css'
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, DM_Serif_Display } from 'next/font/google'
 import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
+const dmSerifDisplay = DM_Serif_Display({
+    subsets: ['latin'],
+    weight: '400',
+    variable: '--font-dm-serif',
+})
 
 export const metadata: Metadata = {
     title: 'マップ案内 Plus - 交互式地图 AI 编辑器',
@@ -27,7 +32,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="zh-CN">
-            <body className={inter.className}>
+            <body className={`${inter.className} ${dmSerifDisplay.variable}`}>
                 {children}
                 <Toaster position="top-center" richColors closeButton />
             </body>
