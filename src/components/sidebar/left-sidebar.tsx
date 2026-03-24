@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import {
     DndContext,
@@ -200,7 +200,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         markers, trips, tripDays, activeView,
         leftSidebar, closeLeftSidebar,
         selectMarker, openSidebar,
-        setActiveView, deleteTrip,
+        setActiveView, deleteTrip, updateTrip,
         removeMarkerFromDay,
         updateMarkerContent,
         setHighlightedChain,
@@ -209,8 +209,38 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
 
     const [showCreateTrip, setShowCreateTrip] = useState(false)
     const [confirmDeleteTripId, setConfirmDeleteTripId] = useState<string | null>(null)
+    const confirmDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    const startConfirmDelete = (tripId: string) => {
+        setConfirmDeleteTripId(tripId)
+        if (confirmDeleteTimerRef.current) clearTimeout(confirmDeleteTimerRef.current)
+        confirmDeleteTimerRef.current = setTimeout(() => setConfirmDeleteTripId(null), 3000)
+    }
+
+    const cancelConfirmDelete = () => {
+        if (confirmDeleteTimerRef.current) clearTimeout(confirmDeleteTimerRef.current)
+        setConfirmDeleteTripId(null)
+    }
     const [activeDragId, setActiveDragId] = useState<string | null>(null)
     const [activeOverContainer, setActiveOverContainer] = useState<string | null>(null)
+    const [linkingMarkerId, setLinkingMarkerId] = useState<string | null>(null)
+    const [editingTripName, setEditingTripName] = useState(false)
+    const [tripNameDraft, setTripNameDraft] = useState('')
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+
+    const TRIP_EMOJIS = ['✈️', '🚄', '🚢', '🚗', '🏕️', '🏖️', '🗻', '🏯', '🎒', '📸', '🇨🇳', '🇯🇵', '🇰🇷', '🇸🇬', '🇹🇭', '🇺🇸', '🇫🇷', '🇬🇧', '🇮🇹', '🇩🇪']
+
+    useEffect(() => {
+        if (!showEmojiPicker) return
+        const handler = (e: MouseEvent) => {
+            // 如果点击的是 picker 内部，不关闭
+            const target = e.target as HTMLElement
+            if (target.closest('[data-emoji-picker]')) return
+            setShowEmojiPicker(false)
+        }
+        document.addEventListener('mousedown', handler)
+        return () => document.removeEventListener('mousedown', handler)
+    }, [showEmojiPicker])
 
     // ── Derived data ────────────────────────────────────────────────────────
 
@@ -533,16 +563,40 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         const marker = markers.find(m => m.id === markerId)
         if (!marker) return
         onFlyTo(marker.coordinates, 15)
+        if (addMarkerEnabled) {
+            // 编辑模式：只飞到标记，不打开右侧 sidebar
+            return
+        }
         selectMarker(markerId)
         openSidebar()
         if (window.innerWidth < 1024) closeLeftSidebar()
     }
 
+    // 点选合并：Day 视图孤立标记的点击处理
+    const handleIsolatedItemClick = useCallback((markerId: string) => {
+        if (!linkingMarkerId) {
+            // 第一次点击：选中等待
+            setLinkingMarkerId(markerId)
+        } else if (linkingMarkerId === markerId) {
+            // 点同一个：取消
+            setLinkingMarkerId(null)
+        } else {
+            // 第二次点击：创建链 linkingMarkerId → markerId
+            const srcMarker = currentDayMarkers.find(m => m.id === linkingMarkerId)
+            if (srcMarker) {
+                const dayIds = new Set(currentDay?.markerIds || [])
+                const externalNext = (srcMarker.content.next || []).filter(nid => !dayIds.has(nid))
+                updateNext(linkingMarkerId, [...externalNext, markerId])
+            }
+            setLinkingMarkerId(null)
+        }
+    }, [linkingMarkerId, currentDayMarkers, currentDay, updateNext])
+
     const handleDeleteTrip = async (tripId: string) => {
         try {
             await deleteTrip(tripId)
             toast.success('旅行已删除')
-            setConfirmDeleteTripId(null)
+            cancelConfirmDelete()
         } catch {
             toast.error('删除失败，请重试')
         }
@@ -593,18 +647,80 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                     </button>
                 )}
 
-                <div className="w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center text-sm">
-                    {activeView.mode === 'overview' ? '🗺' : activeView.mode === 'trip' ? '✈️' : '📅'}
+                <div className="relative">
+                    <div
+                        className={cn(
+                            'w-11 h-11 rounded-xl flex items-center justify-center text-2xl',
+                            activeView.mode === 'trip'
+                                ? 'bg-blue-100 cursor-pointer hover:bg-blue-200 transition-colors'
+                                : 'bg-blue-100',
+                        )}
+                        onClick={() => activeView.mode === 'trip' && setShowEmojiPicker(v => !v)}
+                        title={activeView.mode === 'trip' ? '更换图标' : undefined}
+                    >
+                        {activeView.mode === 'overview' ? '🗺' : activeView.mode === 'trip' ? (currentTrip?.emoji ?? '✈️') : '📅'}
+                    </div>
+                    {showEmojiPicker && activeView.mode === 'trip' && currentTrip && (
+                        <div data-emoji-picker className="absolute left-0 top-9 z-50 bg-white rounded-xl shadow-xl border border-gray-200 p-2 grid grid-cols-5 gap-1 w-44">
+                            {TRIP_EMOJIS.map(e => (
+                                <button
+                                    key={e}
+                                    onClick={() => {
+                                        updateTrip(currentTrip.id, { emoji: e })
+                                        setShowEmojiPicker(false)
+                                    }}
+                                    className={cn(
+                                        'text-lg w-8 h-8 rounded-lg flex items-center justify-center hover:bg-blue-50 transition-colors',
+                                        (currentTrip.emoji ?? '✈️') === e && 'bg-blue-100'
+                                    )}
+                                >
+                                    {e}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 <div>
-                    <h2 className="text-sm font-semibold text-gray-900 leading-tight">
-                        {activeView.mode === 'overview' && '全览'}
-                        {activeView.mode === 'trip' && (currentTrip?.name ?? '旅行')}
-                        {activeView.mode === 'day' && (currentDay?.title || (() => {
-                            const idx = currentTripDays.findIndex(d => d.id === activeView.dayId)
-                            return `第${idx + 1}天`
-                        })())}
-                    </h2>
+                    {activeView.mode === 'trip' && currentTrip && editingTripName ? (
+                        <input
+                            autoFocus
+                            className="text-sm font-semibold text-gray-900 bg-white border border-blue-300 rounded px-1.5 py-0.5 w-40 focus:outline-none"
+                            value={tripNameDraft}
+                            onChange={e => setTripNameDraft(e.target.value)}
+                            onBlur={() => {
+                                const name = tripNameDraft.trim()
+                                if (name && name !== currentTrip.name) {
+                                    updateTrip(currentTrip.id, { name })
+                                }
+                                setEditingTripName(false)
+                            }}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                                if (e.key === 'Escape') { setEditingTripName(false) }
+                            }}
+                        />
+                    ) : (
+                        <h2
+                            className={cn(
+                                'text-sm font-semibold text-gray-900 leading-tight',
+                                activeView.mode === 'trip' && 'cursor-pointer hover:text-blue-600 transition-colors'
+                            )}
+                            onClick={() => {
+                                if (activeView.mode === 'trip' && currentTrip) {
+                                    setTripNameDraft(currentTrip.name)
+                                    setEditingTripName(true)
+                                }
+                            }}
+                            title={activeView.mode === 'trip' ? '点击修改名称' : undefined}
+                        >
+                            {activeView.mode === 'overview' && '全览'}
+                            {activeView.mode === 'trip' && (currentTrip ? `${currentTrip.name} · ${currentTrip.startDate.slice(0, 4)}` : '旅行')}
+                            {activeView.mode === 'day' && (currentDay?.title || (() => {
+                                const idx = currentTripDays.findIndex(d => d.id === activeView.dayId)
+                                return `第${idx + 1}天`
+                            })())}
+                        </h2>
+                    )}
                     {activeView.mode === 'trip' && currentTrip && (
                         <p className="text-xs text-gray-500">
                             {currentTrip.startDate.slice(5).replace('-', '/')} ~ {currentTrip.endDate.slice(5).replace('-', '/')}
@@ -617,15 +733,17 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                 </div>
             </div>
 
-            <button
-                onClick={closeLeftSidebar}
-                className="lg:hidden p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-white/80 transition-colors"
-                aria-label="关闭"
-            >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
+            <div className="flex items-center gap-1">
+                <button
+                    onClick={closeLeftSidebar}
+                    className="lg:hidden p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-white/80 transition-colors"
+                    aria-label="关闭"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
         </div>
     )
 
@@ -654,7 +772,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                 ) : (
                     trips
                         .slice()
-                        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                        .sort((a, b) => b.startDate.localeCompare(a.startDate))
                         .map(trip => {
                             const days = tripDays.filter(d => d.tripId === trip.id)
                             const totalMarkers = Array.from(new Set(days.flatMap(d => d.markerIds))).length
@@ -664,11 +782,11 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                         onClick={() => setActiveView('trip', trip.id, null)}
                                         className="w-full flex items-center gap-3 px-3 py-3 hover:bg-blue-50 transition-colors text-left"
                                     >
-                                        <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-lg flex-shrink-0">✈️</div>
+                                        <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-lg flex-shrink-0">{trip.emoji ?? '✈️'}</div>
                                         <div className="flex-1 min-w-0">
                                             <div className="font-medium text-sm text-gray-900 truncate">{trip.name}</div>
                                             <div className="text-xs text-gray-500">
-                                                {trip.startDate.slice(5).replace('-', '/')} ~ {trip.endDate.slice(5).replace('-', '/')}
+                                                {trip.startDate.replace(/-/g, '/')} ~ {trip.endDate.replace(/-/g, '/')}
                                                 {' · '}{days.length}天 · {totalMarkers}个地点
                                             </div>
                                         </div>
@@ -676,22 +794,6 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                         </svg>
                                     </button>
-
-                                    {/* Delete confirm */}
-                                    {confirmDeleteTripId === trip.id ? (
-                                        <div className="flex items-center gap-2 px-3 py-2 border-t border-gray-100 bg-red-50">
-                                            <span className="text-xs text-red-600 flex-1">确认删除此旅行？</span>
-                                            <button onClick={() => handleDeleteTrip(trip.id)} className="px-2 py-1 bg-red-500 text-white rounded text-xs">删除</button>
-                                            <button onClick={() => setConfirmDeleteTripId(null)} className="px-2 py-1 bg-gray-200 rounded text-xs">取消</button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => setConfirmDeleteTripId(trip.id)}
-                                            className="w-full px-3 py-1.5 border-t border-gray-100 text-xs text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-left"
-                                        >
-                                            删除旅行
-                                        </button>
-                                    )}
                                 </div>
                             )
                         })
@@ -768,7 +870,31 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
     )
 
     // ── Trip view ─────────────────────────────────────────────────────────────
-    const renderTripView = () => (
+    const renderTripView = () => {
+        const lastDay = currentTripDays[currentTripDays.length - 1]
+
+        const handleAddDay = async () => {
+            if (!activeView.tripId || !currentTrip) return
+            // 末尾日期 +1 天
+            const lastDate = lastDay?.date ?? currentTrip.endDate
+            const next = new Date(lastDate)
+            next.setDate(next.getDate() + 1)
+            const nextDate = next.toISOString().slice(0, 10)
+            await useMapStore.getState().createTripDay(activeView.tripId, { date: nextDate })
+            // 同步更新 endDate
+            await updateTrip(activeView.tripId, { endDate: nextDate })
+        }
+
+        const handleRemoveDay = async () => {
+            if (!activeView.tripId || !lastDay) return
+            if (currentTripDays.length <= 1) return // 至少保留一天
+            await useMapStore.getState().deleteTripDay(activeView.tripId, lastDay.id)
+            // 同步更新 endDate
+            const newLast = currentTripDays[currentTripDays.length - 2]
+            if (newLast) await updateTrip(activeView.tripId, { endDate: newLast.date })
+        }
+
+        return (
         <div className="flex-1 overflow-y-auto custom-scrollbar">
             <div className="p-3 space-y-2">
                 {currentTripDays.length === 0 ? (
@@ -787,7 +913,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                 onClick={() => setActiveView('day', activeView.tripId, day.id)}
                                 className="w-full flex items-center gap-3 px-3 py-3 border border-gray-200 rounded-xl bg-white hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
                             >
-                                <div className="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center text-sm font-bold text-indigo-600 flex-shrink-0">
+                                <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-sm font-bold text-blue-600 flex-shrink-0">
                                     {idx + 1}
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -811,9 +937,47 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                         )
                     })
                 )}
+
+                {/* 增减天数 + 删除旅行 */}
+                <div className="flex gap-2 pt-1">
+                    <button
+                        onClick={handleRemoveDay}
+                        disabled={currentTripDays.length <= 1}
+                        className="flex-1 flex items-center justify-center py-2 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                        </svg>
+                    </button>
+                    <button
+                        onClick={handleAddDay}
+                        className="flex-1 flex items-center justify-center py-2 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                    </button>
+                    {confirmDeleteTripId === activeView.tripId ? (
+                        <div className="flex-1 flex items-center gap-1">
+                            <button onClick={() => handleDeleteTrip(activeView.tripId!)} className="flex-1 py-2 bg-red-500 text-white rounded-xl text-xs font-medium">确认</button>
+                            <button onClick={() => cancelConfirmDelete()} className="flex-1 py-2 bg-gray-100 rounded-xl text-xs text-gray-600">取消</button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => startConfirmDelete(activeView.tripId!)}
+                            className="flex-1 flex items-center justify-center py-2 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="删除旅行"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
-    )
+        )
+    }
 
     // ── Day view ──────────────────────────────────────────────────────────────
     const renderDayView = () => {
@@ -840,7 +1004,6 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
             <div className="flex-1 overflow-y-auto custom-scrollbar">
                 <div className="p-3">
                     <DndContext
-                        sensors={sensors}
                         collisionDetection={closestCenter}
                         onDragStart={handleDragStart}
                         onDragOver={handleDragOver}
@@ -897,6 +1060,13 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                             <div className="flex-1 border-t border-dashed border-gray-200" />
                                         </div>
                                     )}
+                                    {/* 点选合并提示 */}
+                                    {linkingMarkerId && (
+                                        <div className="mb-2 px-2 py-1.5 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+                                            <span className="text-xs text-blue-600">再点一个地点完成连接</span>
+                                            <button onClick={() => setLinkingMarkerId(null)} className="text-xs text-blue-400 hover:text-blue-600">取消</button>
+                                        </div>
+                                    )}
                                     <SortableContext
                                         items={isolatedItems.map(i => i.marker.id)}
                                         strategy={verticalListSortingStrategy}
@@ -905,16 +1075,18 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                             <div className="flex flex-col gap-2">
                                                 {isolatedItems.map((item) => {
                                                     const idx = displayIdx++
+                                                    const isLinking = item.marker.id === linkingMarkerId
                                                     return (
-                                                        <SortableItem
-                                                            key={item.marker.id}
-                                                            id={item.marker.id}
-                                                            marker={item.marker}
-                                                            index={idx}
-                                                            hasArrowAfter={false}
-                                                            onMarkerClick={handleMarkerClick}
-                                                            onRemove={handleRemoveMarkerFromDay}
-                                                        />
+                                                        <div key={item.marker.id} className={cn(isLinking && 'ring-2 ring-blue-400 rounded-xl')}>
+                                                            <SortableItem
+                                                                id={item.marker.id}
+                                                                marker={item.marker}
+                                                                index={idx}
+                                                                hasArrowAfter={false}
+                                                                onMarkerClick={handleIsolatedItemClick}
+                                                                onRemove={handleRemoveMarkerFromDay}
+                                                            />
+                                                        </div>
                                                     )
                                                 })}
                                             </div>
@@ -954,7 +1126,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
 
             <div
                 className={cn(
-                    'fixed left-0 top-0 bottom-0 z-50',
+                    'left-sidebar fixed left-0 top-0 bottom-0 z-50',
                     'w-full bg-white shadow-2xl',
                     'transform transition-transform duration-300 ease-in-out',
                     'flex flex-col',

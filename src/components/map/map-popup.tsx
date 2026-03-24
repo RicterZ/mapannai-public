@@ -16,6 +16,7 @@ interface MapPopupProps {
     onClose: () => void
     placeName?: string
     placeAddress?: string
+    onInteract?: () => void
 }
 
 export const MapPopup = ({
@@ -27,6 +28,7 @@ export const MapPopup = ({
     onClose,
     placeName,
     placeAddress,
+    onInteract,
 }: MapPopupProps) => {
     const popupRef = useRef<HTMLDivElement>(null)
     const { markers, activeView, tripDays, trips, interactionState, addMarkerToDay, setActiveView, openLeftSidebar, closeSidebar } = useMapStore()
@@ -50,7 +52,8 @@ export const MapPopup = ({
         const handleClickOutside = (event: MouseEvent) => {
             if (popupRef.current && !popupRef.current.contains(event.target as Node)) {
                 if (!(event.target as HTMLElement).closest('.map-marker') &&
-                    !(event.target as HTMLElement).closest('.mapboxgl-map')) {
+                    !(event.target as HTMLElement).closest('.mapboxgl-map') &&
+                    !(event.target as HTMLElement).closest('.left-sidebar')) {
                     onClose()
                 }
             }
@@ -99,6 +102,8 @@ export const MapPopup = ({
                     'bg-white rounded-xl shadow-2xl',
                     'w-[240px] animate-scale-in overflow-hidden'
                 )}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={() => onInteract?.()}
             >
                 {selectedMarker ? (
                     // 已有标记：显示标题、编辑/删除、加入今天

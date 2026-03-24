@@ -634,7 +634,6 @@ export const useMapStore = create<MapStore>()(
                     interactionState: {
                         ...state.interactionState,
                         isSidebarOpen: false,
-                        selectedMarkerId: null,
                     },
                 }), false, 'closeSidebar')
             },
