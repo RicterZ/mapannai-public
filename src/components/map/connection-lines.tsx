@@ -1,8 +1,8 @@
 'use client'
 
 import { useMemo, useEffect, useRef, useSyncExternalStore } from 'react'
-import { Source, Layer, useMap } from 'react-map-gl'
-import type { GeoJSONSource } from 'mapbox-gl'
+import { Source, Layer, useMap } from 'react-map-gl/maplibre'
+import type { GeoJSONSource } from 'maplibre-gl'
 import { Marker } from '@/types/marker'
 import { useMapStore } from '@/store/map-store'
 import { getZoomThreshold } from '@/lib/zoom-threshold'
@@ -204,7 +204,7 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
                 }]
             })
 
-            const src = mapInstance.getSource('connection-dots') as GeoJSONSource | undefined
+            const src = mapInstance.getSource('connection-dots') as unknown as GeoJSONSource | undefined
             src?.setData({ type: 'FeatureCollection', features })
             rafRef.current = requestAnimationFrame(animate)
         }

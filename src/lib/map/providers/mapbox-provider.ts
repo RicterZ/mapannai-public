@@ -1,6 +1,6 @@
 import { MapProvider, MapCoordinates, MapViewState, MapMarker, MapSearchResult, MapProviderConfig } from '@/types/map-provider'
-import Map, { MapRef, ViewState } from 'react-map-gl'
-import { Marker as MapboxMarker } from 'react-map-gl'
+import Map, { MapRef, ViewState } from 'react-map-gl/maplibre'
+import { Marker as MapboxMarker } from 'react-map-gl/maplibre'
 
 export class MapboxProvider implements MapProvider {
     private mapInstance: MapRef | null = null
@@ -139,11 +139,7 @@ export class MapboxProvider implements MapProvider {
     }
 
     getMapStyle(config: MapProviderConfig): string {
-        // 如果样式是 Google Maps 的样式名称，转换为 Mapbox 样式
-        if (config.style === 'roadmap' || config.style === 'satellite' || config.style === 'hybrid' || config.style === 'terrain') {
-            return 'mapbox://styles/mapbox/streets-zh-v1'
-        }
-        return config.style || 'mapbox://styles/mapbox/streets-zh-v1'
+        return config.style || '/amap-style.json'
     }
 
     // 应用POI过滤的CSS样式

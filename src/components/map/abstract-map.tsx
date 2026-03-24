@@ -22,10 +22,10 @@ import { Sidebar } from '@/components/sidebar/sidebar'
 import { ViewModeBanner } from '@/components/map/view-mode-banner'
 import { cn } from '@/utils/cn'
 import { MarkerIconType } from '@/types/marker'
-import Map, { Marker as MapboxMarker, MapRef, ViewState, MapProvider as ReactMapProvider } from 'react-map-gl'
+import Map, { Marker as MapboxMarker, MapRef, ViewState, MapProvider as ReactMapProvider } from 'react-map-gl/maplibre'
 
 // 根据地图提供者导入相应的样式
-import 'mapbox-gl/dist/mapbox-gl.css'
+import 'maplibre-gl/dist/maplibre-gl.css'
 
 export const AbstractMap = () => {
     const mapRef = useRef<any>(null)
@@ -442,9 +442,6 @@ export const AbstractMap = () => {
     useEffect(() => {
         const handleError = (event: ErrorEvent) => {
             console.error('Map error:', event.error)
-            if (event.error?.message?.includes('mapbox') || event.error?.message?.includes('token')) {
-                setError('Mapbox token 无效或已过期，请检查配置')
-            }
         }
 
         window.addEventListener('error', handleError)
@@ -708,30 +705,6 @@ export const AbstractMap = () => {
         })
     }, [loadMarkersFromDataset])
 
-    // 检查 access token 是否设置
-    if (!mapConfig.accessToken) {
-        return (
-            <div className="w-full h-screen flex items-center justify-center bg-yellow-50">
-                <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
-                    <div className="text-yellow-500 text-6xl mb-4">🔑</div>
-                    <h2 className="text-xl font-semibold text-yellow-800 mb-2">地图配置缺失</h2>
-                    <p className="text-yellow-600 mb-4">
-                        请设置地图 API Key：
-                    </p>
-                    <div className="text-left bg-gray-100 p-4 rounded text-sm">
-                        <div>
-                            <p className="font-semibold mb-2">Mapbox 配置：</p>
-                            <p>NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=your_mapbox_token</p>
-                            <p className="text-xs text-gray-500 mt-2">
-                                获取 token: <a href="https://account.mapbox.com/access-tokens/" target="_blank" className="text-blue-500">https://account.mapbox.com/access-tokens/</a>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )
-    }
-
     // 只有地图本身加载失败才显示错误页面
     if (error && !mapInitialized) {
         return (
@@ -836,7 +809,7 @@ export const AbstractMap = () => {
                     }}
                     onLoad={handleMapLoad}
                     onClick={handleMapClick}
-                    mapboxAccessToken={mapConfig.accessToken}
+                    mapboxAccessToken=""
                     mapStyle={mapProvider.getMapStyle(mapConfig)}
                     reuseMaps
                     attributionControl={false}
@@ -848,11 +821,7 @@ export const AbstractMap = () => {
                     }}
                     onError={(event) => {
                         console.error('Map error:', event)
-                        if (event.error?.message?.includes('Unauthorized') || event.error?.message?.includes('Invalid Token')) {
-                            setError('地图token无效，请检查配置')
-                        } else {
-                            setError('地图初始化失败')
-                        }
+                        setError('地图初始化失败')
                     }}
                 >
                 {/* Render connection lines */}

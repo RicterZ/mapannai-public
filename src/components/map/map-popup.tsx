@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { Popup } from 'react-map-gl'
+import { Popup } from 'react-map-gl/maplibre'
 import { MarkerCoordinates } from '@/types/marker'
 import { useMapStore } from '@/store/map-store'
 import { cn } from '@/utils/cn'
