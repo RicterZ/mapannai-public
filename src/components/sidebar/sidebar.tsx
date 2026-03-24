@@ -229,7 +229,9 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                     // 移动端：全屏显示
                     'right-0 bottom-0 h-full',
                     // PC端：正常右侧显示
-                    'lg:right-0 lg:top-0 lg:bottom-0 lg:h-auto'
+                    'lg:right-0 lg:top-0 lg:bottom-0 lg:h-auto',
+                    // 动画：从右侧滑入
+                    'animate-slide-in-right',
                 )}
                 style={{
                     paddingBottom: 'env(safe-area-inset-bottom, 0px)',
