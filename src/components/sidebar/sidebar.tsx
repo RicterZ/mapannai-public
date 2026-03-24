@@ -230,11 +230,10 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                     'right-0 bottom-0 h-full',
                     // PC端：正常右侧显示
                     'lg:right-0 lg:top-0 lg:bottom-0 lg:h-auto',
-                    // 动画：从右侧滑入
-                    'animate-slide-in-left',
                 )}
                 style={{
                     paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+                    animation: 'slideInRight 0.3s ease-out',
                 }}
             >
                 {/* Header */}
