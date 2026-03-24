@@ -28,6 +28,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 export const AbstractMap = () => {
     const mapRef = useRef<any>(null)
+    const suppressMapClickRef = useRef(false) // popup 内操作后短暂屏蔽地图点击
     const [error, setError] = useState<string | null>(null)
     const [mapInitialized, setMapInitialized] = useState(false)
     const [loadingRetryCount, setLoadingRetryCount] = useState(0)
@@ -118,6 +119,10 @@ export const AbstractMap = () => {
         setAddMarkerEnabled(v => {
             const next = !v
             localStorage.setItem('addMarkerEnabled', String(next))
+            // 切换到编辑模式（next=true）时关闭右侧 sidebar
+            if (next) {
+                useMapStore.getState().closeSidebar()
+            }
             return next
         })
     }
@@ -365,10 +370,6 @@ export const AbstractMap = () => {
             zoomLevel = 16
         }
         
-        // 先清空搜索，然后跳转
-        setFabQuery('')
-        setFabResults([])
-
         // 延迟跳转，确保结果列表收起
         setTimeout(() => {
             handleFlyTo({ longitude: result.coordinates.longitude, latitude: result.coordinates.latitude }, zoomLevel)
@@ -532,6 +533,7 @@ export const AbstractMap = () => {
     }, [updatePlaceInfo, setCurrentPlaceName, setCurrentPlaceAddress])
 
     const handleMapClick = useCallback(async (event: any, placeInfo?: { name: string; address: string; placeId: string }, clickPosition?: { x: number; y: number }, isMarkerClick?: boolean) => {
+        if (suppressMapClickRef.current) return
         // 直接从store获取最新状态，避免闭包中的旧状态
         const currentState = useMapStore.getState()
         const currentSidebarOpen = currentState.interactionState.isSidebarOpen
@@ -910,6 +912,10 @@ export const AbstractMap = () => {
                         onClose={closePopup}
                         placeName={currentPlaceName}
                         placeAddress={currentPlaceAddress}
+                        onInteract={() => {
+                            suppressMapClickRef.current = true
+                            setTimeout(() => { suppressMapClickRef.current = false }, 300)
+                        }}
                     />
                 )}
                 </MapboxMapComponent>

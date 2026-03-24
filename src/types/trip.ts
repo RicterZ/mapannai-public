@@ -5,6 +5,7 @@ export interface Trip {
   startDate: string    // ISO date "2024-03-01"
   endDate: string      // ISO date "2024-03-07"
   coverImage?: string
+  emoji?: string       // 旅行图标，默认 ✈️
   createdAt: string
   updatedAt: string
 }
