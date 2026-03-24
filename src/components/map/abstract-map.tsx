@@ -807,7 +807,7 @@ export const AbstractMap = () => {
                         'w-12 h-12 rounded-full shadow-lg border border-gray-200 bg-white',
                         'flex items-center justify-center',
                         'hover:bg-blue-50 hover:border-blue-300 transition-all duration-200',
-                        'focus:outline-none'
+                        'focus:outline-none touch-manipulation'
                     )}
                     aria-label="打开标记列表"
                     title="打开标记列表"

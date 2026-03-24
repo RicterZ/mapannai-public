@@ -574,14 +574,17 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
 
     // 点选合并：Day 视图孤立标记的点击处理
     const handleIsolatedItemClick = useCallback((markerId: string) => {
+        if (!addMarkerEnabled) {
+            // 非编辑模式：打开详情
+            handleMarkerClick(markerId)
+            return
+        }
+        // 编辑模式：点选合并行程链
         if (!linkingMarkerId) {
-            // 第一次点击：选中等待
             setLinkingMarkerId(markerId)
         } else if (linkingMarkerId === markerId) {
-            // 点同一个：取消
             setLinkingMarkerId(null)
         } else {
-            // 第二次点击：创建链 linkingMarkerId → markerId
             const srcMarker = currentDayMarkers.find(m => m.id === linkingMarkerId)
             if (srcMarker) {
                 const dayIds = new Set(currentDay?.markerIds || [])
@@ -590,7 +593,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
             }
             setLinkingMarkerId(null)
         }
-    }, [linkingMarkerId, currentDayMarkers, currentDay, updateNext])
+    }, [addMarkerEnabled, linkingMarkerId, currentDayMarkers, currentDay, updateNext, handleMarkerClick])
 
     const handleDeleteTrip = async (tripId: string) => {
         try {
@@ -1067,8 +1070,8 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                             <div className="flex-1 border-t border-dashed border-gray-200" />
                                         </div>
                                     )}
-                                    {/* 点选合并提示 */}
-                                    {linkingMarkerId && (
+                                    {/* 点选合并提示（仅编辑模式） */}
+                                    {linkingMarkerId && addMarkerEnabled && (
                                         <div className="mb-2 px-2 py-1.5 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
                                             <span className="text-xs text-blue-600">再点一个地点完成连接</span>
                                             <button onClick={() => setLinkingMarkerId(null)} className="text-xs text-blue-400 hover:text-blue-600">取消</button>
@@ -1137,12 +1140,12 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                 className={cn(
                     'left-sidebar fixed left-0 top-0 bottom-0 z-50',
                     'w-full bg-white shadow-2xl',
-                    'transform transition-transform duration-300 ease-in-out',
                     'flex flex-col',
                     'lg:w-[360px]',
-                    // 移动端：关闭时滑出屏幕；桌面端：始终显示
-                    !leftSidebar.isOpen && 'max-lg:-translate-x-full',
-                    leftSidebar.isOpen && 'animate-slide-in-left',
+                    // 桌面端：始终显示，无需动画
+                    // 移动端：关闭时滑出（transition），打开时滑入（animation）
+                    'lg:translate-x-0',
+                    !leftSidebar.isOpen ? 'max-lg:-translate-x-full max-lg:transition-transform max-lg:duration-300' : 'max-lg:animate-slide-in-left',
                 )}
                 style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
             >
@@ -1160,7 +1163,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                             'relative w-11 h-6 rounded-full transition-colors duration-200 cursor-pointer flex-shrink-0',
                             addMarkerEnabled ? 'bg-blue-500' : 'bg-gray-300'
                         )}
-                        onClick={onToggleAddMarker}
+                        onClick={() => { setLinkingMarkerId(null); onToggleAddMarker() }}
                     >
                         <div className={cn(
                             'absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200',

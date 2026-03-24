@@ -16,11 +16,6 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
     const [isAddingToChain, setIsAddingToChain] = useState(false)
     const [targetMarkerId, setTargetMarkerId] = useState<string | null>(null)
     const [confirmingDelete, setConfirmingDelete] = useState(false) // kept for potential future use
-    // Touch gesture state for swipe-to-close on mobile
-    const touchStartY = useRef<number>(0)
-    const touchDeltaY = useRef<number>(0)
-    const [dragOffset, setDragOffset] = useState(0)
-    const isDragging = useRef(false)
 
     const {
         markers,
@@ -44,7 +39,6 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
         setIsAddingToChain(false)
         setTargetMarkerId(null)
         setConfirmingDelete(false)
-        setDragOffset(0)
 
         closeSidebar()
 
@@ -239,32 +233,6 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                 )}
                 style={{
                     paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-                    transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined,
-                    transition: isDragging.current ? 'none' : 'transform 0.3s ease-in-out',
-                }}
-                onTouchStart={(e) => {
-                    if (window.innerWidth >= 1024) return
-                    touchStartY.current = e.touches[0].clientY
-                    touchDeltaY.current = 0
-                    isDragging.current = true
-                }}
-                onTouchMove={(e) => {
-                    if (window.innerWidth >= 1024 || !isDragging.current) return
-                    const delta = e.touches[0].clientY - touchStartY.current
-                    if (delta > 0) {
-                        touchDeltaY.current = delta
-                        setDragOffset(delta)
-                    }
-                }}
-                onTouchEnd={() => {
-                    if (window.innerWidth >= 1024) return
-                    isDragging.current = false
-                    if (touchDeltaY.current > 80) {
-                        handleClose()
-                    } else {
-                        setDragOffset(0)
-                    }
-                    touchDeltaY.current = 0
                 }}
             >
                 {/* Header */}
@@ -287,70 +255,61 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                         )}
                     </div>
 
-                    {selectedMarker && (
-                        <div className="flex items-center gap-1 mr-2">
-                            {/* 加入今天 — Day 模式下显示 */}
-                            {(() => {
-                                if (activeView.mode !== 'day' || !activeView.dayId || !activeView.tripId) return null
-                                const currentDay = tripDays.find(d => d.id === activeView.dayId)
-                                if (!currentDay) return null
-                                const alreadyIn = currentDay.markerIds.includes(selectedMarker.id)
-                                if (alreadyIn) return (
-                                    <span className="px-2 py-1 text-xs text-indigo-500 font-medium">✓ 今日</span>
-                                )
-                                return (
-                                    <button
-                                        onClick={async () => {
-                                            try {
-                                                await addMarkerToDay(activeView.tripId!, activeView.dayId!, selectedMarker.id)
-                                                toast.success('已加入今天行程')
-                                            } catch {
-                                                toast.error('操作失败')
-                                            }
-                                        }}
-                                        className="px-2 py-1 rounded-lg bg-indigo-500 text-white text-xs font-medium hover:bg-indigo-600 transition-colors flex items-center gap-1"
-                                        title="加入今天行程"
-                                    >
-                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                        </svg>
-                                        今天
-                                    </button>
-                                )
-                            })()}
+                    {/* 右側：今天 + 編集 + 閉じる */}
+                    <div className="flex items-center gap-1">
+                        {selectedMarker && (() => {
+                            const { activeView, tripDays, addMarkerToDay } = useMapStore.getState()
+                            const currentDay = activeView.mode === 'day' && activeView.dayId
+                                ? tripDays.find(d => d.id === activeView.dayId)
+                                : null
+                            if (!currentDay) return null
+                            const isInDay = currentDay.markerIds.includes(selectedMarker.id)
+                            if (isInDay) return (
+                                <span className="px-2 py-1 text-xs text-indigo-500 font-medium">✓ 今天</span>
+                            )
+                            return (
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            await addMarkerToDay(activeView.tripId!, activeView.dayId!, selectedMarker.id)
+                                            toast.success('已加入今天行程')
+                                        } catch {
+                                            toast.error('操作失败')
+                                        }
+                                    }}
+                                    className="px-2 py-1 rounded-lg bg-indigo-500 text-white text-xs font-medium hover:bg-indigo-600 transition-colors flex items-center gap-1"
+                                    title="加入今天行程"
+                                >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    今天
+                                </button>
+                            )
+                        })()}
 
-                            {/* 编辑按钮 */}
+                        {selectedMarker && (
                             <button
                                 onClick={() => openEditMarkerModal(selectedMarker.id)}
-                                className={cn(
-                                    'p-2 rounded-lg text-gray-500 hover:text-blue-600',
-                                    'hover:bg-blue-50 transition-all duration-200',
-                                    'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-                                    'min-h-[40px] min-w-[40px] flex items-center justify-center'
-                                )}
+                                className="p-2 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 focus:outline-none min-h-[40px] min-w-[40px] flex items-center justify-center"
                                 title="编辑标记"
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                             </button>
-
-                        </div>
-                    )}
-
-                    <button
-                        onClick={handleClose}
-                        className={cn(
-                            'ml-4 p-2 rounded-md text-gray-400 hover:text-gray-600',
-                            'hover:bg-gray-100 transition-colors duration-200',
-                            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
                         )}
-                        aria-label="关闭侧边栏"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+
+                        <button
+                            onClick={handleClose}
+                            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors duration-200 focus:outline-none min-h-[40px] min-w-[40px] flex items-center justify-center"
+                            aria-label="关闭侧边栏"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 {/* 添加模式指示器 */}
