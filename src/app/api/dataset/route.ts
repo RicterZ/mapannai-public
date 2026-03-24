@@ -114,6 +114,14 @@ export async function DELETE(request: NextRequest) {
             )
         }
 
+        // 防止误删旅行/天数据
+        if (featureId.startsWith('trip_') || featureId.startsWith('day_')) {
+            return NextResponse.json(
+                { error: '禁止通过此接口删除旅行数据' },
+                { status: 403 }
+            )
+        }
+
         await datasetService.deleteFeature(datasetId, featureId)
 
         const response = NextResponse.json({
