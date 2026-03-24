@@ -241,6 +241,38 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
     const [tripNameDraft, setTripNameDraft] = useState('')
     const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
+    // 视图切换动画方向管理
+    type ViewKey = { mode: string; tripId: string | null; dayId: string | null }
+    const VIEW_ORDER = ['overview', 'trip', 'day']
+    const [prevView, setPrevView] = useState<ViewKey | null>(null)
+    const [isExiting, setIsExiting] = useState(false)
+    const viewKey = { mode: activeView.mode, tripId: activeView.tripId ?? null, dayId: activeView.dayId ?? null }
+    const prevViewRef = useRef<ViewKey>(viewKey)
+
+    useEffect(() => {
+        const prev = prevViewRef.current
+        const curr = viewKey
+        if (prev.mode === curr.mode && prev.tripId === curr.tripId && prev.dayId === curr.dayId) return
+
+        setPrevView(prev)
+        setIsExiting(true)
+        prevViewRef.current = curr
+
+        const t = setTimeout(() => {
+            setIsExiting(false)
+            setPrevView(null)
+        }, 250)
+        return () => clearTimeout(t)
+    }, [activeView.mode, activeView.tripId, activeView.dayId])
+
+    const getDirection = (from: ViewKey | null, to: ViewKey): 'forward' | 'backward' => {
+        if (!from) return 'forward'
+        const fromIdx = VIEW_ORDER.indexOf(from.mode)
+        const toIdx = VIEW_ORDER.indexOf(to.mode)
+        return toIdx >= fromIdx ? 'forward' : 'backward'
+    }
+    const direction = getDirection(prevView, viewKey)
+
     const TRIP_EMOJIS = ['✈️', '🚞', '🚢', '🚗', '🏍️', '🏕️', '🏖️', '🗻', '🏯', '🎒', '🇨🇳', '🇯🇵', '🇰🇷', '🇸🇬', '🇹🇭', '🇺🇸', '🇫🇷', '🇬🇧', '🇮🇹', '🇩🇪', '🍜', '🍣', '🍲', '🍛', '🍖']
 
     useEffect(() => {
@@ -1179,10 +1211,36 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
             >
                 {renderHeader()}
 
-                <div key={`${activeView.mode}-${activeView.tripId}-${activeView.dayId}`} className="flex-1 flex flex-col overflow-hidden animate-slide-in-right">
-                {activeView.mode === 'overview' && renderOverview()}
-                {activeView.mode === 'trip' && renderTripView()}
-                {activeView.mode === 'day' && renderDayView()}
+                {/* 内容区域：视图切换时新旧内容同时播动画 */}
+                <div className="flex-1 relative overflow-hidden">
+                    {/* 旧视图：退场动画 */}
+                    {isExiting && prevView && (
+                        <div
+                            key={`exit-${prevView.mode}-${prevView.tripId}-${prevView.dayId}`}
+                            className={cn(
+                                'absolute inset-0 flex flex-col',
+                                direction === 'forward' ? 'animate-slide-out-left' : 'animate-slide-out-right'
+                            )}
+                        >
+                            {prevView.mode === 'overview' && renderOverview()}
+                            {prevView.mode === 'trip' && renderTripView()}
+                            {prevView.mode === 'day' && renderDayView()}
+                        </div>
+                    )}
+                    {/* 新视图：入场动画 */}
+                    <div
+                        key={`enter-${activeView.mode}-${activeView.tripId}-${activeView.dayId}`}
+                        className={cn(
+                            'absolute inset-0 flex flex-col',
+                            isExiting
+                                ? (direction === 'forward' ? 'animate-slide-in-right' : 'animate-slide-in-left')
+                                : ''
+                        )}
+                    >
+                        {activeView.mode === 'overview' && renderOverview()}
+                        {activeView.mode === 'trip' && renderTripView()}
+                        {activeView.mode === 'day' && renderDayView()}
+                    </div>
                 </div>
 
                 {/* 底部：添加标记开关 */}

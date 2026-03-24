@@ -27,8 +27,10 @@ module.exports = {
                     'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
             },
             animation: {
-                'slide-in-right': 'slideInRight 0.3s ease-out',
-                'slide-in-left': 'slideInLeft 0.3s ease-out',
+                'slide-in-right': 'slideInRight 0.25s ease-out',
+                'slide-in-left': 'slideInLeft 0.25s ease-out',
+                'slide-out-left': 'slideOutLeft 0.25s ease-in forwards',
+                'slide-out-right': 'slideOutRight 0.25s ease-in forwards',
                 'slide-in-bottom': 'slideInBottom 0.3s ease-out',
                 'fade-in': 'fadeIn 0.2s ease-out',
                 'pop-in': 'popIn 0.3s ease-out',
@@ -41,6 +43,14 @@ module.exports = {
                 slideInLeft: {
                     '0%': { transform: 'translateX(-100%)' },
                     '100%': { transform: 'translateX(0)' },
+                },
+                slideOutLeft: {
+                    '0%': { transform: 'translateX(0)' },
+                    '100%': { transform: 'translateX(-100%)' },
+                },
+                slideOutRight: {
+                    '0%': { transform: 'translateX(0)' },
+                    '100%': { transform: 'translateX(100%)' },
                 },
                 slideInBottom: {
                     '0%': { transform: 'translateY(100%)' },
