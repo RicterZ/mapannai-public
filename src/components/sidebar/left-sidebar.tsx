@@ -688,7 +688,7 @@ export const LeftSidebar = ({ onFlyTo }: LeftSidebarProps) => {
                         })
                 )}
 
-                {/* Unassigned markers */}
+                {/* Unassigned markers — grouped by icon type */}
                 {unassignedMarkers.length > 0 && (
                     <>
                         <div className="flex items-center gap-2 px-1 py-1">
@@ -696,15 +696,62 @@ export const LeftSidebar = ({ onFlyTo }: LeftSidebarProps) => {
                             <span className="text-[10px] text-gray-400 flex-shrink-0">独立标记</span>
                             <div className="flex-1 border-t border-gray-200" />
                         </div>
-                        <div className="border border-gray-200 rounded-xl bg-gray-50 overflow-hidden">
-                            <div className="p-2 space-y-1">
-                                {unassignedMarkers.map(m => (
-                                    <button key={m.id} onClick={() => handleMarkerClick(m.id)} className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-white text-sm text-gray-700 truncate transition-colors">
-                                        {MARKER_ICONS[m.content.iconType || 'location']?.emoji} {m.content.title || '未命名标记'}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+                        {(() => {
+                            // Group by iconType, preserve order of first appearance
+                            const groups = new Map<string, Marker[]>()
+                            unassignedMarkers.forEach(m => {
+                                const type = m.content.iconType || 'location'
+                                if (!groups.has(type)) groups.set(type, [])
+                                groups.get(type)!.push(m)
+                            })
+                            return Array.from(groups.entries()).map(([type, groupMarkers]) => {
+                                const iconConfig = MARKER_ICONS[type as keyof typeof MARKER_ICONS] || MARKER_ICONS.location
+                                return (
+                                    <div key={type}>
+                                        {/* Group header */}
+                                        <div className="flex items-center gap-1.5 px-1 py-1.5">
+                                            <span className="text-sm">{iconConfig.emoji}</span>
+                                            <span className="text-xs font-medium text-gray-500">{iconConfig.name}</span>
+                                            <span className="text-[10px] text-gray-400">({groupMarkers.length})</span>
+                                        </div>
+                                        {/* Cards */}
+                                        <div className="space-y-1.5">
+                                            {groupMarkers.map(m => (
+                                                <div key={m.id} className="border border-gray-200 rounded-xl bg-white overflow-hidden">
+                                                    {m.content.headerImage && (
+                                                        <div className="w-full h-24 bg-gray-100">
+                                                            <img
+                                                                src={m.content.headerImage}
+                                                                alt={m.content.title || ''}
+                                                                className="w-full h-full object-cover"
+                                                                onError={e => { e.currentTarget.style.display = 'none' }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <button
+                                                        onClick={() => handleMarkerClick(m.id)}
+                                                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 transition-colors text-left"
+                                                    >
+                                                        <div className={cn('w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0', getMarkerColor(m.content.iconType || 'location'))}>
+                                                            {iconConfig.emoji}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="font-medium text-sm text-gray-900 truncate">{m.content.title || '未命名标记'}</div>
+                                                            {m.content.address && (
+                                                                <div className="text-xs text-gray-400 truncate mt-0.5">{m.content.address}</div>
+                                                            )}
+                                                        </div>
+                                                        <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )
+                            })
+                        })()}
                     </>
                 )}
             </div>
