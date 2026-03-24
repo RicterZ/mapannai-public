@@ -23,14 +23,18 @@ const Sidebar = dynamic(() => import('@/components/sidebar/sidebar').then(mod =>
 export default function HomePage() {
     useEffect(() => {
         const setVh = () => {
-            const h = window.visualViewport?.height ?? window.innerHeight
+            const vv = window.visualViewport
+            // iPad 竖屏键盘弹出时 offsetTop > 0，需减去偏移才能得到真实可用高度
+            const h = vv ? vv.height + vv.offsetTop : window.innerHeight
             document.documentElement.style.setProperty('--vh', `${h}px`)
         }
         setVh()
         window.visualViewport?.addEventListener('resize', setVh)
+        window.visualViewport?.addEventListener('scroll', setVh)
         window.addEventListener('resize', setVh)
         return () => {
             window.visualViewport?.removeEventListener('resize', setVh)
+            window.visualViewport?.removeEventListener('scroll', setVh)
             window.removeEventListener('resize', setVh)
         }
     }, [])
