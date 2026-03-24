@@ -29,6 +29,8 @@ import { CreateTripModal } from '@/components/modal/create-trip-modal'
 
 interface LeftSidebarProps {
     onFlyTo: (coordinates: { longitude: number; latitude: number }, zoom?: number) => void
+    addMarkerEnabled: boolean
+    onToggleAddMarker: () => void
 }
 
 // Format ISO date as "3月1日（周五）"
@@ -193,7 +195,7 @@ interface ChainGroup {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export const LeftSidebar = ({ onFlyTo }: LeftSidebarProps) => {
+export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: LeftSidebarProps) => {
     const {
         markers, trips, tripDays, activeView,
         leftSidebar, closeLeftSidebar,
@@ -477,9 +479,16 @@ export const LeftSidebar = ({ onFlyTo }: LeftSidebarProps) => {
             }
         }
 
-        // ── Case 4: Isolated → Isolated (reorder within isolated) ────────────
+        // ── Case 4: Isolated → Isolated — 拖到另一个孤立标记上时新建行程链 ──────
         else if (sourceContainer === 'isolated' && targetContainer === 'isolated') {
-            // No chain links to update — just visual order, nothing to persist
+            // 拖到空 drop zone（overId === 'isolated'）时只是视觉排序，不创建链
+            if (overId === 'isolated' || dragId === overId) return
+
+            // 拖到另一个孤立标记上：创建新链 [dragId → overId]
+            const dragMarker = currentDayMarkers.find(m => m.id === dragId)
+            if (!dragMarker) return
+            const externalNext = (dragMarker.content.next || []).filter(nid => !currentDay?.markerIds.includes(nid))
+            updateNext(dragId, [...externalNext, overId])
         }
 
         // ── Case 5: Chain → different Chain ─────────────────────────────────
@@ -549,7 +558,7 @@ export const LeftSidebar = ({ onFlyTo }: LeftSidebarProps) => {
         }
     }
 
-    if (!leftSidebar.isOpen) return null
+    // 移动端关闭时不渲染；桌面端始终保持渲染
 
     // Active drag marker info
     const activeDragMarker = activeDragId ? currentDayMarkers.find(m => m.id === activeDragId) : null
@@ -610,7 +619,7 @@ export const LeftSidebar = ({ onFlyTo }: LeftSidebarProps) => {
 
             <button
                 onClick={closeLeftSidebar}
-                className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-white/80 transition-colors"
+                className="lg:hidden p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-white/80 transition-colors"
                 aria-label="关闭"
             >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -938,15 +947,21 @@ export const LeftSidebar = ({ onFlyTo }: LeftSidebarProps) => {
 
     return (
         <>
-            <div className="fixed inset-0 bg-black bg-opacity-25 z-40 lg:hidden" onClick={closeLeftSidebar} />
+            <div className={cn(
+                    'fixed inset-0 bg-black bg-opacity-25 z-40 lg:hidden',
+                    leftSidebar.isOpen ? 'block' : 'hidden'
+                )} onClick={closeLeftSidebar} />
 
             <div
                 className={cn(
                     'fixed left-0 top-0 bottom-0 z-50',
                     'w-full bg-white shadow-2xl',
                     'transform transition-transform duration-300 ease-in-out',
-                    'animate-slide-in-left flex flex-col',
-                    'lg:w-72 lg:max-w-[18rem]'
+                    'flex flex-col',
+                    'lg:w-80 lg:max-w-[20rem]',
+                    // 移动端：关闭时滑出屏幕；桌面端：始终显示
+                    !leftSidebar.isOpen && 'max-lg:-translate-x-full',
+                    leftSidebar.isOpen && 'animate-slide-in-left',
                 )}
                 style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
             >
@@ -955,6 +970,23 @@ export const LeftSidebar = ({ onFlyTo }: LeftSidebarProps) => {
                 {activeView.mode === 'overview' && renderOverview()}
                 {activeView.mode === 'trip' && renderTripView()}
                 {activeView.mode === 'day' && renderDayView()}
+
+                {/* 底部：添加标记开关 */}
+                <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between flex-shrink-0">
+                    <span className="text-xs text-gray-500">编辑模式</span>
+                    <div
+                        className={cn(
+                            'relative w-11 h-6 rounded-full transition-colors duration-200 cursor-pointer flex-shrink-0',
+                            addMarkerEnabled ? 'bg-blue-500' : 'bg-gray-300'
+                        )}
+                        onClick={onToggleAddMarker}
+                    >
+                        <div className={cn(
+                            'absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200',
+                            addMarkerEnabled ? 'translate-x-6' : 'translate-x-1'
+                        )} />
+                    </div>
+                </div>
             </div>
 
             <CreateTripModal isOpen={showCreateTrip} onClose={() => setShowCreateTrip(false)} />

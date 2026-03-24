@@ -457,6 +457,11 @@ export const useMapStore = create<MapStore>()(
             },
 
             deleteMarker: (markerId) => {
+                // 防止误删旅行/天数据
+                if (markerId.startsWith('trip_') || markerId.startsWith('day_')) {
+                    console.error('禁止通过 deleteMarker 删除旅行数据:', markerId)
+                    return
+                }
                 set(state => ({
                     markers: state.markers.filter(marker => marker.id !== markerId),
                     interactionState: {
@@ -723,7 +728,9 @@ export const useMapStore = create<MapStore>()(
                                     feature.geometry.coordinates &&
                                     Array.isArray(feature.geometry.coordinates) &&
                                     feature.geometry.coordinates.length >= 2 &&
-                                    feature.properties
+                                    feature.properties &&
+                                    feature.properties.featureType !== 'trip' &&
+                                    feature.properties.featureType !== 'tripDay'
                             })
                             .map((feature: any) => {
                                 try {
@@ -1091,26 +1098,46 @@ export const useMapStore = create<MapStore>()(
 
             removeMarkerFromDay: async (tripId, dayId, markerId) => {
                 // 1. 立即更新本地 state（optimistic）
-                set(state => ({
-                    tripDays: state.tripDays.map(d =>
-                        d.id === dayId
-                            ? { ...d, markerIds: d.markerIds.filter(id => id !== markerId) }
-                            : d
-                    ),
-                    markers: state.markers.map(m =>
-                        m.id === markerId
-                            ? {
-                                ...m,
-                                content: {
-                                    ...m.content,
-                                    tripDayEntries: (m.content.tripDayEntries || []).filter(
-                                        e => !(e.tripId === tripId && e.dayId === dayId)
-                                    ),
-                                },
+                // 同时修复 next 链接：找到当天中指向 markerId 的上游节点，
+                // 将其 next 改为跳接到 markerId 的下游（保持链连续），并清空 markerId 自身的 next（day内部链接）
+                set(state => {
+                    const day = state.tripDays.find(d => d.id === dayId)
+                    const dayMarkerIds = new Set(day?.markerIds || [])
+                    const removedMarker = state.markers.find(m => m.id === markerId)
+                    // markerId 在当天的下游（只保留属于当天的那个）
+                    const downstream = (removedMarker?.content.next || []).find(nid => dayMarkerIds.has(nid)) || null
+
+                    return {
+                        tripDays: state.tripDays.map(d =>
+                            d.id === dayId
+                                ? { ...d, markerIds: d.markerIds.filter(id => id !== markerId) }
+                                : d
+                        ),
+                        markers: state.markers.map(m => {
+                            if (m.id === markerId) {
+                                // 清除 markerId 自身在当天的 next 链接
+                                return {
+                                    ...m,
+                                    content: {
+                                        ...m.content,
+                                        next: (m.content.next || []).filter(nid => !dayMarkerIds.has(nid)),
+                                        tripDayEntries: (m.content.tripDayEntries || []).filter(
+                                            e => !(e.tripId === tripId && e.dayId === dayId)
+                                        ),
+                                    },
+                                }
                             }
-                            : m
-                    ),
-                }), false, 'removeMarkerFromDay-optimistic')
+                            // 上游节点：next 中包含 markerId，跳接到 downstream
+                            if ((m.content.next || []).includes(markerId) && dayMarkerIds.has(m.id)) {
+                                const newNext = (m.content.next || [])
+                                    .filter(nid => nid !== markerId)
+                                    .concat(downstream ? [downstream] : [])
+                                return { ...m, content: { ...m.content, next: newNext } }
+                            }
+                            return m
+                        }),
+                    }
+                }, false, 'removeMarkerFromDay-optimistic')
 
                 // 2. 异步持久化到服务端（失败时回滚）
                 fetch(`/api/trips/${tripId}/days/${dayId}/markers`, {
@@ -1119,6 +1146,15 @@ export const useMapStore = create<MapStore>()(
                     body: JSON.stringify({ markerId }),
                 }).then(res => {
                     if (!res.ok) throw new Error('从天移除标记失败')
+                    // 持久化受影响的 marker next 链接变更
+                    const updatedMarkers = get().markers.filter(m =>
+                        m.id === markerId || (m.content.next || []).includes(markerId)
+                    )
+                    updatedMarkers.forEach(m => {
+                        get().saveMarkerToDataset(m).catch(err =>
+                            console.error('removeMarkerFromDay: 保存 next 链接失败', m.id, err)
+                        )
+                    })
                 }).catch(() => {
                     // 回滚
                     set(state => ({

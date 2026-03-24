@@ -36,7 +36,9 @@ export async function GET() {
           feature.geometry.coordinates &&
           Array.isArray(feature.geometry.coordinates) &&
           feature.geometry.coordinates.length >= 2 &&
-          feature.properties;
+          feature.properties &&
+          feature.properties.featureType !== 'trip' &&
+          feature.properties.featureType !== 'tripDay';
       })
       .map((feature: any) => {
         const coordinates = feature.geometry.coordinates;

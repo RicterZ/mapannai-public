@@ -47,16 +47,22 @@ export class MapDatasetService implements DatasetService {
         // 检查缓存是否有效
         const now = Date.now()
         const cacheTimestamp = this.cacheTimestamps.get(datasetId)
-        
+
         if (cacheTimestamp && (now - cacheTimestamp) < this.CACHE_DURATION) {
             const cachedData = this.mapDataCache.get(datasetId)
             if (cachedData) {
+                const age = now - cacheTimestamp
+                console.log(`[Dataset] getAllFeatures HIT  age=${age}ms  features=${cachedData.features.length}`)
                 return cachedData
             }
         }
-        
+
         // 只支持 Mapbox 数据集
-        return await this.getMapboxFeatures(datasetId)
+        const fetchStart = Date.now()
+        console.log(`[Dataset] getAllFeatures MISS  fetching Mapbox...`)
+        const result = await this.getMapboxFeatures(datasetId)
+        console.log(`[Dataset] getAllFeatures DONE  +${Date.now() - fetchStart}ms  features=${result.features.length}`)
+        return result
     }
 
     // 清理缓存的方法
@@ -135,7 +141,23 @@ export class MapDatasetService implements DatasetService {
 
     async upsertFeature(datasetId: string, featureId: string, coordinates: MarkerCoordinates, properties: any): Promise<DatasetFeature> {
         // 只支持 Mapbox 数据集
-        return await this.upsertMapboxFeature(datasetId, featureId, coordinates, properties)
+        const t = Date.now()
+        const result = await this.upsertMapboxFeature(datasetId, featureId, coordinates, properties)
+        console.log(`[Dataset] upsertFeature  id=${featureId}  +${Date.now() - t}ms`)
+
+        // 写入成功后直接更新本地缓存（而非清除），避免 Mapbox 最终一致性延迟导致后续读取丢数据
+        const cached = this.mapDataCache.get(datasetId)
+        if (cached) {
+            const idx = cached.features.findIndex(f => f.id === featureId)
+            if (idx >= 0) {
+                cached.features[idx] = result
+            } else {
+                cached.features.push(result)
+            }
+            this.cacheTimestamps.set(datasetId, Date.now())
+        }
+
+        return result
     }
 
 
@@ -167,10 +189,7 @@ export class MapDatasetService implements DatasetService {
             }
 
             const data = await response.json()
-            
-            // 清理缓存，确保下次获取最新数据
-            this.clearCache(datasetId)
-            
+
             return {
                 id: data.id,
                 type: 'Feature',
@@ -185,7 +204,14 @@ export class MapDatasetService implements DatasetService {
 
     async deleteFeature(datasetId: string, featureId: string): Promise<void> {
         // 只支持 Mapbox 数据集
-        return await this.deleteMapboxFeature(datasetId, featureId)
+        await this.deleteMapboxFeature(datasetId, featureId)
+
+        // 删除成功后直接从缓存移除，避免 Mapbox 最终一致性延迟
+        const cached = this.mapDataCache.get(datasetId)
+        if (cached) {
+            cached.features = cached.features.filter(f => f.id !== featureId)
+            this.cacheTimestamps.set(datasetId, Date.now())
+        }
     }
 
 
@@ -202,9 +228,6 @@ export class MapDatasetService implements DatasetService {
             if (!response.ok) {
                 throw new Error(`Mapbox API 错误: ${response.status}`)
             }
-            
-            // 清理缓存，确保下次获取最新数据
-            this.clearCache(datasetId)
         } catch (error) {
             console.error('删除Mapbox特征失败:', error)
             throw error

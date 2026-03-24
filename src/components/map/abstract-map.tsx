@@ -106,8 +106,21 @@ export const AbstractMap = () => {
             },
         }
     }
-    
+
     const [viewState, setViewState] = useState<ViewState>(getInitialViewState())
+    const [addMarkerEnabled, setAddMarkerEnabled] = useState(() => {
+        if (typeof window === 'undefined') return true
+        const saved = localStorage.getItem('addMarkerEnabled')
+        return saved === null ? true : saved === 'true'
+    })
+
+    const toggleAddMarker = () => {
+        setAddMarkerEnabled(v => {
+            const next = !v
+            localStorage.setItem('addMarkerEnabled', String(next))
+            return next
+        })
+    }
 
     // 通用的位置保存函数
     const saveViewState = useCallback((viewState: { longitude: number; latitude: number; zoom: number; bearing?: number; pitch?: number }) => {
@@ -360,8 +373,9 @@ export const AbstractMap = () => {
         setTimeout(() => {
             handleFlyTo({ longitude: result.coordinates.longitude, latitude: result.coordinates.latitude }, zoomLevel)
 
-            // 自动弹出添加标记的 popup
+            // 自动弹出添加标记的 popup（先清除选中标记，避免显示旧内容）
             setTimeout(() => {
+                selectMarker(null)
                 openPopup({
                     latitude: result.coordinates.latitude,
                     longitude: result.coordinates.longitude
@@ -522,7 +536,7 @@ export const AbstractMap = () => {
         const currentState = useMapStore.getState()
         const currentSidebarOpen = currentState.interactionState.isSidebarOpen
         const currentSelectedMarkerId = currentState.interactionState.selectedMarkerId
-        
+
         try {
             // 只支持 Mapbox 地图
             // Prevent map click when clicking on markers
@@ -549,15 +563,17 @@ export const AbstractMap = () => {
                 return
             }
 
-            // If popup is open, close it and open new popup at clicked position
+            // If popup is open, close it
             if (isPopupOpen) {
                 closePopup()
                 selectMarker(null)
-                // 直接在点击位置打开新 popup，而非等待下一次点击
-                setCurrentPlaceName(undefined)
-                setCurrentPlaceAddress(undefined)
-                openPopup(coordinates)
-                getPlaceIdAsync(coordinates)
+                // 仅在开关开启时才在新位置重新打开 popup
+                if (addMarkerEnabled) {
+                    setCurrentPlaceName(undefined)
+                    setCurrentPlaceAddress(undefined)
+                    openPopup(coordinates)
+                    getPlaceIdAsync(coordinates)
+                }
                 return
             }
 
@@ -566,6 +582,9 @@ export const AbstractMap = () => {
                 handleCloseSidebar()
                 return
             }
+
+            // 开关关闭时，空白处点击不弹 popup
+            if (!addMarkerEnabled) return
 
             // 无 popup、无 sidebar：在点击位置打开新标记 popup
             selectMarker(null)
@@ -577,7 +596,7 @@ export const AbstractMap = () => {
             console.error('Map click error:', err)
             // 不设置严重错误，只是控制台输出
         }
-    }, [isPopupOpen, isSidebarOpen, openPopup, closePopup, closeSidebar, selectMarker, selectedMarkerId])
+    }, [isPopupOpen, isSidebarOpen, openPopup, closePopup, closeSidebar, selectMarker, selectedMarkerId, addMarkerEnabled])
 
     const handleMarkerClick = useCallback((markerId: string) => {
         try {
@@ -806,11 +825,13 @@ export const AbstractMap = () => {
                 </button>
             </div>
 
+            {/* 右上角：添加标记开关 — 已移至左侧 sidebar */}
+
             {/* 视图模式面包屑 Banner */}
             <ViewModeBanner />
 
             {/* 左侧边栏 */}
-            <LeftSidebar onFlyTo={handleFlyTo} />
+            <LeftSidebar onFlyTo={handleFlyTo} addMarkerEnabled={addMarkerEnabled} onToggleAddMarker={toggleAddMarker} />
 
             {/* 右侧详情栏 */}
             <Sidebar />
@@ -894,10 +915,10 @@ export const AbstractMap = () => {
                 </MapboxMapComponent>
 
             {/* 右下角：城市快速跳转 + 搜索栏 */}
-            <div className="fixed bottom-6 right-4 z-30 flex flex-col items-end gap-2">
+            <div className="fixed bottom-6 right-4 left-4 lg:left-auto lg:w-72 z-30 flex flex-col items-stretch lg:items-end gap-2">
                 {/* 搜索结果列表（向上弹出，与输入框等宽） */}
                 {fabResults.length > 0 && (
-                    <div className="w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-scale-in">
+                    <div className="w-full lg:w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-scale-in">
                         <div className="max-h-64 overflow-y-auto custom-scrollbar">
                             {fabResults.map((r: any, idx: number) => (
                                 <button
@@ -975,7 +996,7 @@ export const AbstractMap = () => {
                             if (e.key === 'Enter' && fabResults.length > 0) handleFabResultClick(fabResults[0])
                         }}
                         placeholder="搜索地点…"
-                        className="w-72 h-11 pl-9 pr-8 bg-white rounded-2xl shadow-lg border border-gray-200 text-sm placeholder-gray-400 focus:outline-none transition-all"
+                        className="w-full lg:w-72 h-11 pl-9 pr-8 bg-white rounded-2xl shadow-lg border border-gray-200 text-sm placeholder-gray-400 focus:outline-none transition-all"
                     />
                     {fabQuery && !isSearching && (
                         <button
