@@ -5,9 +5,12 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { datasetService } from '@/lib/api/dataset-service'
-import { config } from '@/lib/config'
 import { v4 as uuidv4 } from 'uuid'
+import {
+    getAllMarkers,
+    getMarkerById,
+    upsertMarker,
+} from '@/lib/db/marker-service'
 
 export function registerChainTools(server: McpServer) {
   // list_trip_chains
@@ -16,10 +19,7 @@ export function registerChainTools(server: McpServer) {
     '获取地图上所有行程链（Trip Chains）。行程链是一组按顺序相连的 marker，用于规划旅行路线。',
     {},
     async () => {
-      const datasetId = config.map.mapbox.dataset?.datasetId
-      if (!datasetId) throw new Error('未配置 MAPBOX_DATASET_ID')
-
-      const featureCollection = await datasetService.getAllFeatures(datasetId)
+      const featureCollection = getAllMarkers()
       const markers = featureCollection.features.map(f => ({
         id: f.id,
         title: f.properties?.metadata?.title || '未命名标记',
@@ -52,10 +52,6 @@ export function registerChainTools(server: McpServer) {
       description: z.string().optional().describe('行程描述'),
     },
     async ({ markerIds, name, description }) => {
-      const datasetId = config.map.mapbox.dataset?.datasetId
-      if (!datasetId) throw new Error('未配置 MAPBOX_DATASET_ID')
-
-      const featureCollection = await datasetService.getAllFeatures(datasetId)
       const chainId = uuidv4()
 
       // 为每个 marker（除最后一个）更新其 next 字段
@@ -63,15 +59,12 @@ export function registerChainTools(server: McpServer) {
         const currentId = markerIds[i]
         const nextId = markerIds[i + 1]
 
-        const feature = featureCollection.features.find(f => f.id === currentId)
+        const feature = getMarkerById(currentId)
         if (!feature) {
           throw new Error(`未找到 marker: ${currentId}`)
         }
 
-        const coordinates = {
-          latitude: feature.geometry.coordinates[1],
-          longitude: feature.geometry.coordinates[0],
-        }
+        const coordinates = feature.geometry.coordinates
         const properties = { ...feature.properties }
         const existingNext: string[] = properties.next || []
 
@@ -80,7 +73,7 @@ export function registerChainTools(server: McpServer) {
           properties.next = [...existingNext, nextId]
         }
 
-        await datasetService.upsertFeature(datasetId, currentId, coordinates, properties)
+        upsertMarker(currentId, coordinates[0], coordinates[1], properties)
       }
 
       const chain = {

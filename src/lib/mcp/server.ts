@@ -21,19 +21,16 @@ import { registerMarkerTools } from './tools/marker-tools'
 import { registerChainTools } from './tools/chain-tools'
 import { registerSearchTools } from './tools/search-tools'
 import { registerTripTools } from './tools/trip-tools'
-import { datasetService } from '@/lib/api/dataset-service'
 import { mapProviderFactory } from '@/lib/map/providers'
 import { config } from '@/lib/config'
 import { MarkerIconType } from '@/types/marker'
-import { isWithinDistance } from '@/utils/distance'
-import crypto from 'crypto'
 import { v4 as uuidv4 } from 'uuid'
-
-function generateCoordinateHash(latitude: number, longitude: number): string {
-  const lat = Math.round(latitude * 1000000) / 1000000
-  const lng = Math.round(longitude * 1000000) / 1000000
-  return crypto.createHash('md5').update(`${lat},${lng}`).digest('hex')
-}
+import {
+    upsertMarker,
+    findNearbyMarker,
+    generateCoordinateHash,
+    getMarkerById,
+} from '@/lib/db/marker-service'
 
 function createMcpServer(): McpServer {
   const server = new McpServer({
@@ -83,9 +80,6 @@ function createMcpServer(): McpServer {
       description: z.string().optional().describe('行程描述'),
     },
     async ({ places, tripName, description }) => {
-      const datasetId = config.map.mapbox.dataset?.datasetId
-      if (!datasetId) throw new Error('未配置 MAPBOX_DATASET_ID')
-
       const googleProvider = mapProviderFactory.createGoogleServerProvider()
       const mapConfig = { accessToken: config.map.google.accessToken, style: 'custom' }
 
@@ -102,19 +96,11 @@ function createMcpServer(): McpServer {
           }
 
           const coordinates = searchResults[0].coordinates
-          const coordinateHash = generateCoordinateHash(coordinates.latitude, coordinates.longitude)
+          const coordinateHash = generateCoordinateHash(coordinates.longitude, coordinates.latitude)
           const featureId = `coord_${coordinateHash}`
 
-          // Deduplication check
-          const allFeatures = await datasetService.getAllFeatures(datasetId)
-          const existing = allFeatures.features.find(f =>
-            f.id === featureId ||
-            (f.geometry?.coordinates && isWithinDistance(
-              coordinates.latitude, coordinates.longitude,
-              f.geometry.coordinates[1], f.geometry.coordinates[0],
-              10
-            ))
-          )
+          // Deduplication check (10m radius)
+          const existing = findNearbyMarker(coordinates.longitude, coordinates.latitude, 10)
 
           if (existing) {
             createdMarkerIds.push(existing.id)
@@ -139,7 +125,7 @@ function createMcpServer(): McpServer {
             },
           }
 
-          await datasetService.upsertFeature(datasetId, featureId, coordinates, properties)
+          upsertMarker(featureId, coordinates.longitude, coordinates.latitude, properties)
           createdMarkerIds.push(featureId)
           results.push({ name: place.name, id: featureId, status: 'created' })
         } catch (err) {
@@ -157,25 +143,21 @@ function createMcpServer(): McpServer {
       let chain = null
 
       if (validMarkerIds.length >= 2) {
-        const featureCollection = await datasetService.getAllFeatures(datasetId)
         const chainId = uuidv4()
 
         for (let i = 0; i < validMarkerIds.length - 1; i++) {
           const currentId = validMarkerIds[i]
           const nextId = validMarkerIds[i + 1]
-          const feature = featureCollection.features.find(f => f.id === currentId)
+          const feature = getMarkerById(currentId)
           if (!feature) continue
 
-          const coordinates = {
-            latitude: feature.geometry.coordinates[1],
-            longitude: feature.geometry.coordinates[0],
-          }
+          const coordinates = feature.geometry.coordinates
           const properties = { ...feature.properties }
           const existingNext: string[] = properties.next || []
           if (!existingNext.includes(nextId)) {
             properties.next = [...existingNext, nextId]
           }
-          await datasetService.upsertFeature(datasetId, currentId, coordinates, properties)
+          upsertMarker(currentId, coordinates[0], coordinates[1], properties)
         }
 
         chain = {

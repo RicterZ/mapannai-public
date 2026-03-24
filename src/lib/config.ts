@@ -6,11 +6,6 @@ export const config = {
         mapbox: {
             accessToken: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '',
             style: process.env.NEXT_PUBLIC_MAPBOX_STYLE || 'mapbox://styles/mapbox/streets-zh-v1',
-            dataset: {
-                username: process.env.MAPBOX_USERNAME || '',
-                secretAccessToken: process.env.MAPBOX_SECRET_ACCESS_TOKEN || '',
-                datasetId: process.env.MAPBOX_DATASET_ID || '',
-            },
         },
         google: {
             accessToken: process.env.GOOGLE_API_KEY || '',

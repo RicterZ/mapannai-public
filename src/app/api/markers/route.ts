@@ -1,51 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { useMapStore } from '@/store/map-store';
 import { Marker, MarkerIconType } from '@/types/marker';
-import { v4 as uuidv4 } from 'uuid';
-import { datasetService } from '@/lib/api/dataset-service';
-import { config } from '@/lib/config';
-import { isWithinDistance, calculateDistance } from '@/utils/distance';
-import crypto from 'crypto';
-
-// 生成坐标哈希，用于唯一标识
-function generateCoordinateHash(latitude: number, longitude: number): string {
-  // 将坐标四舍五入到6位小数，减少精度差异
-  const lat = Math.round(latitude * 1000000) / 1000000;
-  const lng = Math.round(longitude * 1000000) / 1000000;
-  return crypto.createHash('md5').update(`${lat},${lng}`).digest('hex');
-}
+import {
+    getAllMarkers,
+    upsertMarker,
+    findNearbyMarker,
+    generateCoordinateHash,
+} from '@/lib/db/marker-service';
 
 // 获取所有标记
 export async function GET() {
   try {
-    const datasetId = config.map.mapbox.dataset?.datasetId;
-    if (!datasetId) {
-      return NextResponse.json(
-        { error: '未配置数据集ID' },
-        { status: 500 }
-      );
-    }
-
-    const featureCollection = await datasetService.getAllFeatures(datasetId);
+    const featureCollection = getAllMarkers();
     const markers = featureCollection.features
-      .filter((feature: any) => {
-        const hasValidId = feature.id || feature.properties?.metadata?.id;
+      .filter((feature) => {
         return feature &&
-          hasValidId &&
+          feature.id &&
           feature.geometry &&
           feature.geometry.coordinates &&
           Array.isArray(feature.geometry.coordinates) &&
-          feature.geometry.coordinates.length >= 2 &&
-          feature.properties &&
-          feature.properties.featureType !== 'trip' &&
-          feature.properties.featureType !== 'tripDay';
+          feature.geometry.coordinates.length >= 2;
       })
-      .map((feature: any) => {
+      .map((feature) => {
         const coordinates = feature.geometry.coordinates;
         const properties = feature.properties;
         const metadata = properties.metadata || {};
 
-        const markerId = feature.id || metadata.id || `marker-${Date.now()}-${Math.random()}`;
+        const markerId = feature.id;
 
         return {
           id: markerId,
@@ -54,10 +34,10 @@ export async function GET() {
             longitude: coordinates[0],
           },
           content: {
-            id: metadata.id || markerId,
+            id: markerId,
             title: metadata.title || '未命名标记',
             address: properties.address || undefined,
-            headerImage: properties.headerImage,
+            headerImage: properties.headerImage || undefined,
             iconType: properties.iconType,
             markdownContent: properties.markdownContent || '',
             next: properties.next || [],
@@ -66,7 +46,7 @@ export async function GET() {
           },
         };
       });
-    
+
     return NextResponse.json(markers);
   } catch (error) {
     console.error('获取标记失败:', error);
@@ -90,116 +70,73 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 生成坐标哈希用于唯一标识
-    const coordinateHash = generateCoordinateHash(coordinates.latitude, coordinates.longitude);
-    
-    // 检查是否存在相近的标记（10米范围内）
-    const datasetId = config.map.mapbox.dataset?.datasetId;
-    
-    if (datasetId) {
-      try {
-        // 使用坐标哈希作为特征ID的一部分，确保唯一性
-        const coordinateBasedId = `coord_${coordinateHash}`;
-        
-        // 只获取一次所有特征，避免重复API调用
-        const allFeatures = await datasetService.getAllFeatures(datasetId);
-        
-        // 首先尝试通过坐标哈希查找现有标记
-        let existingMarker = allFeatures.features.find(feature => feature.id === coordinateBasedId);
-        
-        // 如果坐标哈希没找到，使用距离检查作为备用方案
-        if (!existingMarker) {
-          existingMarker = allFeatures.features.find(feature => {
-            if (!feature.geometry || !feature.geometry.coordinates) return false;
-            
-            const [lng, lat] = feature.geometry.coordinates;
-            
-            return isWithinDistance(
-              coordinates.latitude,
-              coordinates.longitude,
-              lat,
-              lng,
-              10 // 10米范围内
-            );
-          });
-        }
+    const coordinateHash = generateCoordinateHash(coordinates.longitude, coordinates.latitude);
+    const coordinateBasedId = `coord_${coordinateHash}`;
 
-        if (existingMarker) {
-          // 找到相近标记，直接返回现有标记信息，客户端无感知
-          const marker = {
-            id: existingMarker.id,
-            coordinates: {
-              latitude: existingMarker.geometry.coordinates[1],
-              longitude: existingMarker.geometry.coordinates[0],
-            },
-            content: {
-              id: existingMarker.id,
-              title: existingMarker.properties?.metadata?.title || '未命名标记',
-              iconType: existingMarker.properties?.iconType || 'location',
-              markdownContent: existingMarker.properties?.markdownContent || '',
-              next: existingMarker.properties?.next || [],
-              createdAt: existingMarker.properties?.metadata?.createdAt 
-                ? new Date(existingMarker.properties.metadata.createdAt) 
-                : new Date(),
-              updatedAt: existingMarker.properties?.metadata?.updatedAt 
-                ? new Date(existingMarker.properties.metadata.updatedAt) 
-                : new Date(),
-            },
-          };
+    // 检查是否存在相近的标记（10米范围内，哈希优先）
+    const existing =
+        findNearbyMarker(coordinates.longitude, coordinates.latitude, 10);
 
-          return NextResponse.json(marker);
-        }
-      } catch (error) {
-        console.warn('检查相近标记时出错，继续创建新标记:', error);
-      }
+    if (existing) {
+      const meta = existing.properties.metadata || {};
+      const marker = {
+        id: existing.id,
+        coordinates: {
+          latitude: existing.geometry.coordinates[1],
+          longitude: existing.geometry.coordinates[0],
+        },
+        content: {
+          id: existing.id,
+          title: meta.title || '未命名标记',
+          iconType: existing.properties.iconType || 'location',
+          markdownContent: existing.properties.markdownContent || '',
+          next: existing.properties.next || [],
+          createdAt: meta.createdAt ? new Date(meta.createdAt) : new Date(),
+          updatedAt: meta.updatedAt ? new Date(meta.updatedAt) : new Date(),
+        },
+      };
+      return NextResponse.json(marker);
     }
 
-    // 创建标记对象
-    const markerId = uuidv4();
+    // 创建新标记
     const now = new Date();
-    const marker: Marker = {
-      id: markerId,
-      coordinates,
-      content: {
-        id: markerId,
-        title,
-        address: address || undefined,
-        iconType: iconType as MarkerIconType,
-        markdownContent: content || '',
-        next: [],
-        createdAt: now,
-        updatedAt: now,
+    const properties = {
+      markdownContent: content || '',
+      headerImage: null,
+      address: address || null,
+      iconType: iconType as MarkerIconType,
+      next: [],
+      metadata: {
+        id: coordinateBasedId,
+        title: title || '新标记',
+        description: '用户创建的标记',
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+        isPublished: true,
+        coordinateHash,
       },
     };
 
-    // 直接保存到数据集
-    if (datasetId) {
-      const properties = {
-        markdownContent: marker.content.markdownContent,
-        headerImage: marker.content.headerImage || null,
-        address: marker.content.address || null,
-        iconType: marker.content.iconType || 'location',
-        next: marker.content.next || [],
-        metadata: {
-          id: marker.id,
-          title: marker.content.title || '新标记',
-          description: '用户创建的标记',
-          createdAt: marker.content.createdAt.toISOString(),
-          updatedAt: marker.content.updatedAt.toISOString(),
-          isPublished: true,
-          coordinateHash: coordinateHash, // 添加坐标哈希到元数据
-        },
-      };
+    const feature = upsertMarker(coordinateBasedId, coordinates.longitude, coordinates.latitude, properties);
+    const meta = feature.properties.metadata || {};
 
-      // 使用坐标哈希作为特征ID，确保相同坐标的标记会被覆盖而不是重复创建
-      const featureId = `coord_${coordinateHash}`;
-      
-      await datasetService.upsertFeature(datasetId, featureId, coordinates, properties);
-      
-      // 返回数据集中的实际特征ID
-      marker.id = featureId;
-      marker.content.id = featureId;
-    }
+    const marker: Marker = {
+      id: feature.id,
+      coordinates: {
+        latitude: feature.geometry.coordinates[1],
+        longitude: feature.geometry.coordinates[0],
+      },
+      content: {
+        id: feature.id,
+        title: meta.title || '新标记',
+        address: feature.properties.address || undefined,
+        iconType: feature.properties.iconType,
+        markdownContent: feature.properties.markdownContent || '',
+        next: feature.properties.next || [],
+        createdAt: meta.createdAt ? new Date(meta.createdAt) : now,
+        updatedAt: meta.updatedAt ? new Date(meta.updatedAt) : now,
+      },
+    };
 
     return NextResponse.json(marker);
   } catch (error) {
