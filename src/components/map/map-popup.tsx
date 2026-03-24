@@ -63,9 +63,13 @@ export const MapPopup = ({
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [onClose])
 
-    // 该标记所属的行程列表（去重）
-    const markerTrips = selectedMarker
-        ? Array.from(new Set((selectedMarker.content.tripDayEntries || []).map(e => e.tripId)))
+    // 该标记所属的行程列表（通过 tripDays 查找，SQLite 为权威来源）
+    const markerTrips = selectedMarkerId
+        ? Array.from(new Set(
+            tripDays
+                .filter(d => d.markerIds.includes(selectedMarkerId))
+                .map(d => d.tripId)
+          ))
             .map(tripId => trips.find(t => t.id === tripId))
             .filter((t): t is NonNullable<typeof t> => !!t)
         : []

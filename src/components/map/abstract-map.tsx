@@ -171,7 +171,6 @@ export const AbstractMap = () => {
         clearError,
         openSidebar,
         closeSidebar,
-        updatePlaceInfo,
         activeView,
         addMarkerToDay,
     } = useMapStore()
@@ -498,22 +497,6 @@ export const AbstractMap = () => {
             if (result.success && result.data) {
                 const placeInfo = result.data
                 console.log('📍 获取到地点信息:', placeInfo)
-                
-                // 更新store中的地点信息
-                updatePlaceInfo({
-                    name: placeInfo.name,
-                    address: placeInfo.address,
-                    placeId: placeInfo.placeId,
-                    phone: placeInfo.phone,
-                    website: placeInfo.website,
-                    rating: placeInfo.rating,
-                    user_ratings_total: placeInfo.user_ratings_total,
-                    price_level: placeInfo.price_level,
-                    opening_hours: placeInfo.opening_hours,
-                    types: placeInfo.types
-                })
-                
-                // 更新当前地点名称和地址
                 setCurrentPlaceName(placeInfo.name)
                 setCurrentPlaceAddress(placeInfo.address)
             } else {
@@ -522,7 +505,7 @@ export const AbstractMap = () => {
         } catch (error) {
             console.error('获取地点信息时出错:', error)
         }
-    }, [updatePlaceInfo, setCurrentPlaceName, setCurrentPlaceAddress])
+    }, [setCurrentPlaceName, setCurrentPlaceAddress])
 
     const handleMapClick = useCallback(async (event: any, placeInfo?: { name: string; address: string; placeId: string }, clickPosition?: { x: number; y: number }, isMarkerClick?: boolean) => {
         if (suppressMapClickRef.current) return

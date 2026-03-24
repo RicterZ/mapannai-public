@@ -9,30 +9,16 @@ import { useMapStore } from '@/store/map-store'
 
 /**
  * 找到当前 marker 所属的所有链，以链列表形式返回（每条链是独立的 marker id 集合）。
- *
- * 策略：hover 某个 marker 时，只高亮「包含该 marker 的完整链」中，
- * 从该链的 head 到末尾的全部节点——但每条链独立存储，不合并。
- * 这样 isLineInHighlightedChain 可以精确判断：from 和 to 必须同属一条链。
- *
- * 对于 A→B→C→D→E 和 X→Y→A 两条独立链（用户视角），
- * 数据层它们是一整条 X→Y→A→B→C→D→E。
- * hover A 时，用户期望只高亮 A→B→C→D→E 方向，不高亮 Y→A。
- * 因此这里只做「从 markerId 出发向前 BFS」，不往上游追溯。
+ * 从该 marker 出发向后 BFS，只收集后继节点（不追溯上游）。
  */
 function getChainsForMarker(markerId: string, markers: Marker[]): string[][] {
-    // Build next map: markerId -> nextIds[]
     const nextMap = new Map<string, string[]>()
     markers.forEach(m => {
         if (m.content.next && m.content.next.length > 0) {
             nextMap.set(m.id, m.content.next)
         }
     })
-
-    // Check if this marker is part of any chain at all
-    const isInChain = nextMap.has(markerId)
-    if (!isInChain) return []
-
-    // 从 markerId 向前 BFS，收集所有后继节点（含自身）
+    if (!nextMap.has(markerId)) return []
     const chain = new Set<string>()
     const queue = [markerId]
     const visited = new Set<string>()
@@ -44,7 +30,6 @@ function getChainsForMarker(markerId: string, markers: Marker[]): string[][] {
         const nexts = nextMap.get(cur)
         if (nexts) nexts.forEach(n => queue.push(n))
     }
-
     return [Array.from(chain)]
 }
 
@@ -76,17 +61,22 @@ export const MapMarker = React.memo(function MapMarker({
 
     const handleMouseEnter = useCallback(() => {
         setIsHovered(true)
-        // Compute which chain(s) this marker belongs to and highlight them
-        const { markers: allMarkers, setHighlightedChain } = useMapStore.getState()
-        const chains = getChainsForMarker(marker.id, allMarkers)
-        if (chains.length > 0) {
-            setHighlightedChain(chains)
+        // 仅在非 day 视图时 hover 触发链高亮（day 视图由 setActiveView 统一激活）
+        const { markers: allMarkers, setHighlightedChain, activeView } = useMapStore.getState()
+        if (activeView.mode !== 'day') {
+            const chains = getChainsForMarker(marker.id, allMarkers)
+            if (chains.length > 0) {
+                setHighlightedChain(chains)
+            }
         }
     }, [marker.id])
 
     const handleMouseLeave = useCallback(() => {
         setIsHovered(false)
-        useMapStore.getState().clearHighlightedChain()
+        const { activeView, clearHighlightedChain } = useMapStore.getState()
+        if (activeView.mode !== 'day') {
+            clearHighlightedChain()
+        }
     }, [])
     
     // 安全获取图标配置，如果不存在则使用默认的 location 配置
