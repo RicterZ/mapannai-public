@@ -113,7 +113,7 @@ export const AbstractMap = () => {
     const [addMarkerEnabled, setAddMarkerEnabled] = useState(() => {
         if (typeof window === 'undefined') return true
         const saved = localStorage.getItem('addMarkerEnabled')
-        return saved === null ? true : saved === 'true'
+        return saved === null ? false : saved === 'true'
     })
 
     const toggleAddMarker = () => {
