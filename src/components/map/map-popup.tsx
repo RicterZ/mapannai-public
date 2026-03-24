@@ -11,7 +11,7 @@ interface MapPopupProps {
     coordinates: MarkerCoordinates
     selectedMarkerId: string | null
     onAddMarker: (name?: string) => void
-    onEditMarker: (markerId: string) => void
+    onViewMarker: (markerId: string) => void
     onDeleteMarker: (markerId: string) => void
     onClose: () => void
     placeName?: string
@@ -22,14 +22,17 @@ export const MapPopup = ({
     coordinates,
     selectedMarkerId,
     onAddMarker,
-    onEditMarker,
+    onViewMarker,
     onDeleteMarker,
     onClose,
     placeName,
     placeAddress,
 }: MapPopupProps) => {
     const popupRef = useRef<HTMLDivElement>(null)
-    const { markers, activeView, tripDays, addMarkerToDay } = useMapStore()
+    const { markers, activeView, tripDays, trips, interactionState, addMarkerToDay, setActiveView, openLeftSidebar, closeSidebar } = useMapStore()
+
+    const { isSidebarOpen } = interactionState
+    const isSidebarShowingThisMarker = isSidebarOpen && interactionState.selectedMarkerId === selectedMarkerId
 
     const selectedMarker = selectedMarkerId
         ? markers.find(m => m.id === selectedMarkerId)
@@ -55,6 +58,18 @@ export const MapPopup = ({
         document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [onClose])
+
+    // 该标记所属的行程列表（去重）
+    const markerTrips = selectedMarker
+        ? Array.from(new Set((selectedMarker.content.tripDayEntries || []).map(e => e.tripId)))
+            .map(tripId => trips.find(t => t.id === tripId))
+            .filter((t): t is NonNullable<typeof t> => !!t)
+        : []
+
+    const handleGoToTrip = (tripId: string) => {
+        setActiveView('trip', tripId, null)
+        openLeftSidebar()
+    }
 
     const handleAddToDay = async () => {
         if (!selectedMarkerId || !activeView.tripId || !activeView.dayId) return
@@ -102,20 +117,51 @@ export const MapPopup = ({
                             <h3 className="text-sm font-semibold text-gray-800">
                                 {selectedMarker.content.title || '未命名标记'}
                             </h3>
+                            {selectedMarker.content.address && (
+                                <p className="text-xs text-gray-500 leading-relaxed">{selectedMarker.content.address}</p>
+                            )}
                             <div className="flex gap-1.5">
                                 <button
-                                    onClick={() => onEditMarker(selectedMarkerId!)}
-                                    className="flex-1 px-2 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors focus:outline-none"
+                                    onClick={() => isSidebarShowingThisMarker ? closeSidebar() : onViewMarker(selectedMarkerId!)}
+                                    className={cn(
+                                        'flex-1 px-2 py-1.5 text-xs font-medium rounded-lg transition-colors focus:outline-none flex items-center justify-center gap-1',
+                                        isSidebarShowingThisMarker
+                                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                            : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                    )}
                                 >
-                                    编辑
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    {isSidebarShowingThisMarker ? '收起' : '查看'}
                                 </button>
                                 <button
                                     onClick={() => onDeleteMarker(selectedMarkerId!)}
-                                    className="flex-1 px-2 py-1.5 text-xs font-medium rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors focus:outline-none"
+                                    className="flex-1 px-2 py-1.5 text-xs font-medium rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors focus:outline-none flex items-center justify-center gap-1"
                                 >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
                                     删除
                                 </button>
                             </div>
+                            {markerTrips.length > 0 && (
+                                <div className="space-y-1">
+                                    {markerTrips.map(trip => (
+                                        <button
+                                            key={trip.id}
+                                            onClick={() => handleGoToTrip(trip.id)}
+                                            className="w-full px-2 py-1.5 text-xs font-medium rounded-lg bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors flex items-center gap-1.5 truncate"
+                                        >
+                                            <svg className="w-3 h-3 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                                            </svg>
+                                            <span className="truncate">{trip.name}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                             {currentDay && !isMarkerInCurrentDay && (
                                 <button
                                     onClick={handleAddToDay}

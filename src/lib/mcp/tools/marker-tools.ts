@@ -22,7 +22,9 @@ function generateCoordinateHash(latitude: number, longitude: number): string {
 async function searchPlaceCoordinates(name: string): Promise<{ latitude: number; longitude: number }> {
   const googleProvider = mapProviderFactory.createGoogleServerProvider()
   const mapConfig = { accessToken: config.map.google.accessToken, style: 'custom' }
+  const t = Date.now()
   const results = await googleProvider.searchPlaces(name, mapConfig, 'JP')
+  console.log(`[MCP] searchPlaces "${name}"  +${Date.now() - t}ms  hits=${results?.length ?? 0}`)
   if (!results || results.length === 0) {
     throw new Error(`找不到地点: ${name}`)
   }
@@ -36,6 +38,7 @@ export function registerMarkerTools(server: McpServer) {
     '获取地图上所有已保存的 marker（地点标记）列表，包含坐标、标题、图标类型和内容',
     {},
     async () => {
+      const t0 = Date.now()
       const datasetId = config.map.mapbox.dataset?.datasetId
       if (!datasetId) throw new Error('未配置 MAPBOX_DATASET_ID')
 
@@ -60,6 +63,7 @@ export function registerMarkerTools(server: McpServer) {
           }
         })
 
+      console.log(`[MCP] list_markers  total=${markers.length}  +${Date.now() - t0}ms`)
       return {
         content: [{ type: 'text', text: JSON.stringify(markers, null, 2) }],
       }
@@ -79,8 +83,10 @@ export function registerMarkerTools(server: McpServer) {
       })).min(1).describe('要创建的地点列表（支持批量）'),
     },
     async ({ places }) => {
+      const t0 = Date.now()
       const datasetId = config.map.mapbox.dataset?.datasetId
       if (!datasetId) throw new Error('未配置 MAPBOX_DATASET_ID')
+      console.log(`[MCP] create_marker  count=${places.length}  names=${places.map(p => p.name).join(', ')}`)
 
       const results = []
       for (const place of places) {
@@ -146,6 +152,7 @@ export function registerMarkerTools(server: McpServer) {
         }
       }
 
+      console.log(`[MCP] create_marker done  +${Date.now() - t0}ms  results=${JSON.stringify(results.map(r => ({ name: r.name, status: r.status })))}`)
       return {
         content: [{ type: 'text', text: JSON.stringify(results, null, 2) }],
       }

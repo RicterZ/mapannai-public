@@ -13,6 +13,7 @@ interface AddMarkerModalProps {
         coordinates: MarkerCoordinates
         name: string
         iconType: MarkerIconType
+        address?: string
     }) => void
     placeName?: string  // 添加地点名称参数
     placeAddress?: string  // 添加地址参数
@@ -43,7 +44,8 @@ export const AddMarkerModal = ({ coordinates, isOpen, onClose, onSave, placeName
             await onSave({
                 coordinates,
                 name: name.trim(),
-                iconType
+                iconType,
+                address: placeAddress,
             })
 
             toast.success('标记已创建')

@@ -34,6 +34,7 @@ export const MARKER_ICONS: Record<MarkerIconType, { name: string; emoji: string;
 export interface MarkerContent {
     id: string
     title?: string // 地点名称
+    address?: string // 地址
     headerImage?: string // 首图URL
     iconType?: MarkerIconType // 图标类型
     markdownContent: string // Markdown内容
