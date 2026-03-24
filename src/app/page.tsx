@@ -28,9 +28,6 @@ export default function HomePage() {
         const update = () => {
             const vv = window.visualViewport
             if (vv) {
-                el.style.top = `${vv.offsetTop}px`
-                el.style.left = `${vv.offsetLeft}px`
-                el.style.width = `${vv.width}px`
                 el.style.height = `${vv.height}px`
             }
         }
