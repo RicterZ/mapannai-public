@@ -39,5 +39,20 @@ function initSchema(db: Database.Database) {
         );
 
         CREATE INDEX IF NOT EXISTS idx_trip_days_trip_id ON trip_days(trip_id);
+
+        CREATE TABLE IF NOT EXISTS markers (
+            id               TEXT PRIMARY KEY,
+            longitude        REAL NOT NULL,
+            latitude         REAL NOT NULL,
+            title            TEXT,
+            address          TEXT,
+            header_image     TEXT,
+            icon_type        TEXT NOT NULL DEFAULT 'location',
+            markdown_content TEXT NOT NULL DEFAULT '',
+            next             TEXT NOT NULL DEFAULT '[]',
+            description      TEXT,
+            created_at       TEXT NOT NULL,
+            updated_at       TEXT NOT NULL
+        );
     `)
 }

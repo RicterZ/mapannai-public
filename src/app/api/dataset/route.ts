@@ -1,44 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { datasetService } from '@/lib/api/dataset-service'
-import { config } from '@/lib/config'
-import { MarkerCoordinates } from '@/types/marker'
+import {
+    getAllMarkers,
+    upsertMarker,
+    deleteMarker,
+} from '@/lib/db/marker-service'
 
 // 强制动态渲染，因为使用了查询参数
 export const dynamic = 'force-dynamic'
 
-// 获取 Mapbox 的 datasetId
-function getDatasetId(): string | undefined {
-    const mapboxConfig = config.map.mapbox
-    return mapboxConfig.dataset?.datasetId
+const NO_CACHE = {
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
 }
 
 /**
  * GET - 获取所有标记数据
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
     try {
-        const datasetId = request.nextUrl.searchParams.get('datasetId') || getDatasetId()
+        const featureCollection = getAllMarkers()
 
-        if (!datasetId) {
-            return NextResponse.json(
-                { error: '需要提供 datasetId' },
-                { status: 400 }
-            )
-        }
-
-        const featureCollection = await datasetService.getAllFeatures(datasetId)
-
-        const response = NextResponse.json({
-            success: true,
-            data: featureCollection,
-        })
-
-        // 禁用缓存，确保获取最新数据
-        response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
-        response.headers.set('Pragma', 'no-cache')
-        response.headers.set('Expires', '0')
-
-        return response
+        return NextResponse.json(
+            { success: true, data: featureCollection },
+            { headers: NO_CACHE }
+        )
     } catch (error) {
         console.error('获取标记数据失败:', error)
         return NextResponse.json(
@@ -54,7 +40,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { featureId, coordinates, properties, datasetId } = body
+        const { featureId, coordinates, properties } = body
 
         if (!featureId || !coordinates || !properties) {
             return NextResponse.json(
@@ -63,33 +49,17 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const targetDatasetId = datasetId || getDatasetId()
-
-        if (!targetDatasetId) {
-            return NextResponse.json(
-                { error: '需要提供 datasetId' },
-                { status: 400 }
-            )
-        }
-
-        const feature = await datasetService.upsertFeature(
-            targetDatasetId,
+        const feature = upsertMarker(
             featureId,
-            coordinates as MarkerCoordinates,
+            coordinates.longitude,
+            coordinates.latitude,
             properties
         )
 
-        const response = NextResponse.json({
-            success: true,
-            data: feature,
-        })
-
-        // 禁用缓存，确保数据更新后立即生效
-        response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
-        response.headers.set('Pragma', 'no-cache')
-        response.headers.set('Expires', '0')
-
-        return response
+        return NextResponse.json(
+            { success: true, data: feature },
+            { headers: NO_CACHE }
+        )
     } catch (error) {
         console.error('保存标记失败:', error)
         return NextResponse.json(
@@ -105,11 +75,10 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
     try {
         const featureId = request.nextUrl.searchParams.get('featureId')
-        const datasetId = request.nextUrl.searchParams.get('datasetId') || getDatasetId()
 
-        if (!featureId || !datasetId) {
+        if (!featureId) {
             return NextResponse.json(
-                { error: '需要提供 featureId 和 datasetId' },
+                { error: '需要提供 featureId' },
                 { status: 400 }
             )
         }
@@ -122,19 +91,12 @@ export async function DELETE(request: NextRequest) {
             )
         }
 
-        await datasetService.deleteFeature(datasetId, featureId)
+        deleteMarker(featureId)
 
-        const response = NextResponse.json({
-            success: true,
-            message: '标记删除成功',
-        })
-
-        // 禁用缓存，确保删除操作立即生效
-        response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
-        response.headers.set('Pragma', 'no-cache')
-        response.headers.set('Expires', '0')
-
-        return response
+        return NextResponse.json(
+            { success: true, message: '标记删除成功' },
+            { headers: NO_CACHE }
+        )
     } catch (error) {
         console.error('删除标记失败:', error)
         return NextResponse.json(

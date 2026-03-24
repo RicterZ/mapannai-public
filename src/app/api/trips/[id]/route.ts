@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTripById, upsertTrip, deleteTrip, getTripDays } from '@/lib/db/trip-service'
-import { datasetService } from '@/lib/api/dataset-service'
-import { config } from '@/lib/config'
+import { clearNextLinks } from '@/lib/db/marker-service'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,27 +49,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
         const affectedMarkerIds = new Set<string>()
         tripDays.forEach(d => d.markerIds.forEach(id => affectedMarkerIds.add(id)))
 
-        // Clear next links on affected markers
-        if (affectedMarkerIds.size > 0) {
-            const datasetId = config.map.mapbox.dataset?.datasetId
-            if (datasetId) {
-                const fc = await datasetService.getAllFeatures(datasetId)
-                await Promise.all(
-                    fc.features
-                        .filter(f => affectedMarkerIds.has(f.id as string) && (f.properties?.next?.length ?? 0) > 0)
-                        .map(f => {
-                            const coords = {
-                                latitude: f.geometry.coordinates[1],
-                                longitude: f.geometry.coordinates[0],
-                            }
-                            return datasetService.upsertFeature(datasetId, f.id as string, coords, {
-                                ...f.properties,
-                                next: [],
-                            })
-                        })
-                )
-            }
-        }
+        // Clear next links on affected markers (SQLite, no network call needed)
+        clearNextLinks(affectedMarkerIds)
 
         // deleteTrip cascades to trip_days via ON DELETE CASCADE
         deleteTrip(params.id)

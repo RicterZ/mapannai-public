@@ -1,25 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { useMapStore } from '@/store/map-store';
-import { datasetService } from '@/lib/api/dataset-service';
-import { config } from '@/lib/config';
+import {
+    getMarkerById,
+    upsertMarker,
+    deleteMarker,
+} from '@/lib/db/marker-service';
 
 // 获取特定标记
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const datasetId = config.map.mapbox.dataset?.datasetId;
-    if (!datasetId) {
-      return NextResponse.json(
-        { error: '未配置数据集ID' },
-        { status: 500 }
-      );
-    }
+    const feature = getMarkerById(params.id);
 
-    const featureCollection = await datasetService.getAllFeatures(datasetId);
-    const feature = featureCollection.features.find(f => f.id === params.id);
-    
     if (!feature) {
       return NextResponse.json(
         { error: '标记未找到' },
@@ -27,7 +20,6 @@ export async function GET(
       );
     }
 
-    // 转换为Marker格式
     const coordinates = feature.geometry.coordinates;
     const properties = feature.properties;
     const metadata = properties.metadata || {};
@@ -41,7 +33,7 @@ export async function GET(
       content: {
         id: metadata.id || feature.id,
         title: metadata.title || '未命名标记',
-        headerImage: properties.headerImage,
+        headerImage: properties.headerImage || undefined,
         iconType: properties.iconType,
         markdownContent: properties.markdownContent || '',
         next: properties.next || [],
@@ -69,17 +61,8 @@ export async function PUT(
     const body = await request.json();
     const { title, headerImage, markdownContent, iconType } = body;
 
-    const datasetId = config.map.mapbox.dataset?.datasetId;
-    if (!datasetId) {
-      return NextResponse.json(
-        { error: '未配置数据集ID' },
-        { status: 500 }
-      );
-    }
+    const feature = getMarkerById(params.id);
 
-    const featureCollection = await datasetService.getAllFeatures(datasetId);
-    const feature = featureCollection.features.find(f => f.id === params.id);
-    
     if (!feature) {
       return NextResponse.json(
         { error: '标记未找到' },
@@ -87,38 +70,41 @@ export async function PUT(
       );
     }
 
-    // 更新属性
-    const coordinates = { 
-      latitude: feature.geometry.coordinates[1], 
-      longitude: feature.geometry.coordinates[0] 
+    const coordinates = feature.geometry.coordinates;
+    const existingProps = feature.properties;
+    const existingMeta = existingProps.metadata || {};
+
+    const now = new Date();
+    const updatedProperties = {
+      ...existingProps,
+      headerImage: headerImage !== undefined ? headerImage : existingProps.headerImage,
+      markdownContent: markdownContent !== undefined ? markdownContent : existingProps.markdownContent,
+      iconType: iconType !== undefined ? iconType : existingProps.iconType,
+      metadata: {
+        ...existingMeta,
+        title: title !== undefined ? title : existingMeta.title,
+        updatedAt: now.toISOString(),
+      },
     };
-    const properties = { ...feature.properties };
-    const metadata = { ...properties.metadata };
-    
-    if (title) metadata.title = title;
-    if (headerImage) properties.headerImage = headerImage;
-    if (markdownContent) properties.markdownContent = markdownContent;
-    if (iconType) properties.iconType = iconType;
-    
-    metadata.updatedAt = new Date().toISOString();
-    properties.metadata = metadata;
 
-    // 直接更新数据集
-    await datasetService.upsertFeature(datasetId, params.id, coordinates, properties);
+    const updated = upsertMarker(params.id, coordinates[0], coordinates[1], updatedProperties);
+    const updatedMeta = updated.properties.metadata || {};
 
-    // 返回更新后的标记
     const updatedMarker = {
-      id: feature.id,
-      coordinates,
+      id: updated.id,
+      coordinates: {
+        latitude: updated.geometry.coordinates[1],
+        longitude: updated.geometry.coordinates[0],
+      },
       content: {
-        id: metadata.id || feature.id,
-        title: metadata.title || '未命名标记',
-        headerImage: properties.headerImage,
-        iconType: properties.iconType,
-        markdownContent: properties.markdownContent || '',
-        next: properties.next || [],
-        createdAt: metadata.createdAt ? new Date(metadata.createdAt) : new Date(),
-        updatedAt: new Date(metadata.updatedAt),
+        id: updatedMeta.id || updated.id,
+        title: updatedMeta.title || '未命名标记',
+        headerImage: updated.properties.headerImage || undefined,
+        iconType: updated.properties.iconType,
+        markdownContent: updated.properties.markdownContent || '',
+        next: updated.properties.next || [],
+        createdAt: updatedMeta.createdAt ? new Date(updatedMeta.createdAt) : new Date(),
+        updatedAt: new Date(updatedMeta.updatedAt),
       },
     };
 
@@ -134,21 +120,12 @@ export async function PUT(
 
 // 删除标记
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const datasetId = config.map.mapbox.dataset?.datasetId;
-    if (!datasetId) {
-      return NextResponse.json(
-        { error: '未配置数据集ID' },
-        { status: 500 }
-      );
-    }
+    const feature = getMarkerById(params.id);
 
-    const featureCollection = await datasetService.getAllFeatures(datasetId);
-    const feature = featureCollection.features.find(f => f.id === params.id);
-    
     if (!feature) {
       return NextResponse.json(
         { error: '标记未找到' },
@@ -156,9 +133,8 @@ export async function DELETE(
       );
     }
 
-    // 直接从数据集删除
-    await datasetService.deleteFeature(datasetId, params.id);
-    
+    deleteMarker(params.id);
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('删除标记失败:', error);

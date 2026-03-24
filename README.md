@@ -18,9 +18,9 @@ cp env.example .env
 | 变量 | 说明 |
 |------|------|
 | `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` | Mapbox 公开 token（`pk.`开头），用于地图渲染 |
-| `MAPBOX_SECRET_ACCESS_TOKEN` | Mapbox 私密 token（`sk.`开头），用于 Dataset 读写 |
-| `MAPBOX_USERNAME` | Mapbox 用户名 |
-| `MAPBOX_DATASET_ID` | Mapbox Dataset ID，所有标记数据存储在此 |
+| `MAPBOX_SECRET_ACCESS_TOKEN` | Mapbox 私密 token（`sk.`开头），**仅迁移脚本需要**，迁移完成后可删除 |
+| `MAPBOX_USERNAME` | Mapbox 用户名，**仅迁移脚本需要**，迁移完成后可删除 |
+| `MAPBOX_DATASET_ID` | Mapbox Dataset ID，**仅迁移脚本需要**，迁移完成后可删除 |
 | `GOOGLE_API_KEY` | Google Maps API Key，用于地点搜索和路径规划 |
 | `GOOGLE_API_BASE_URL` | Google API 地址，默认 `https://maps.googleapis.com`（国内可填代理） |
 | `TENCENT_COS_*` | 腾讯云 COS 配置，用于图片上传 |

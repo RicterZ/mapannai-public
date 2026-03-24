@@ -5,19 +5,17 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { datasetService } from '@/lib/api/dataset-service'
 import { mapProviderFactory } from '@/lib/map/providers'
 import { config } from '@/lib/config'
 import { MarkerIconType } from '@/types/marker'
-import { v4 as uuidv4 } from 'uuid'
-import crypto from 'crypto'
-import { isWithinDistance } from '@/utils/distance'
-
-function generateCoordinateHash(latitude: number, longitude: number): string {
-  const lat = Math.round(latitude * 1000000) / 1000000
-  const lng = Math.round(longitude * 1000000) / 1000000
-  return crypto.createHash('md5').update(`${lat},${lng}`).digest('hex')
-}
+import {
+    getAllMarkers,
+    getMarkerById,
+    upsertMarker,
+    deleteMarker,
+    findNearbyMarker,
+    generateCoordinateHash,
+} from '@/lib/db/marker-service'
 
 async function searchPlaceCoordinates(name: string): Promise<{ latitude: number; longitude: number }> {
   const googleProvider = mapProviderFactory.createGoogleServerProvider()
@@ -39,10 +37,7 @@ export function registerMarkerTools(server: McpServer) {
     {},
     async () => {
       const t0 = Date.now()
-      const datasetId = config.map.mapbox.dataset?.datasetId
-      if (!datasetId) throw new Error('未配置 MAPBOX_DATASET_ID')
-
-      const featureCollection = await datasetService.getAllFeatures(datasetId)
+      const featureCollection = getAllMarkers()
       const markers = featureCollection.features
         .filter(f => f.id && f.geometry?.coordinates?.length >= 2)
         .map(f => {
@@ -84,27 +79,17 @@ export function registerMarkerTools(server: McpServer) {
     },
     async ({ places }) => {
       const t0 = Date.now()
-      const datasetId = config.map.mapbox.dataset?.datasetId
-      if (!datasetId) throw new Error('未配置 MAPBOX_DATASET_ID')
       console.log(`[MCP] create_marker  count=${places.length}  names=${places.map(p => p.name).join(', ')}`)
 
       const results = []
       for (const place of places) {
         try {
           const coordinates = await searchPlaceCoordinates(place.name)
-          const coordinateHash = generateCoordinateHash(coordinates.latitude, coordinates.longitude)
+          const coordinateHash = generateCoordinateHash(coordinates.longitude, coordinates.latitude)
           const featureId = `coord_${coordinateHash}`
 
           // 检查是否已存在（10米内去重）
-          const allFeatures = await datasetService.getAllFeatures(datasetId)
-          const existing = allFeatures.features.find(f =>
-            f.id === featureId ||
-            (f.geometry?.coordinates && isWithinDistance(
-              coordinates.latitude, coordinates.longitude,
-              f.geometry.coordinates[1], f.geometry.coordinates[0],
-              10
-            ))
-          )
+          const existing = findNearbyMarker(coordinates.longitude, coordinates.latitude, 10)
 
           if (existing) {
             results.push({
@@ -136,7 +121,7 @@ export function registerMarkerTools(server: McpServer) {
             },
           }
 
-          await datasetService.upsertFeature(datasetId, featureId, coordinates, properties)
+          upsertMarker(featureId, coordinates.longitude, coordinates.latitude, properties)
           results.push({
             id: featureId,
             name: place.name,
@@ -171,17 +156,10 @@ export function registerMarkerTools(server: McpServer) {
         .optional().describe('新的图标类型'),
     },
     async ({ markerId, title, markdownContent, iconType }) => {
-      const datasetId = config.map.mapbox.dataset?.datasetId
-      if (!datasetId) throw new Error('未配置 MAPBOX_DATASET_ID')
-
-      const allFeatures = await datasetService.getAllFeatures(datasetId)
-      const feature = allFeatures.features.find(f => f.id === markerId)
+      const feature = getMarkerById(markerId)
       if (!feature) throw new Error(`未找到 marker: ${markerId}`)
 
-      const coordinates = {
-        latitude: feature.geometry.coordinates[1],
-        longitude: feature.geometry.coordinates[0],
-      }
+      const coordinates = feature.geometry.coordinates
       const existingProps = feature.properties || {}
       const existingMeta = existingProps.metadata || {}
 
@@ -197,7 +175,7 @@ export function registerMarkerTools(server: McpServer) {
         },
       }
 
-      await datasetService.upsertFeature(datasetId, markerId, coordinates, updatedProperties)
+      upsertMarker(markerId, coordinates[0], coordinates[1], updatedProperties)
 
       return {
         content: [{
@@ -216,10 +194,7 @@ export function registerMarkerTools(server: McpServer) {
       markerId: z.string().describe('要删除的 marker ID'),
     },
     async ({ markerId }) => {
-      const datasetId = config.map.mapbox.dataset?.datasetId
-      if (!datasetId) throw new Error('未配置 MAPBOX_DATASET_ID')
-
-      await datasetService.deleteFeature(datasetId, markerId)
+      deleteMarker(markerId)
 
       return {
         content: [{

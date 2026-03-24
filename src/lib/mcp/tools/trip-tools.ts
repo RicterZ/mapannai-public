@@ -16,7 +16,11 @@ import {
     getDayById,
     upsertTripDay,
 } from '@/lib/db/trip-service'
-import { datasetService } from '@/lib/api/dataset-service'
+import {
+    upsertMarker,
+    findNearbyMarker,
+    generateCoordinateHash,
+} from '@/lib/db/marker-service'
 import { Trip, TripDay } from '@/types/trip'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -163,12 +167,7 @@ export function registerTripTools(server: McpServer) {
             const day = getDayById(dayId)
             if (!day || day.tripId !== tripId) throw new Error(`天不存在: ${dayId}`)
 
-            const datasetId = config.map.mapbox.dataset?.datasetId
-            if (!datasetId) throw new Error('未配置 MAPBOX_DATASET_ID')
-
             const { mapProviderFactory } = await import('@/lib/map/providers')
-            const { isWithinDistance } = await import('@/utils/distance')
-            const crypto = (await import('crypto')).default
 
             const results = []
             for (const place of places) {
@@ -179,24 +178,15 @@ export function registerTripTools(server: McpServer) {
                     if (!searchResults?.length) throw new Error(`找不到: ${place.name}`)
 
                     const coordinates = searchResults[0].coordinates
-                    const lat = Math.round(coordinates.latitude * 1e6) / 1e6
-                    const lng = Math.round(coordinates.longitude * 1e6) / 1e6
-                    const hash = crypto.createHash('md5').update(`${lat},${lng}`).digest('hex')
-                    const featureId = `coord_${hash}`
+                    const coordinateHash = generateCoordinateHash(coordinates.longitude, coordinates.latitude)
+                    const featureId = `coord_${coordinateHash}`
 
-                    const allFeatures = await datasetService.getAllFeatures(datasetId)
-                    const existing = allFeatures.features.find(f =>
-                        f.id === featureId ||
-                        (f.geometry?.coordinates && isWithinDistance(
-                            coordinates.latitude, coordinates.longitude,
-                            f.geometry.coordinates[1], f.geometry.coordinates[0], 10
-                        ))
-                    )
+                    const existing = findNearbyMarker(coordinates.longitude, coordinates.latitude, 10)
 
                     let markerId = featureId
                     if (!existing) {
                         const now = new Date().toISOString()
-                        await datasetService.upsertFeature(datasetId, featureId, coordinates, {
+                        upsertMarker(featureId, coordinates.longitude, coordinates.latitude, {
                             markdownContent: place.content || '',
                             headerImage: null,
                             iconType: place.iconType,
@@ -204,7 +194,7 @@ export function registerTripTools(server: McpServer) {
                             metadata: {
                                 id: featureId, title: place.name,
                                 description: 'MCP 行程规划', isPublished: true,
-                                createdAt: now, updatedAt: now, coordinateHash: hash,
+                                createdAt: now, updatedAt: now, coordinateHash,
                             },
                         })
                     } else {
