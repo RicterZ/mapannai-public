@@ -15,19 +15,10 @@ const InteractiveMap = dynamic(() => import('@/components/map/abstract-map').the
     )
 })
 
-const Sidebar = dynamic(() => import('@/components/sidebar/sidebar').then(mod => ({ default: mod.Sidebar })), {
-    ssr: false
-})
-
 export default function HomePage() {
     return (
         <main className="fixed inset-0 overflow-hidden">
-            {/* Full-screen map */}
             <InteractiveMap />
-
-            {/* Floating sidebar */}
-            <Sidebar />
-
         </main>
     )
 } 
