@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import { Marker, MarkerCoordinates, MarkerIconType, MapInteractionState, DetailedPlaceInfo } from '@/types/marker'
+import { Marker, MarkerCoordinates, MarkerIconType, MapInteractionState } from '@/types/marker'
 import { Trip, TripDay, ActiveView } from '@/types/trip'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -40,8 +40,6 @@ interface MapStore {
     activeView: ActiveView
 
     // Actions
-    addMarker: (coordinates: MarkerCoordinates, content?: string) => string
-    addMarkerToStore: (marker: Marker) => void
     createMarkerFromModal: (data: {
         coordinates: MarkerCoordinates
         name: string
@@ -61,9 +59,8 @@ interface MapStore {
     selectMarker: (markerId: string | null) => void
 
     // Popup actions
-    openPopup: (coordinates: MarkerCoordinates, placeName?: string, placeInfo?: DetailedPlaceInfo) => void
+    openPopup: (coordinates: MarkerCoordinates, placeName?: string) => void
     closePopup: () => void
-    updatePlaceInfo: (placeInfo: DetailedPlaceInfo) => void
 
     // 新增弹窗 actions
     openAddMarkerModal: (coordinates: MarkerCoordinates, placeName?: string) => void
@@ -102,12 +99,6 @@ interface MapStore {
 
     setLoading: (loading: boolean) => void
 
-    // Chain building - update next relations in local state
-    setMarkerNext: (markerId: string, nextIds: string[]) => void
-
-    // 重试同步失败的标记
-    retrySyncMarker: (markerId: string) => Promise<void>
-
     // ── Trip actions ───────────────────────────────
     loadTripsFromDataset: () => Promise<void>
     setActiveView: (mode: ActiveView['mode'], tripId?: string | null, dayId?: string | null) => void
@@ -141,7 +132,6 @@ const saveMarkerToDataset = async (marker: Marker) => {
         address: marker.content.address || null,
         iconType: marker.content.iconType || 'location',
         next: marker.content.next || [],
-        tripDayEntries: marker.content.tripDayEntries || [],
         metadata: {
             id: marker.id,
             title: marker.content.title || '新标记',
@@ -180,7 +170,6 @@ export const useMapStore = create<MapStore>()(
                 displayedMarkerId: null,
                 isPopupOpen: false,
                 isSidebarOpen: false,
-                pendingCoordinates: null,
                 popupCoordinates: null,
                 placeName: null,
                 highlightedChainIds: [],
@@ -218,65 +207,6 @@ export const useMapStore = create<MapStore>()(
 
 
             // Actions
-            addMarker: (coordinates, content) => {
-                const markerId = uuidv4()
-                const now = new Date()
-
-                const newMarker: Marker = {
-                    id: markerId,
-                    coordinates,
-                    content: {
-                        id: uuidv4(),
-                        markdownContent: content || '',
-                        next: [], // 默认为空数组
-                        createdAt: now,
-                        updatedAt: now,
-                    },
-                }
-
-                set(state => ({
-                    markers: [...state.markers, newMarker],
-                    interactionState: {
-                        ...state.interactionState,
-                        selectedMarkerId: markerId,
-                        isSidebarOpen: true,
-                        isPopupOpen: false,
-                        pendingCoordinates: null,
-                    },
-                }), false, 'addMarker')
-
-                // 异步保存到 Dataset
-                const marker = get().markers.find(m => m.id === markerId)
-                if (marker) {
-                    get().saveMarkerToDataset(marker).catch(error => {
-                        console.error('保存到 Dataset 失败:', error)
-                        set({ error: '保存标记失败，请稍后重试' })
-                    })
-                }
-
-                return markerId
-            },
-
-            addMarkerToStore: (marker) => {
-                set(state => {
-                    // 检查是否已存在相同ID的标记
-                    const existingIndex = state.markers.findIndex(m => m.id === marker.id);
-                    if (existingIndex !== -1) {
-                        // 如果存在，跳过添加但返回现有标记信息
-                        return state;
-                    } else {
-                        // 如果不存在，添加新标记
-                        const next = { markers: [...state.markers, marker] } as any
-                        return next;
-                    }
-                }, false, 'addMarkerToStore')
-                
-                // 返回标记信息（无论是新添加的还是已存在的）
-                const currentState = get();
-                const existingMarker = currentState.markers.find(m => m.id === marker.id);
-                return existingMarker || marker;
-            },
-
             createMarkerFromModal: async (data) => {
                 try {
                     // 1. 立即创建临时标记（乐观更新）
@@ -311,7 +241,6 @@ export const useMapStore = create<MapStore>()(
                             isSidebarOpen: false,
                             isPopupOpen: false,
                             popupCoordinates: null,
-                            pendingCoordinates: null,
                             placeName: null,
                         },
                     }), false, 'createMarkerFromModal-optimistic')
@@ -348,7 +277,6 @@ export const useMapStore = create<MapStore>()(
                                                 ...result.content,
                                                 title: data.name,
                                                 address: data.address,
-                                                tripDayEntries: result.content?.tripDayEntries || [],
                                                 createdAt: result.content?.createdAt ? new Date(result.content.createdAt) : new Date(),
                                                 updatedAt: result.content?.updatedAt ? new Date(result.content.updatedAt) : new Date(),
                                             }
@@ -490,15 +418,13 @@ export const useMapStore = create<MapStore>()(
                 }), false, 'selectMarker')
             },
 
-            openPopup: (coordinates, placeName, placeInfo) => {
+            openPopup: (coordinates, placeName) => {
                 set(state => ({
                     interactionState: {
                         ...state.interactionState,
                         isPopupOpen: true,
                         popupCoordinates: coordinates,
-                        pendingCoordinates: coordinates,
                         placeName: placeName || null,
-                        placeInfo: placeInfo || null,
                     },
                 }), false, 'openPopup')
             },
@@ -510,19 +436,8 @@ export const useMapStore = create<MapStore>()(
                         isPopupOpen: false,
                         popupCoordinates: null,
                         placeName: null,
-                        placeInfo: null,
                     },
                 }), false, 'closePopup')
-            },
-
-            updatePlaceInfo: (placeInfo) => {
-                set(state => ({
-                    interactionState: {
-                        ...state.interactionState,
-                        placeInfo: placeInfo,
-                        placeName: placeInfo.name, // 保持向后兼容
-                    },
-                }), false, 'updatePlaceInfo')
             },
 
             // 新增弹窗 actions
@@ -667,23 +582,6 @@ export const useMapStore = create<MapStore>()(
             },
 
             // 设置某个标记的 next 关系（用于行程链实时渲染）
-            setMarkerNext: (markerId, nextIds) => {
-                set(state => ({
-                    markers: state.markers.map(marker =>
-                        marker.id === markerId
-                            ? {
-                                ...marker,
-                                content: {
-                                    ...marker.content,
-                                    next: Array.isArray(nextIds) ? nextIds : [],
-                                    updatedAt: new Date(),
-                                },
-                            }
-                            : marker
-                    ),
-                }), false, 'setMarkerNext')
-            },
-
             // Dataset actions
             saveMarkerToDataset: async (marker) => {
                 set({ isLoading: true })
@@ -756,7 +654,6 @@ export const useMapStore = create<MapStore>()(
                                             iconType: properties.iconType,
                                             markdownContent: properties.markdownContent || '',
                                             next: properties.next || [],
-                                            tripDayEntries: properties.tripDayEntries || [],
                                             createdAt: metadata.createdAt ? new Date(metadata.createdAt) : new Date(),
                                             updatedAt: metadata.updatedAt ? new Date(metadata.updatedAt) : new Date(),
                                         },
@@ -832,90 +729,6 @@ export const useMapStore = create<MapStore>()(
                 set({ isLoading: loading }, false, 'setLoading')
             },
 
-            // 重试同步失败的标记
-            retrySyncMarker: async (markerId) => {
-                const state = get()
-                const marker = state.markers.find(m => m.id === markerId)
-                
-                if (!marker || !marker.content.isTemporary) {
-                    console.warn('标记不存在或不是临时标记:', markerId)
-                    return
-                }
-
-                try {
-                    // 清除错误状态，显示同步中
-                    set(state => ({
-                        markers: state.markers.map(m => 
-                            m.id === markerId 
-                                ? {
-                                    ...m,
-                                    content: {
-                                        ...m.content,
-                                        isTemporary: true,
-                                        syncError: undefined
-                                    }
-                                }
-                                : m
-                        ),
-                    }), false, 'retrySyncMarker-start')
-
-                    // 重新调用API
-                    const response = await fetch('/api/markers', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            coordinates: marker.coordinates,
-                            title: marker.content.title,
-                            iconType: marker.content.iconType,
-                            content: marker.content.markdownContent,
-                        }),
-                    })
-
-                    if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}))
-                        throw new Error(`创建标记失败: ${errorData.error || response.status}`)
-                    }
-
-                    const result = await response.json()
-
-                    // 更新为最终标记
-                    set(state => ({
-                        markers: state.markers.map(m => 
-                            m.id === markerId 
-                                ? {
-                                    ...result,
-                                    content: {
-                                        ...result.content,
-                                        title: marker.content.title, // 保持用户输入的名称
-                                    }
-                                }
-                                : m
-                        ),
-                    }), false, 'retrySyncMarker-success')
-
-                } catch (error) {
-                    console.error('重试同步失败:', error)
-                    
-                    // 更新错误状态
-                    set(state => ({
-                        markers: state.markers.map(m => 
-                            m.id === markerId 
-                                ? {
-                                    ...m,
-                                    content: {
-                                        ...m.content,
-                                        isTemporary: true,
-                                        syncError: error instanceof Error ? error.message : '同步失败'
-                                    }
-                                }
-                                : m
-                        ),
-                    }), false, 'retrySyncMarker-error')
-                }
-            },
-
             // ── Trip Actions ──────────────────────────────────────────────────
 
             loadTripsFromDataset: async () => {
@@ -933,6 +746,60 @@ export const useMapStore = create<MapStore>()(
 
             setActiveView: (mode, tripId = null, dayId = null) => {
                 set({ activeView: { mode, tripId, dayId } }, false, 'setActiveView')
+
+                // 进入 day 视图时，自动高亮当天所有行程链并开始动画
+                if (mode === 'day' && dayId) {
+                    const { markers, tripDays, interactionState } = get()
+                    const day = tripDays.find(d => d.id === dayId)
+                    if (day && day.markerIds.length > 0) {
+                        const dayIdSet = new Set(day.markerIds)
+                        const dayMarkers = markers.filter(m => dayIdSet.has(m.id))
+
+                        // 计算 day 内的有向图
+                        const dayNextMap = new Map<string, string[]>()
+                        const inDegree = new Map<string, number>()
+                        for (const m of dayMarkers) inDegree.set(m.id, 0)
+                        for (const m of dayMarkers) {
+                            const dayNext = (m.content.next || []).filter(id => dayIdSet.has(id))
+                            dayNextMap.set(m.id, dayNext)
+                            for (const nid of dayNext) inDegree.set(nid, (inDegree.get(nid) || 0) + 1)
+                        }
+
+                        // 从入度为 0 且有后继的节点出发，走链
+                        const chains: string[][] = []
+                        const visited = new Set<string>()
+                        const starters = dayMarkers.filter(
+                            m => inDegree.get(m.id) === 0 && (dayNextMap.get(m.id) || []).length > 0
+                        )
+                        for (const starter of starters) {
+                            const chain: string[] = []
+                            let cur: string | undefined = starter.id
+                            while (cur && !visited.has(cur)) {
+                                visited.add(cur)
+                                chain.push(cur)
+                                cur = (dayNextMap.get(cur) || []).find(id => !visited.has(id))
+                            }
+                            if (chain.length > 1) chains.push(chain)
+                        }
+
+                        if (chains.length > 0) {
+                            set(state => ({
+                                interactionState: {
+                                    ...state.interactionState,
+                                    highlightedChainIds: chains,
+                                },
+                            }), false, 'setActiveView-highlightChains')
+                        }
+                    }
+                } else if (mode !== 'day') {
+                    // 离开 day 视图时清除高亮
+                    set(state => ({
+                        interactionState: {
+                            ...state.interactionState,
+                            highlightedChainIds: [],
+                        },
+                    }), false, 'setActiveView-clearChains')
+                }
             },
 
             createTrip: async (data) => {
@@ -1042,22 +909,6 @@ export const useMapStore = create<MapStore>()(
                             ? { ...d, markerIds: [...d.markerIds, markerId] }
                             : d
                     ),
-                    markers: state.markers.map(m =>
-                        m.id === markerId
-                            ? {
-                                ...m,
-                                content: {
-                                    ...m.content,
-                                    tripDayEntries: [
-                                        ...(m.content.tripDayEntries || []).filter(
-                                            e => !(e.tripId === tripId && e.dayId === dayId)
-                                        ),
-                                        { tripId, dayId },
-                                    ],
-                                },
-                            }
-                            : m
-                    ),
                 }), false, 'addMarkerToDay-optimistic')
 
                 // 2. 异步持久化到服务端（失败时回滚）
@@ -1074,19 +925,6 @@ export const useMapStore = create<MapStore>()(
                             d.id === dayId
                                 ? { ...d, markerIds: d.markerIds.filter(id => id !== markerId) }
                                 : d
-                        ),
-                        markers: state.markers.map(m =>
-                            m.id === markerId
-                                ? {
-                                    ...m,
-                                    content: {
-                                        ...m.content,
-                                        tripDayEntries: (m.content.tripDayEntries || []).filter(
-                                            e => !(e.tripId === tripId && e.dayId === dayId)
-                                        ),
-                                    },
-                                }
-                                : m
                         ),
                     }), false, 'addMarkerToDay-rollback')
                     if (typeof window !== 'undefined') {
@@ -1120,9 +958,6 @@ export const useMapStore = create<MapStore>()(
                                     content: {
                                         ...m.content,
                                         next: (m.content.next || []).filter(nid => !dayMarkerIds.has(nid)),
-                                        tripDayEntries: (m.content.tripDayEntries || []).filter(
-                                            e => !(e.tripId === tripId && e.dayId === dayId)
-                                        ),
                                     },
                                 }
                             }
@@ -1161,22 +996,6 @@ export const useMapStore = create<MapStore>()(
                             d.id === dayId && !d.markerIds.includes(markerId)
                                 ? { ...d, markerIds: [...d.markerIds, markerId] }
                                 : d
-                        ),
-                        markers: state.markers.map(m =>
-                            m.id === markerId
-                                ? {
-                                    ...m,
-                                    content: {
-                                        ...m.content,
-                                        tripDayEntries: [
-                                            ...(m.content.tripDayEntries || []).filter(
-                                                e => !(e.tripId === tripId && e.dayId === dayId)
-                                            ),
-                                            { tripId, dayId },
-                                        ],
-                                    },
-                                }
-                                : m
                         ),
                     }), false, 'removeMarkerFromDay-rollback')
                     if (typeof window !== 'undefined') {

@@ -44,8 +44,6 @@ export interface MarkerContent {
     // 临时标记相关字段
     isTemporary?: boolean // 是否为临时标记
     syncError?: string // 同步错误信息
-    // 旅行分组：多对多关系，一个 marker 可属于多次旅行的多天
-    tripDayEntries?: Array<{ tripId: string; dayId: string }>
 }
 
 export interface Marker {
@@ -78,10 +76,8 @@ export interface MapInteractionState {
     displayedMarkerId: string | null // 用于在边栏中显示内容的标记ID
     isPopupOpen: boolean
     isSidebarOpen: boolean
-    pendingCoordinates: MarkerCoordinates | null
     popupCoordinates: MarkerCoordinates | null
-    placeName: string | null // 地点名称（保持向后兼容）
-    placeInfo: DetailedPlaceInfo | null // 完整的地点信息
+    placeName: string | null // 地点名称
     highlightedChainIds: string[][] // 高亮的标记链列表，每个元素是一条链的 marker id 集合
 }
 

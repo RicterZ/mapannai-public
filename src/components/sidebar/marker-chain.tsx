@@ -13,7 +13,7 @@ interface MarkerChainProps {
 }
 
 export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: MarkerChainProps) => {
-    const { markers, setHighlightedChain, clearHighlightedChain, updateMarkerContent } = useMapStore()
+    const { markers, updateMarkerContent, clearHighlightedChain } = useMapStore()
     
     
   // 横向拖拽：按下容器并拖动进行横向滚动
@@ -51,21 +51,11 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
     }
   }, [])
 
-    const handleMouseEnter = useCallback((chainIds: string[]) => {
-        setHighlightedChain([chainIds])
-    }, [setHighlightedChain])
-    
-    const handleMouseLeave = useCallback(() => {
-        clearHighlightedChain()
-    }, [clearHighlightedChain])
-    
+
 
     // 计算标记链：多行显示多个标记链
     const markerChains = useMemo(() => {
         const chains: Marker[][] = []
-        const maxDepth = 3
-        
-        
         // BFS构建标记链
         const buildChains = () => {
             const nextIds = currentMarker.content.next || []
@@ -190,10 +180,6 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
         }
     }, [markerChains, currentMarker, updateMarkerContent])
 
-    // 即使没有标记链，也显示添加按钮
-    // if (markerChain.length === 0) {
-    //     return null
-    // }
 
     return (
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200" data-marker-chain>
@@ -214,8 +200,6 @@ export const MarkerChain = ({ currentMarker, onMarkerClick, onAddMarker }: Marke
                             <div 
                                 key={chainIndex} 
                                 className="flex items-center space-x-2 overflow-x-auto overflow-y-visible cursor-grab hide-scrollbar w-full max-w-full min-w-0 whitespace-nowrap pr-2"
-                                onMouseEnter={() => handleMouseEnter(chainIds)}
-                                onMouseLeave={handleMouseLeave}
                                 style={{ overflowY: 'visible', pointerEvents: 'auto' }}
                                 onMouseDown={handleChainMouseDown}
                                 onWheel={handleWheel}
