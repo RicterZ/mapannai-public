@@ -71,7 +71,9 @@ body {
 /* MapLibre / Mapbox popup overrides */
 .mapboxgl-popup,
 .maplibregl-popup {
-    z-index: 60;
+    z-index: 50;
+    animation: scaleIn 0.2s ease-in-out;
+    transform-origin: top center;
 }
 
 .mapboxgl-popup .mapboxgl-popup-content,

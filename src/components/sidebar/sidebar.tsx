@@ -16,6 +16,9 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
     const [isAddingToChain, setIsAddingToChain] = useState(false)
     const [targetMarkerId, setTargetMarkerId] = useState<string | null>(null)
     const [confirmingDelete, setConfirmingDelete] = useState(false) // kept for potential future use
+    // Animation state: 'hidden' | 'entering' | 'visible' | 'exiting'
+    const [animState, setAnimState] = useState<'hidden' | 'entering' | 'visible' | 'exiting'>('hidden')
+    const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     const {
         markers,
@@ -169,6 +172,28 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
 
     const { isSidebarOpen, selectedMarkerId, displayedMarkerId } = interactionState
 
+    // Drive enter/exit animation based on isSidebarOpen
+    useEffect(() => {
+        if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+        if (isSidebarOpen) {
+            // Mount → next frame animate in
+            setAnimState('entering')
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    setAnimState('visible')
+                })
+            })
+        } else {
+            if (animState === 'visible' || animState === 'entering') {
+                setAnimState('exiting')
+                closeTimerRef.current = setTimeout(() => {
+                    setAnimState('hidden')
+                }, 300)
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isSidebarOpen])
+
     const selectedMarker = displayedMarkerId
         ? markers.find(m => m.id === displayedMarkerId)
         : null
@@ -194,7 +219,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
         )
     }
 
-    if (!isSidebarOpen) {
+    if (animState === 'hidden') {
         return null
     }
 
@@ -202,7 +227,11 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black bg-opacity-25 z-[59] lg:hidden"
+                className={cn(
+                    'fixed inset-0 bg-black z-[69] lg:hidden',
+                    'transition-opacity duration-300',
+                    animState === 'visible' ? 'opacity-25' : 'opacity-0',
+                )}
                 onClick={() => {
                     // 关闭添加模式
                     setIsAddingToChain(false)
@@ -220,7 +249,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
             <div
                 ref={sidebarRef}
                 className={cn(
-                    'right-sidebar fixed z-[60]',
+                    'right-sidebar fixed z-[70]',
                     'w-full max-w-md lg:max-w-lg xl:max-w-xl',
                     'bg-white shadow-2xl',
                     'flex flex-col',
@@ -230,10 +259,12 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                     'right-0 bottom-0 h-full',
                     // PC端：正常右侧显示
                     'lg:right-0 lg:top-0 lg:bottom-0 lg:h-auto',
+                    // Slide animation
+                    'transition-transform duration-300 ease-out',
+                    (animState === 'entering' || animState === 'exiting') ? 'translate-x-full' : 'translate-x-0',
                 )}
                 style={{
                     paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-                    animation: 'slideInRight 0.3s ease-out',
                 }}
             >
                 {/* Header */}
