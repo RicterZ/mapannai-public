@@ -91,40 +91,55 @@ function SortableItem({
 
     return (
         <div ref={setNodeRef} style={style} className={cn(isSortableDragging && 'opacity-40')}>
-            <div className="flex items-center gap-2 border border-gray-200 rounded-xl bg-white overflow-hidden">
-                {/* Drag handle */}
-                <button
-                    {...attributes}
-                    {...listeners}
-                    className="pl-2 py-2.5 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
-                    aria-label="拖拽排序"
-                >
-                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M7 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm6-8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0z" />
-                    </svg>
-                </button>
+            <div className="border border-gray-200 rounded-xl bg-white overflow-hidden">
+                {marker.content.headerImage && (
+                    <div className="w-full h-20 bg-gray-100">
+                        <img
+                            src={marker.content.headerImage}
+                            alt={marker.content.title || ''}
+                            className="w-full h-full object-cover"
+                            onError={e => { e.currentTarget.style.display = 'none' }}
+                        />
+                    </div>
+                )}
+                <div className="flex items-center gap-2">
+                    {/* Drag handle */}
+                    <button
+                        {...attributes}
+                        {...listeners}
+                        className="pl-2 py-2.5 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+                        aria-label="拖拽排序"
+                    >
+                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M7 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm6-8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0z" />
+                        </svg>
+                    </button>
 
-                <div className="flex items-center gap-2 py-2.5 flex-1 min-w-0">
-                    <span className="text-xs font-bold text-gray-400 w-4 flex-shrink-0">{index + 1}</span>
-                    <div className={cn('w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0', getMarkerColor(marker.content.iconType || 'location'))}>
-                        <span className="text-xs text-white">{icon.emoji}</span>
+                    <div className="flex items-center gap-2 py-2.5 flex-1 min-w-0">
+                        <span className="text-xs font-bold text-gray-400 w-4 flex-shrink-0">{index + 1}</span>
+                        <div className={cn('w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0', getMarkerColor(marker.content.iconType || 'location'))}>
+                            <span className="text-xs text-white">{icon.emoji}</span>
+                        </div>
+                        <button
+                            className="flex-1 text-left min-w-0"
+                            onClick={() => onMarkerClick(marker.id)}
+                        >
+                            <div className="text-sm font-medium text-gray-800 truncate">{marker.content.title || '未命名标记'}</div>
+                            {marker.content.address && (
+                                <div className="text-xs text-gray-400 truncate mt-0.5">{marker.content.address}</div>
+                            )}
+                        </button>
                     </div>
                     <button
-                        className="flex-1 text-left text-sm font-medium text-gray-800 truncate"
-                        onClick={() => onMarkerClick(marker.id)}
+                        onClick={() => onRemove(marker.id)}
+                        className="px-3 py-2.5 text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 border-l border-gray-100"
+                        title="从当天移除"
                     >
-                        {marker.content.title || '未命名标记'}
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                     </button>
                 </div>
-                <button
-                    onClick={() => onRemove(marker.id)}
-                    className="px-3 py-2.5 text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 border-l border-gray-100"
-                    title="从当天移除"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
             </div>
 
             {hasArrowAfter && (
