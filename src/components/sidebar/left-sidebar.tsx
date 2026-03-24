@@ -241,9 +241,13 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
     const [tripNameDraft, setTripNameDraft] = useState('')
     const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
-    // 视图切换动画：记录方向，给内容 wrapper 加 key 触发重新挂载
+    // 视图切换动画：复用 sidebar 开关同款 transition-transform
     const VIEW_ORDER = ['overview', 'trip', 'day']
-    const [animClass, setAnimClass] = useState('')
+    const [slideState, setSlideState] = useState<'idle' | 'exit' | 'enter'>('idle')
+    const [slideDir, setSlideDir] = useState<'forward' | 'backward'>('forward')
+    const [displayMode, setDisplayMode] = useState(activeView.mode)
+    const [displayTripId, setDisplayTripId] = useState(activeView.tripId)
+    const [displayDayId, setDisplayDayId] = useState(activeView.dayId)
     const prevModeRef = useRef(activeView.mode)
     const prevTripRef = useRef(activeView.tripId)
     const prevDayRef = useRef(activeView.dayId)
@@ -257,12 +261,28 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         const fromIdx = VIEW_ORDER.indexOf(prevModeRef.current)
         const toIdx = VIEW_ORDER.indexOf(activeView.mode)
         const forward = toIdx >= fromIdx
+        setSlideDir(forward ? 'forward' : 'backward')
 
         prevModeRef.current = activeView.mode
         prevTripRef.current = activeView.tripId
         prevDayRef.current = activeView.dayId
 
-        setAnimClass(forward ? 'animate-slide-in-right' : 'animate-slide-in-left')
+        // 1. 当前内容滑出（250ms）
+        setSlideState('exit')
+
+        // 2. 内容切换 + 新内容从对面出发位置就位（不可见，立即切换）
+        const t = setTimeout(() => {
+            setDisplayMode(activeView.mode)
+            setDisplayTripId(activeView.tripId)
+            setDisplayDayId(activeView.dayId)
+            setSlideState('enter')
+            // 3. 下一帧触发 transition 滑入到 idle(0)
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => setSlideState('idle'))
+            })
+        }, 250)
+
+        return () => { clearTimeout(t) }
     }, [activeView.mode, activeView.tripId, activeView.dayId])
 
     const TRIP_EMOJIS = ['✈️', '🚞', '🚢', '🚗', '🏍️', '🏕️', '🏖️', '🗻', '🏯', '🎒', '🇨🇳', '🇯🇵', '🇰🇷', '🇸🇬', '🇹🇭', '🇺🇸', '🇫🇷', '🇬🇧', '🇮🇹', '🇩🇪', '🍜', '🍣', '🍲', '🍛', '🍖']
@@ -1203,14 +1223,20 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
             >
                 {renderHeader()}
 
-                {/* 内容区域：key 变化时重新挂载触发入场动画 */}
+                {/* 内容区域：transition-transform 滑入滑出，与 sidebar 开关动画完全一致 */}
                 <div
-                    key={`${activeView.mode}-${activeView.tripId}-${activeView.dayId}`}
-                    className={cn('flex-1 flex flex-col overflow-hidden', animClass)}
+                    className={cn(
+                        'flex-1 flex flex-col overflow-hidden',
+                        'transition-transform duration-300',
+                        slideState === 'exit' && slideDir === 'forward' && '-translate-x-full',
+                        slideState === 'exit' && slideDir === 'backward' && 'translate-x-full',
+                        slideState === 'enter' && slideDir === 'forward' && 'translate-x-full',
+                        slideState === 'enter' && slideDir === 'backward' && '-translate-x-full',
+                    )}
                 >
-                    {activeView.mode === 'overview' && renderOverview()}
-                    {activeView.mode === 'trip' && renderTripView()}
-                    {activeView.mode === 'day' && renderDayView()}
+                    {displayMode === 'overview' && renderOverview()}
+                    {displayMode === 'trip' && renderTripView()}
+                    {displayMode === 'day' && renderDayView()}
                 </div>
 
                 {/* 底部：添加标记开关 */}
