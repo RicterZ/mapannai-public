@@ -244,8 +244,6 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
     // 视图切换动画：向左滑出，从右滑入
     const [slideState, setSlideState] = useState<'idle' | 'exit' | 'enter'>('idle')
     const [displayMode, setDisplayMode] = useState(activeView.mode)
-    const [displayTripId, setDisplayTripId] = useState(activeView.tripId)
-    const [displayDayId, setDisplayDayId] = useState(activeView.dayId)
     const prevModeRef = useRef(activeView.mode)
     const prevTripRef = useRef(activeView.tripId)
     const prevDayRef = useRef(activeView.dayId)
@@ -266,8 +264,6 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         // 2. 内容切换 + 新内容从对面出发位置就位（不可见，立即切换）
         const t = setTimeout(() => {
             setDisplayMode(activeView.mode)
-            setDisplayTripId(activeView.tripId)
-            setDisplayDayId(activeView.dayId)
             setSlideState('enter')
             // 3. 下一帧触发 transition 滑入到 idle(0)
             requestAnimationFrame(() => {
