@@ -159,9 +159,10 @@ function ChainItem({ id, marker, index, hasArrowAfter, onRemove, onFlyTo }: Chai
 interface PaletteItemProps {
     marker: Marker
     onFlyTo?: () => void
+    onRemove?: () => void
 }
 
-function PaletteItem({ marker, onFlyTo }: PaletteItemProps) {
+function PaletteItem({ marker, onFlyTo, onRemove }: PaletteItemProps) {
     const paletteId = `palette::${marker.id}`
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: paletteId })
 
@@ -191,6 +192,15 @@ function PaletteItem({ marker, onFlyTo }: PaletteItemProps) {
                     <div className="text-sm font-medium text-gray-800 truncate">{marker.content.title || '未命名标记'}</div>
                 </button>
             </div>
+            <button
+                onClick={onRemove}
+                className="px-2.5 py-2.5 text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 border-l border-gray-100"
+                title="从当天移除"
+            >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
         </div>
     )
 }
@@ -1098,7 +1108,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                     .slice()
                                     .sort((a, b) => (a.content.iconType || 'location').localeCompare(b.content.iconType || 'location'))
                                     .map(marker => (
-                                        <PaletteItem key={marker.id} marker={marker} onFlyTo={() => handleMarkerClick(marker.id)} />
+                                        <PaletteItem key={marker.id} marker={marker} onFlyTo={() => handleMarkerClick(marker.id)} onRemove={() => handleRemoveMarkerFromDay(marker.id)} />
                                     ))}
                             </div>
                         </div>
