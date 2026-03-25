@@ -3,12 +3,9 @@
 @tailwind utilities;
 
 /* Global styles */
-html {
-    background-color: #e8e0d8; /* OSM 地图底色，确保 Safari 状态栏区域不露白 */
-}
-
 html,
 body {
+    background-color: #e8e0d8; /* OSM 地图底色，确保 Safari 状态栏区域不露白 */
     padding: 0;
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
@@ -59,6 +56,11 @@ body {
 .maplibregl-canvas {
     width: 100% !important;
     height: 100% !important;
+}
+
+/* PWA/black-translucent 模式下，地图容器延伸到物理屏幕顶端，消除灵动岛白边 */
+.map-container {
+    top: calc(-1 * env(safe-area-inset-top, 0px)) !important;
 }
 
 * {
