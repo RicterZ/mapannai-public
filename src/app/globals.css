@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 /* Global styles */
+html {
+    background-color: #e8e0d8; /* OSM 地图底色，确保 Safari 状态栏区域不露白 */
+}
+
 html,
 body {
     padding: 0;
@@ -13,7 +17,6 @@ body {
     height: 100%;
     height: 100vh;
     height: 100dvh; /* 动态视口高度，Safari 支持 */
-    background-color: #e8e0d8; /* OSM 地图底色，防止 Safari 顶部 safe area 露白 */
 }
 
 /* Safari 特定修复 */
@@ -56,16 +59,6 @@ body {
 .maplibregl-canvas {
     width: 100% !important;
     height: 100% !important;
-}
-
-/* iOS PWA standalone：让地图容器延伸到物理屏幕顶端，消除状态栏白边。
-   只在 PWA 独立模式下生效（black-translucent 使状态栏透明，内容可延伸至其下方）。
-   普通 Safari 浏览器的状态栏是 iOS 原生 UI，网页无法控制其背景色。 */
-@media (display-mode: standalone) {
-    .map-container {
-        top: calc(-1 * env(safe-area-inset-top, 0px)) !important;
-        height: calc(100dvh + env(safe-area-inset-top, 0px)) !important;
-    }
 }
 
 * {
