@@ -61,6 +61,7 @@ body {
 /* PWA/black-translucent 模式下，地图容器延伸到物理屏幕顶端，消除灵动岛白边 */
 .map-container {
     top: calc(-1 * env(safe-area-inset-top, 0px)) !important;
+    bottom: calc(-1 * env(safe-area-inset-bottom, 0px)) !important;
 }
 
 * {
