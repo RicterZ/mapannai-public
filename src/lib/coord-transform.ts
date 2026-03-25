@@ -10,17 +10,9 @@
 const A = 6378245.0
 const EE = 0.00669342162296594323
 
-/** 判断坐标是否在中国境内（粗略多矩形判断，无需网络请求） */
+/** 判断坐标是否在中国境内（与 Google GCJ-02 偏移范围一致的标准矩形判断） */
 export function isInChina(lng: number, lat: number): boolean {
-    if (lng < 72.004 || lng > 137.8347) return false
-    if (lat < 0.8293 || lat > 55.8271) return false
-
-    // 排除部分明显不在中国大陆的区域
-    if (lng > 119.9 && lat > 45.0 && lat < 48.4) return false   // 蒙古/俄罗斯边境
-    if (lng > 133.0 && lat > 47.0) return false                   // 俄罗斯远东
-    if (lng < 79.0 && lat > 35.0) return false                    // 中亚方向
-
-    return true
+    return lng >= 72.004 && lng <= 137.8347 && lat >= 0.8293 && lat <= 55.8271
 }
 
 function transformLat(lng: number, lat: number): number {
