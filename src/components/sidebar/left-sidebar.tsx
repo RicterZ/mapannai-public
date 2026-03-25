@@ -923,8 +923,17 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                         <span className="ml-1.5 text-xs text-gray-400 font-normal">{formatDate(day.date)}</span>
                                     </div>
                                     {dayMarkers.length > 0 ? (
-                                        <div className="text-xs text-gray-500 truncate mt-0.5">
-                                            {dayMarkers.map(m => m.content.title || '未命名').join(' · ')}
+                                        <div className="flex items-center gap-0.5 mt-0.5 overflow-hidden">
+                                            {dayMarkers.map((m, i) => (
+                                                <React.Fragment key={m.id}>
+                                                    <span className="text-xs text-gray-500 truncate shrink min-w-0">{m.content.title || '未命名'}</span>
+                                                    {i < dayMarkers.length - 1 && (
+                                                        <svg className="w-3 h-3 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                        </svg>
+                                                    )}
+                                                </React.Fragment>
+                                            ))}
                                         </div>
                                     ) : (
                                         <div className="text-xs text-gray-400 mt-0.5">暂无地点</div>
