@@ -191,7 +191,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
 
         return (
             <div className="prose prose-sm max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: marked(markdownContent) }} />
+                <div dangerouslySetInnerHTML={{ __html: marked.parse(markdownContent) as string }} />
             </div>
         )
     }
