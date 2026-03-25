@@ -73,7 +73,7 @@ body {
 
 /* MapLibre popup overrides */
 .maplibregl-popup {
-    z-index: 50;
+    z-index: 80;
 }
 
 .maplibregl-popup .maplibregl-popup-content {

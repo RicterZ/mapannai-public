@@ -205,7 +205,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
             {/* Backdrop */}
             <div
                 className={cn(
-                    'fixed inset-0 bg-black z-[69] lg:hidden',
+                    'fixed inset-0 bg-black z-[54] lg:hidden',
                     'transition-opacity duration-300',
                     animState === 'visible' ? 'opacity-25' : 'opacity-0',
                 )}
@@ -226,7 +226,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
             <div
                 ref={sidebarRef}
                 className={cn(
-                    'right-sidebar fixed z-[70]',
+                    'right-sidebar fixed z-[55]',
                     'w-full max-w-md lg:max-w-lg xl:max-w-xl',
                     'bg-white shadow-2xl',
                     'flex flex-col',

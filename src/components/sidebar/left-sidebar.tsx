@@ -1252,7 +1252,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
 
             <div
                 className={cn(
-                    'left-sidebar fixed left-0 top-0 bottom-0 z-50',
+                    'left-sidebar fixed left-0 top-0 bottom-0 z-[60]',
                     'w-full bg-white shadow-2xl',
                     'flex flex-col',
                     'lg:w-[360px]',
