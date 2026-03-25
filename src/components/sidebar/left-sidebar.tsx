@@ -967,7 +967,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
                     </button>
-                    {confirmDeleteTripId === activeView.tripId ? (
+                    {confirmDeleteTripId !== null && confirmDeleteTripId === displayTripId ? (
                         <div className="flex-1 flex items-center gap-1">
                             <button onClick={() => handleDeleteTrip(activeView.tripId!)} className="flex-1 py-2 bg-red-500 text-white rounded-xl text-xs font-medium">确认</button>
                             <button onClick={() => cancelConfirmDelete()} className="flex-1 py-2 bg-gray-100 rounded-xl text-xs text-gray-600">取消</button>
