@@ -3,6 +3,13 @@
 @tailwind utilities;
 
 /* Global styles */
+:root {
+    --sat: env(safe-area-inset-top, 0px);    /* safe area top，用于所有需要避开状态栏的元素 */
+    --sab: env(safe-area-inset-bottom, 0px); /* safe area bottom */
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+}
+
 html,
 body {
     background-color: #e8e0d8; /* OSM 地图底色，确保 Safari 状态栏区域不露白 */
@@ -56,12 +63,13 @@ body {
 }
 
 /* PWA/black-translucent 模式下，地图容器延伸到物理屏幕四边，消除 safe area 露边 */
+/* 只有地图容器向外延伸；所有 UI 元素通过 var(--sat/--sab) 保持安全距离 */
 .map-container {
     position: fixed !important;
-    top: calc(-1 * env(safe-area-inset-top, 0px)) !important;
-    left: calc(-1 * env(safe-area-inset-left, 0px)) !important;
-    right: calc(-1 * env(safe-area-inset-right, 0px)) !important;
-    bottom: calc(-1 * env(safe-area-inset-bottom, 0px)) !important;
+    top: calc(-1 * var(--sat)) !important;
+    left: calc(-1 * var(--sal)) !important;
+    right: calc(-1 * var(--sar)) !important;
+    bottom: calc(-1 * var(--sab)) !important;
     width: auto !important;
     height: auto !important;
 }

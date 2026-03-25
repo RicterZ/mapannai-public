@@ -1261,7 +1261,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                     'lg:translate-x-0',
                     !leftSidebar.isOpen ? 'max-lg:-translate-x-full max-lg:transition-transform max-lg:duration-300' : 'max-lg:animate-slide-in-left',
                 )}
-                style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+                style={{ paddingTop: 'var(--sat)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
             >
                 {renderHeader()}
 

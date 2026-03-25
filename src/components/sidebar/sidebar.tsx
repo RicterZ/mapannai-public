@@ -241,6 +241,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                     (animState === 'entering' || animState === 'exiting') ? 'translate-x-full' : 'translate-x-0',
                 )}
                 style={{
+                    paddingTop: 'var(--sat)',
                     paddingBottom: 'env(safe-area-inset-bottom, 0px)',
                 }}
             >
