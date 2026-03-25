@@ -84,9 +84,10 @@ interface ChainItemProps {
     index: number
     hasArrowAfter: boolean
     onRemove: () => void
+    onFlyTo?: () => void
 }
 
-function ChainItem({ id, marker, index, hasArrowAfter, onRemove }: ChainItemProps) {
+function ChainItem({ id, marker, index, hasArrowAfter, onRemove, onFlyTo }: ChainItemProps) {
     const {
         attributes,
         listeners,
@@ -121,10 +122,16 @@ function ChainItem({ id, marker, index, hasArrowAfter, onRemove }: ChainItemProp
                     <span className="text-xs text-white">{icon.emoji}</span>
                 </div>
                 <div className="flex-1 min-w-0 py-2.5">
+                    <button
+                        className="w-full text-left"
+                        onClick={onFlyTo}
+                        title="跳转到此位置"
+                    >
                     <div className="text-sm font-medium text-gray-800 truncate">{marker.content.title || '未命名标记'}</div>
                     {marker.content.address && (
                         <div className="text-xs text-gray-400 truncate mt-0.5">{marker.content.address}</div>
                     )}
+                    </button>
                 </div>
                 <button
                     onClick={onRemove}
@@ -151,9 +158,10 @@ function ChainItem({ id, marker, index, hasArrowAfter, onRemove }: ChainItemProp
 
 interface PaletteItemProps {
     marker: Marker
+    onFlyTo?: () => void
 }
 
-function PaletteItem({ marker }: PaletteItemProps) {
+function PaletteItem({ marker, onFlyTo }: PaletteItemProps) {
     const paletteId = `palette::${marker.id}`
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: paletteId })
 
@@ -163,19 +171,25 @@ function PaletteItem({ marker }: PaletteItemProps) {
         <div
             ref={setNodeRef}
             className={cn(
-                'border border-gray-200 rounded-xl bg-white overflow-hidden flex items-center gap-2 cursor-grab active:cursor-grabbing',
+                'border border-gray-200 rounded-xl bg-white overflow-hidden flex items-center gap-2',
                 isDragging && 'opacity-40 border-blue-300'
             )}
-            {...attributes}
-            {...listeners}
         >
-            <div className="p-2.5 flex items-center gap-2 flex-1 min-w-0">
+            <div
+                className="p-2.5 flex items-center gap-2 flex-1 min-w-0 cursor-grab active:cursor-grabbing"
+                {...attributes}
+                {...listeners}
+            >
                 <div className={cn('w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0', getMarkerColor(marker.content.iconType || 'location'))}>
                     <span className="text-xs text-white">{icon.emoji}</span>
                 </div>
-                <div className="flex-1 min-w-0">
+                <button
+                    className="flex-1 min-w-0 text-left"
+                    onClick={onFlyTo}
+                    title="跳转到此位置"
+                >
                     <div className="text-sm font-medium text-gray-800 truncate">{marker.content.title || '未命名标记'}</div>
-                </div>
+                </button>
             </div>
         </div>
     )
@@ -1051,6 +1065,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                                         index={idx}
                                                         hasArrowAfter={idx < chainGroup.length - 1}
                                                         onRemove={() => handleRemoveFromChain(marker.id, chainIdx)}
+                                                        onFlyTo={() => handleMarkerClick(marker.id)}
                                                     />
                                                 ))}
                                             </ChainDropContainer>
@@ -1083,7 +1098,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                     .slice()
                                     .sort((a, b) => (a.content.iconType || 'location').localeCompare(b.content.iconType || 'location'))
                                     .map(marker => (
-                                        <PaletteItem key={marker.id} marker={marker} />
+                                        <PaletteItem key={marker.id} marker={marker} onFlyTo={() => handleMarkerClick(marker.id)} />
                                     ))}
                             </div>
                         </div>

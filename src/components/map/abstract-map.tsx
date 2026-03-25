@@ -200,6 +200,7 @@ export const AbstractMap = () => {
                         mapRef.current.flyTo({
                             center: [marker.coordinates.longitude, marker.coordinates.latitude],
                             zoom: 15,
+                            duration: 4000,
                         })
                     }
                 }, 300)
@@ -218,7 +219,7 @@ export const AbstractMap = () => {
         const handleJumpToCenter = (event: CustomEvent) => {
             const { coordinates, zoom } = event.detail
             if (mapRef.current) {
-                mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], zoom })
+                mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], zoom, duration: 4000 })
             }
         }
 
@@ -247,12 +248,12 @@ export const AbstractMap = () => {
                 // 延迟执行，确保标记详情已经打开
                 setTimeout(() => {
                     if (mapRef.current) {
-                        mapRef.current.flyTo({ center: [adjustedCoordinates.longitude, adjustedCoordinates.latitude], zoom })
+                        mapRef.current.flyTo({ center: [adjustedCoordinates.longitude, adjustedCoordinates.latitude], zoom, duration: 4000 })
                     }
                 }, 100)
             } else {
                 // 正常跳转
-                mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], zoom })
+                mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], zoom, duration: 4000 })
             }
         }
     }, [isSidebarOpen])
