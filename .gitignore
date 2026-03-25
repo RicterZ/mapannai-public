@@ -123,6 +123,7 @@ build/
 dist/
 
 # Misc
+*.tsbuildinfo
 *.tsbuildinfo.mcp.json
 
 # SQLite database files
