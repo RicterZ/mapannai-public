@@ -5,7 +5,6 @@ import { useMapStore } from '@/store/map-store'
 import { cn } from '@/utils/cn'
 import { marked } from 'marked'
 import { toast } from 'sonner'
-import { MarkerChain } from './marker-chain'
 
 interface SidebarProps {
     onClose?: () => void
@@ -26,9 +25,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
         closeSidebar,
         editMarkerModal,
         openEditMarkerModal,
-        deleteMarker,
         selectMarker,
-        updateMarkerContent,
         activeView,
         tripDays,
         addMarkerToDay,
@@ -86,44 +83,24 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
     const handleMarkerSelection = useCallback((markerId: string) => {
         if (isAddingToChain) {
             if (targetMarkerId) {
-                
-                // 获取源标记
-                const sourceMarker = markers.find(m => m.id === targetMarkerId)
-                if (sourceMarker) {
-                    // 更新 next 字段
-                    const currentNext = sourceMarker.content.next || []
-                    if (!currentNext.includes(markerId)) {
-                        const updatedNext = [...currentNext, markerId]
-                        
-                        // 更新标记内容
-                        updateMarkerContent(targetMarkerId, {
-                            title: sourceMarker.content.title,
-                            headerImage: sourceMarker.content.headerImage,
-                            markdownContent: sourceMarker.content.markdownContent,
-                            next: updatedNext
-                        })
-                        
-                        // 触发路径重新计算
-                        const refreshEvent = new CustomEvent('refreshConnectionLines')
-                        window.dispatchEvent(refreshEvent)
-                        
-                        // 显示成功消息
-                        const event = new CustomEvent('showMessage', {
-                            detail: {
-                                type: 'success',
-                                message: '成功添加到标记链',
-                                duration: 3000
-                            }
-                        })
-                        window.dispatchEvent(event)
-                    } else {
+                // 触发路径重新计算
+                const refreshEvent = new CustomEvent('refreshConnectionLines')
+                window.dispatchEvent(refreshEvent)
+
+                // 显示成功消息
+                const event = new CustomEvent('showMessage', {
+                    detail: {
+                        type: 'success',
+                        message: '成功添加到标记链',
+                        duration: 3000
                     }
-                }
+                })
+                window.dispatchEvent(event)
             } else {
                 // 如果没有目标标记，说明是直接添加模式，不需要添加到链中
                 return // 直接返回，不执行后续逻辑
             }
-            
+
             // 重置状态
             setIsAddingToChain(false)
             setTargetMarkerId(null)
@@ -131,7 +108,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
             // 正常选择标记
             selectMarker(markerId)
         }
-    }, [isAddingToChain, targetMarkerId, markers, updateMarkerContent, selectMarker])
+    }, [isAddingToChain, targetMarkerId, selectMarker])
 
     // 监听添加标记事件
     useEffect(() => {

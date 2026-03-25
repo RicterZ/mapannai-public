@@ -97,6 +97,7 @@ export function registerTripTools(server: McpServer) {
                     tripId,
                     date: cursor.toISOString().slice(0, 10),
                     markerIds: [],
+                    chains: [],
                 })
                 cursor.setDate(cursor.getDate() + 1)
             }
@@ -123,7 +124,7 @@ export function registerTripTools(server: McpServer) {
             title: z.string().optional().describe('当天自定义标题'),
         },
         async ({ tripId, date, title }) => {
-            const day: TripDay = { id: `day_${uuidv4()}`, tripId, date, title, markerIds: [] }
+            const day: TripDay = { id: `day_${uuidv4()}`, tripId, date, title, markerIds: [], chains: [] }
             upsertTripDay(day)
             return { content: [{ type: 'text', text: JSON.stringify(day, null, 2) }] }
         }
@@ -211,6 +212,13 @@ export function registerTripTools(server: McpServer) {
                 } catch (err) {
                     results.push({ name: place.name, id: null, status: 'error', error: err instanceof Error ? err.message : String(err) })
                 }
+            }
+
+            // Build a single chain from all successfully placed markers (in order)
+            const validIds = results.filter(r => r.id).map(r => r.id as string)
+            if (validIds.length >= 2) {
+                const finalDay = getDayById(dayId)!
+                upsertTripDay({ ...finalDay, chains: [...(finalDay.chains ?? []), validIds] })
             }
 
             return { content: [{ type: 'text', text: JSON.stringify({ dayId, results }, null, 2) }] }

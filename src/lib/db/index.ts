@@ -35,7 +35,8 @@ function initSchema(db: Database.Database) {
             trip_id     TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
             date        TEXT NOT NULL,
             title       TEXT,
-            marker_ids  TEXT NOT NULL DEFAULT '[]'
+            marker_ids  TEXT NOT NULL DEFAULT '[]',
+            chains      TEXT NOT NULL DEFAULT '[]'
         );
 
         CREATE INDEX IF NOT EXISTS idx_trip_days_trip_id ON trip_days(trip_id);
@@ -55,4 +56,10 @@ function initSchema(db: Database.Database) {
             updated_at       TEXT NOT NULL
         );
     `)
+
+    // Runtime migration: add chains column if it doesn't exist yet (for existing DBs)
+    const cols = db.prepare(`PRAGMA table_info(trip_days)`).all() as { name: string }[]
+    if (!cols.some(c => c.name === 'chains')) {
+        db.exec(`ALTER TABLE trip_days ADD COLUMN chains TEXT NOT NULL DEFAULT '[]'`)
+    }
 }

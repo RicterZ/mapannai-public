@@ -52,7 +52,6 @@ function rowToFeature(row: any): GeoJSONFeature {
             markdownContent: row.markdown_content,
             headerImage: row.header_image ?? null,
             address: row.address ?? null,
-            next: JSON.parse(row.next || '[]'),
             metadata: {
                 id: row.id,
                 title: row.title ?? '未命名标记',
@@ -129,9 +128,9 @@ export function upsertMarker(
     const db = getDb()
     db.prepare(`
         INSERT INTO markers
-            (id, longitude, latitude, title, address, header_image, icon_type, markdown_content, next, description, created_at, updated_at)
+            (id, longitude, latitude, title, address, header_image, icon_type, markdown_content, description, created_at, updated_at)
         VALUES
-            (@id, @longitude, @latitude, @title, @address, @headerImage, @iconType, @markdownContent, @next, @description, @createdAt, @updatedAt)
+            (@id, @longitude, @latitude, @title, @address, @headerImage, @iconType, @markdownContent, @description, @createdAt, @updatedAt)
         ON CONFLICT(id) DO UPDATE SET
             longitude        = excluded.longitude,
             latitude         = excluded.latitude,
@@ -140,7 +139,6 @@ export function upsertMarker(
             header_image     = excluded.header_image,
             icon_type        = excluded.icon_type,
             markdown_content = excluded.markdown_content,
-            next             = excluded.next,
             description      = excluded.description,
             updated_at       = excluded.updated_at
     `).run({
@@ -152,7 +150,6 @@ export function upsertMarker(
         headerImage: properties.headerImage ?? null,
         iconType: properties.iconType ?? 'location',
         markdownContent: properties.markdownContent ?? '',
-        next: JSON.stringify(properties.next ?? []),
         description: meta.description ?? properties.description ?? null,
         createdAt: meta.createdAt ?? now,
         updatedAt: meta.updatedAt ?? now,
@@ -164,15 +161,4 @@ export function upsertMarker(
 /** Delete a marker by ID. No-op if it doesn't exist. */
 export function deleteMarker(id: string): void {
     getDb().prepare(`DELETE FROM markers WHERE id = ?`).run(id)
-}
-
-/** Clear the `next` array of all markers whose IDs are in the provided set. */
-export function clearNextLinks(markerIds: Set<string>): void {
-    if (markerIds.size === 0) return
-    const db = getDb()
-    const ids = Array.from(markerIds)
-    const placeholders = ids.map(() => '?').join(',')
-    db.prepare(
-        `UPDATE markers SET next = '[]', updated_at = ? WHERE id IN (${placeholders}) AND next != '[]'`
-    ).run(new Date().toISOString(), ...ids)
 }

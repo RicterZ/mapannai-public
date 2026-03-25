@@ -7,25 +7,6 @@ import { Marker } from '@/types/marker'
 import { useMapStore } from '@/store/map-store'
 import { getZoomThreshold } from '@/lib/zoom-threshold'
 
-// 检查连线是否在完整的标记链中
-// 算法说明：
-// highlightedChains 是链列表（每条链是独立的 marker id 集合）。
-// 一条连线 from→to 高亮的条件：
-//   存在某条链，使得 from 和 to 同时属于该链，且 from.next 包含 to
-// 这样即使 A 同时出现在链1(X→Y→A→B)和链2(A→B→C→D)中，
-// hover 链2 时，Y→A 不会被高亮，因为 Y 不在链2的集合里。
-const isLineInHighlightedChain = (line: ConnectionLine, highlightedChains: string[][], markers: Marker[]): boolean => {
-    // 先确认 from.next 确实包含 to（是真实存在的边）
-    const fromMarker = markers.find(m => m.id === line.from.id)
-    if (!fromMarker?.content.next?.includes(line.to.id)) return false
-
-    // 检查是否存在某条链，同时包含 from 和 to
-    return highlightedChains.some(chain => {
-        const chainSet = new Set(chain)
-        return chainSet.has(line.from.id) && chainSet.has(line.to.id)
-    })
-}
-
 /** 计算贝塞尔控制点 */
 function getControlPoint(
     from: { lat: number; lng: number },
@@ -84,7 +65,7 @@ const emptyFeatureCollection: GeoJSON.FeatureCollection = {
 }
 
 interface ConnectionLinesProps {
-    markers: Marker[]
+    markers?: Marker[]
     zoom?: number
 }
 
@@ -92,11 +73,12 @@ interface ConnectionLine {
     id: string
     from: Marker
     to: Marker
+    dayId: string
 }
 
-export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) => {
-    const { interactionState } = useMapStore()
-    const { highlightedChainIds } = interactionState
+export const ConnectionLines = ({ zoom = 11 }: ConnectionLinesProps) => {
+    const { markers, tripDays, activeView, interactionState } = useMapStore()
+    const { highlightedDayId } = interactionState
     const { current: map } = useMap()
 
     // 订阅 zoomThreshold 动态变化（响应 window.__setZoomThreshold 调用）
@@ -113,48 +95,52 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
     const rafRef = useRef<number | null>(null)
     const tRef = useRef(0)
 
-    // 计算所有连接线
+    // 按 activeView 过滤相关的 TripDay
+    const relevantDays = useMemo(() => {
+        if (activeView.mode === 'day' && activeView.dayId) {
+            return tripDays.filter(d => d.id === activeView.dayId)
+        }
+        if (activeView.mode === 'trip' && activeView.tripId) {
+            return tripDays.filter(d => d.tripId === activeView.tripId)
+        }
+        // overview：取全部
+        return tripDays
+    }, [tripDays, activeView])
+
+    // 计算所有连接线：每个 day 的 chains 里相邻对
     const connectionLines = useMemo(() => {
         const lines: ConnectionLine[] = []
+        const markerMap = new Map(markers.map(m => [m.id, m]))
 
-        markers.forEach(marker => {
-            // 检查当前标记是否有 next 字段且不为空
-            if (marker.content.next && marker.content.next.length > 0) {
-                marker.content.next.forEach(nextMarkerId => {
-                    // 查找目标标记
-                    const targetMarker = markers.find(m => m.id === nextMarkerId)
-                    if (targetMarker) {
+        for (const day of relevantDays) {
+            const chains = day.chains ?? []
+            for (let ci = 0; ci < chains.length; ci++) {
+                const chain = chains[ci]
+                for (let i = 0; i < chain.length - 1; i++) {
+                    const fromMarker = markerMap.get(chain[i])
+                    const toMarker = markerMap.get(chain[i + 1])
+                    if (fromMarker && toMarker) {
                         lines.push({
-                            id: `${marker.id}-${nextMarkerId}`,
-                            from: marker,
-                            to: targetMarker
+                            id: `${day.id}-c${ci}-${i}`,
+                            from: fromMarker,
+                            to: toMarker,
+                            dayId: day.id,
                         })
                     }
-                })
+                }
             }
-        })
+        }
 
         return lines
-    }, [markers])
+    }, [relevantDays, markers])
 
     // 计算需要高亮的连线ID
     const highlightedLineIds = useMemo(() => {
-        if (highlightedChainIds.length === 0) {
-            return []
-        }
-
-        const highlightedIds = new Set<string>()
-
-        // 遍历所有连接线，检查是否应该高亮
-        connectionLines.forEach(line => {
-            const shouldHighlight = isLineInHighlightedChain(line, highlightedChainIds, markers)
-            if (shouldHighlight) {
-                highlightedIds.add(line.id)
-            }
-        })
-
-        return Array.from(highlightedIds)
-    }, [connectionLines, highlightedChainIds, markers])
+        if (!highlightedDayId) return []
+        return connectionLines
+            .filter(l => l.dayId === highlightedDayId)
+            .map(l => l.id)
+    }, [connectionLines, highlightedDayId])
 
     // 预计算每条连线的控制点（避免动画循环中重复计算）
     const lineControlPoints = useMemo(() =>
@@ -244,6 +230,7 @@ export const ConnectionLines = ({ markers, zoom = 11 }: ConnectionLinesProps) =>
                     id: line.id,
                     fromId: line.from.id,
                     toId: line.to.id,
+                    dayId: line.dayId,
                     isDragPreview: false,
                     isWalkingRoute: false
                 }

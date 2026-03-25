@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
         title: name,
         iconType: feature.properties.iconType,
         markdownContent: feature.properties.markdownContent || '',
-        next: feature.properties.next || [],
+
         createdAt: meta.createdAt ? new Date(meta.createdAt) : now,
         updatedAt: meta.updatedAt ? new Date(meta.updatedAt) : now,
       },

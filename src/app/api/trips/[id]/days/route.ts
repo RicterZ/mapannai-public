@@ -33,6 +33,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
             date,
             title: title?.trim() || undefined,
             markerIds: markerIds || [],
+            chains: [],
         }
 
         upsertTripDay(day)

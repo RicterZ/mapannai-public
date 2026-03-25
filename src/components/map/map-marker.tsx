@@ -1,37 +1,10 @@
 'use client'
 
 import React, { useState, useCallback, useSyncExternalStore } from 'react'
-import { Marker } from '@/types/marker'
-import { MARKER_ICONS } from '@/types/marker'
+import { Marker, MARKER_ICONS } from '@/types/marker'
 import { cn } from '@/utils/cn'
 import { getZoomThreshold } from '@/lib/zoom-threshold'
 import { useMapStore } from '@/store/map-store'
-
-/**
- * 找到当前 marker 所属的所有链，以链列表形式返回（每条链是独立的 marker id 集合）。
- * 从该 marker 出发向后 BFS，只收集后继节点（不追溯上游）。
- */
-function getChainsForMarker(markerId: string, markers: Marker[]): string[][] {
-    const nextMap = new Map<string, string[]>()
-    markers.forEach(m => {
-        if (m.content.next && m.content.next.length > 0) {
-            nextMap.set(m.id, m.content.next)
-        }
-    })
-    if (!nextMap.has(markerId)) return []
-    const chain = new Set<string>()
-    const queue = [markerId]
-    const visited = new Set<string>()
-    while (queue.length > 0) {
-        const cur = queue.shift()!
-        if (visited.has(cur)) continue
-        visited.add(cur)
-        chain.add(cur)
-        const nexts = nextMap.get(cur)
-        if (nexts) nexts.forEach(n => queue.push(n))
-    }
-    return [Array.from(chain)]
-}
 
 interface MapMarkerProps {
     marker: Marker
@@ -61,21 +34,21 @@ export const MapMarker = React.memo(function MapMarker({
 
     const handleMouseEnter = useCallback(() => {
         setIsHovered(true)
-        // 仅在非 day 视图时 hover 触发链高亮（day 视图由 setActiveView 统一激活）
-        const { markers: allMarkers, setHighlightedChain, activeView } = useMapStore.getState()
+        // 仅在非 day 视图时 hover 触发 day 高亮
+        const { tripDays, setHighlightedDay, activeView } = useMapStore.getState()
         if (activeView.mode !== 'day') {
-            const chains = getChainsForMarker(marker.id, allMarkers)
-            if (chains.length > 0) {
-                setHighlightedChain(chains)
+            const day = tripDays.find(d => d.markerIds.includes(marker.id))
+            if (day) {
+                setHighlightedDay(day.id)
             }
         }
     }, [marker.id])
 
     const handleMouseLeave = useCallback(() => {
         setIsHovered(false)
-        const { activeView, clearHighlightedChain } = useMapStore.getState()
+        const { activeView, setHighlightedDay } = useMapStore.getState()
         if (activeView.mode !== 'day') {
-            clearHighlightedChain()
+            setHighlightedDay(null)
         }
     }, [])
     

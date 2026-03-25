@@ -14,6 +14,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             ...day,
             title: body.title !== undefined ? (body.title?.trim() || undefined) : day.title,
             markerIds: body.markerIds !== undefined ? body.markerIds : day.markerIds,
+            chains: body.chains !== undefined ? body.chains : day.chains,
             date: body.date || day.date,
         }
 

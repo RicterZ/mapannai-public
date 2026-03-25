@@ -15,7 +15,9 @@ export interface TripDay {
   tripId: string
   date: string         // ISO date "2024-03-01" — bound to real calendar date
   title?: string       // optional custom title; if empty display "第N天 · 3月1日"
-  markerIds: string[]  // ordered list of marker IDs for this day
+  markerIds: string[]  // ordered list of marker IDs for this day (membership)
+  chains: string[][]   // ordered chains of marker IDs for this day (connection lines)
+                       // e.g. [[A,B,C],[D,E]] — F in markerIds but not in chains = isolated
 }
 
 export type ActiveViewMode = 'overview' | 'trip' | 'day'

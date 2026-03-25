@@ -85,11 +85,10 @@ interface MapStore {
     closeSidebar: () => void
 
     // Editor actions
-    updateMarkerContent: (markerId: string, content: { title?: string; headerImage?: string; markdownContent: string; next?: string[] }) => void
+    updateMarkerContent: (markerId: string, content: { title?: string; headerImage?: string; markdownContent: string }) => void
 
-    // Chain highlight actions
-    setHighlightedChain: (chains: string[][]) => void
-    clearHighlightedChain: () => void
+    // Day highlight actions
+    setHighlightedDay: (dayId: string | null) => void
 
     // Dataset actions
     saveMarkerToDataset: (marker: Marker) => Promise<void>
@@ -111,6 +110,7 @@ interface MapStore {
     addMarkerToDay: (tripId: string, dayId: string, markerId: string) => Promise<void>
     removeMarkerFromDay: (tripId: string, dayId: string, markerId: string) => Promise<void>
     reorderDayMarkers: (tripId: string, dayId: string, newOrder: string[]) => Promise<void>
+    updateDayChains: (tripId: string, dayId: string, chains: string[][]) => Promise<void>
 }
 
 // 检查是否在服务器端API路由中运行
@@ -131,7 +131,6 @@ const saveMarkerToDataset = async (marker: Marker) => {
         headerImage: marker.content.headerImage || null,
         address: marker.content.address || null,
         iconType: marker.content.iconType || 'location',
-        next: marker.content.next || [],
         metadata: {
             id: marker.id,
             title: marker.content.title || '新标记',
@@ -172,7 +171,7 @@ export const useMapStore = create<MapStore>()(
                 isSidebarOpen: false,
                 popupCoordinates: null,
                 placeName: null,
-                highlightedChainIds: [],
+                highlightedDayId: null,
             },
             isLoading: false,
             error: null,
@@ -221,7 +220,6 @@ export const useMapStore = create<MapStore>()(
                             address: data.address,
                             iconType: data.iconType,
                             markdownContent: '',
-                            next: [],
                             createdAt: now,
                             updatedAt: now,
                         },
@@ -564,7 +562,6 @@ export const useMapStore = create<MapStore>()(
                                     title: content.title,
                                     headerImage: content.headerImage,
                                     markdownContent: content.markdownContent,
-                                    next: content.next !== undefined ? content.next : marker.content.next || [],
                                     updatedAt: new Date(),
                                 },
                             }
@@ -706,23 +703,14 @@ export const useMapStore = create<MapStore>()(
                 set({ error: null }, false, 'clearError')
             },
 
-            // Chain highlight actions
-            setHighlightedChain: (chainIds) => {
+            // Day highlight actions
+            setHighlightedDay: (dayId) => {
                 set(state => ({
                     interactionState: {
                         ...state.interactionState,
-                        highlightedChainIds: chainIds,
+                        highlightedDayId: dayId,
                     },
-                }), false, 'setHighlightedChain')
-            },
-
-            clearHighlightedChain: () => {
-                set(state => ({
-                    interactionState: {
-                        ...state.interactionState,
-                        highlightedChainIds: [],
-                    },
-                }), false, 'clearHighlightedChain')
+                }), false, 'setHighlightedDay')
             },
 
             setLoading: (loading) => {
@@ -747,59 +735,13 @@ export const useMapStore = create<MapStore>()(
             setActiveView: (mode, tripId = null, dayId = null) => {
                 set({ activeView: { mode, tripId, dayId } }, false, 'setActiveView')
 
-                // 进入 day 视图时，自动高亮当天所有行程链并开始动画
-                if (mode === 'day' && dayId) {
-                    const { markers, tripDays, interactionState } = get()
-                    const day = tripDays.find(d => d.id === dayId)
-                    if (day && day.markerIds.length > 0) {
-                        const dayIdSet = new Set(day.markerIds)
-                        const dayMarkers = markers.filter(m => dayIdSet.has(m.id))
-
-                        // 计算 day 内的有向图
-                        const dayNextMap = new Map<string, string[]>()
-                        const inDegree = new Map<string, number>()
-                        for (const m of dayMarkers) inDegree.set(m.id, 0)
-                        for (const m of dayMarkers) {
-                            const dayNext = (m.content.next || []).filter(id => dayIdSet.has(id))
-                            dayNextMap.set(m.id, dayNext)
-                            for (const nid of dayNext) inDegree.set(nid, (inDegree.get(nid) || 0) + 1)
-                        }
-
-                        // 从入度为 0 且有后继的节点出发，走链
-                        const chains: string[][] = []
-                        const visited = new Set<string>()
-                        const starters = dayMarkers.filter(
-                            m => inDegree.get(m.id) === 0 && (dayNextMap.get(m.id) || []).length > 0
-                        )
-                        for (const starter of starters) {
-                            const chain: string[] = []
-                            let cur: string | undefined = starter.id
-                            while (cur && !visited.has(cur)) {
-                                visited.add(cur)
-                                chain.push(cur)
-                                cur = (dayNextMap.get(cur) || []).find(id => !visited.has(id))
-                            }
-                            if (chain.length > 1) chains.push(chain)
-                        }
-
-                        if (chains.length > 0) {
-                            set(state => ({
-                                interactionState: {
-                                    ...state.interactionState,
-                                    highlightedChainIds: chains,
-                                },
-                            }), false, 'setActiveView-highlightChains')
-                        }
-                    }
-                } else if (mode !== 'day') {
-                    // 离开 day 视图时清除高亮
-                    set(state => ({
-                        interactionState: {
-                            ...state.interactionState,
-                            highlightedChainIds: [],
-                        },
-                    }), false, 'setActiveView-clearChains')
-                }
+                // 进入 day 视图时高亮当天连线
+                set(state => ({
+                    interactionState: {
+                        ...state.interactionState,
+                        highlightedDayId: mode === 'day' ? dayId : null,
+                    },
+                }), false, 'setActiveView-highlight')
             },
 
             createTrip: async (data) => {
@@ -836,33 +778,13 @@ export const useMapStore = create<MapStore>()(
                 const response = await fetch(`/api/trips/${tripId}`, { method: 'DELETE' })
                 if (!response.ok) throw new Error('删除旅行失败')
 
-                // 收集该旅行所有天中涉及的 markerIds，用于清除 next 链接
-                const state = get()
-                const affectedDays = state.tripDays.filter(d => d.tripId === tripId)
-                const affectedMarkerIds = new Set<string>()
-                affectedDays.forEach(d => d.markerIds.forEach(id => affectedMarkerIds.add(id)))
-
                 set(prevState => ({
                     trips: prevState.trips.filter(t => t.id !== tripId),
                     tripDays: prevState.tripDays.filter(d => d.tripId !== tripId),
                     activeView: prevState.activeView.tripId === tripId
-                        ? { mode: 'overview', tripId: null, dayId: null }
+                        ? { mode: 'overview' as const, tripId: null, dayId: null }
                         : prevState.activeView,
-                    // 清空受影响 marker 的 next 链接，使其变为孤立点
-                    markers: prevState.markers.map(m =>
-                        affectedMarkerIds.has(m.id) && (m.content.next?.length ?? 0) > 0
-                            ? { ...m, content: { ...m.content, next: [] } }
-                            : m
-                    ),
                 }), false, 'deleteTrip')
-
-                // 异步将 next 清空同步到 Dataset
-                const updated = get().markers.filter(m => affectedMarkerIds.has(m.id))
-                updated.forEach(m => {
-                    get().saveMarkerToDataset(m).catch(err =>
-                        console.error('deleteTrip: 清除 next 链接失败', m.id, err)
-                    )
-                })
             },
 
             createTripDay: async (tripId, data) => {
@@ -935,43 +857,13 @@ export const useMapStore = create<MapStore>()(
 
             removeMarkerFromDay: async (tripId, dayId, markerId) => {
                 // 1. 立即更新本地 state（optimistic）
-                // 同时修复 next 链接：找到当天中指向 markerId 的上游节点，
-                // 将其 next 改为跳接到 markerId 的下游（保持链连续），并清空 markerId 自身的 next（day内部链接）
-                set(state => {
-                    const day = state.tripDays.find(d => d.id === dayId)
-                    const dayMarkerIds = new Set(day?.markerIds || [])
-                    const removedMarker = state.markers.find(m => m.id === markerId)
-                    // markerId 在当天的下游（只保留属于当天的那个）
-                    const downstream = (removedMarker?.content.next || []).find(nid => dayMarkerIds.has(nid)) || null
-
-                    return {
-                        tripDays: state.tripDays.map(d =>
-                            d.id === dayId
-                                ? { ...d, markerIds: d.markerIds.filter(id => id !== markerId) }
-                                : d
-                        ),
-                        markers: state.markers.map(m => {
-                            if (m.id === markerId) {
-                                // 清除 markerId 自身在当天的 next 链接
-                                return {
-                                    ...m,
-                                    content: {
-                                        ...m.content,
-                                        next: (m.content.next || []).filter(nid => !dayMarkerIds.has(nid)),
-                                    },
-                                }
-                            }
-                            // 上游节点：next 中包含 markerId，跳接到 downstream
-                            if ((m.content.next || []).includes(markerId) && dayMarkerIds.has(m.id)) {
-                                const newNext = (m.content.next || [])
-                                    .filter(nid => nid !== markerId)
-                                    .concat(downstream ? [downstream] : [])
-                                return { ...m, content: { ...m.content, next: newNext } }
-                            }
-                            return m
-                        }),
-                    }
-                }, false, 'removeMarkerFromDay-optimistic')
+                set(state => ({
+                    tripDays: state.tripDays.map(d =>
+                        d.id === dayId
+                            ? { ...d, markerIds: d.markerIds.filter(id => id !== markerId) }
+                            : d
+                    ),
+                }), false, 'removeMarkerFromDay-optimistic')
 
                 // 2. 异步持久化到服务端（失败时回滚）
                 fetch(`/api/trips/${tripId}/days/${dayId}/markers`, {
@@ -980,15 +872,6 @@ export const useMapStore = create<MapStore>()(
                     body: JSON.stringify({ markerId }),
                 }).then(res => {
                     if (!res.ok) throw new Error('从天移除标记失败')
-                    // 持久化受影响的 marker next 链接变更
-                    const updatedMarkers = get().markers.filter(m =>
-                        m.id === markerId || (m.content.next || []).includes(markerId)
-                    )
-                    updatedMarkers.forEach(m => {
-                        get().saveMarkerToDataset(m).catch(err =>
-                            console.error('removeMarkerFromDay: 保存 next 链接失败', m.id, err)
-                        )
-                    })
                 }).catch(() => {
                     // 回滚
                     set(state => ({
@@ -1016,6 +899,22 @@ export const useMapStore = create<MapStore>()(
                         d.id === dayId ? { ...d, markerIds: newOrder } : d
                     ),
                 }), false, 'reorderDayMarkers')
+            },
+
+            updateDayChains: async (tripId, dayId, chains) => {
+                // Optimistic update
+                set(state => ({
+                    tripDays: state.tripDays.map(d =>
+                        d.id === dayId ? { ...d, chains } : d
+                    ),
+                }), false, 'updateDayChains-optimistic')
+
+                const response = await fetch(`/api/trips/${tripId}/days/${dayId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chains }),
+                })
+                if (!response.ok) throw new Error('更新链路失败')
             },
         }),
         {

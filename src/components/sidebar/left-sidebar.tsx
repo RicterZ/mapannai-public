@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import {
     DndContext,
@@ -10,16 +10,17 @@ import {
     closestCenter,
     useSensor,
     useSensors,
+    useDroppable,
+    useDraggable,
     DragStartEvent,
     DragEndEvent,
-    DragOverEvent,
-    useDroppable,
 } from '@dnd-kit/core'
 import {
     SortableContext,
     useSortable,
     verticalListSortingStrategy,
     sortableKeyboardCoordinates,
+    arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useMapStore } from '@/store/map-store'
@@ -52,107 +53,6 @@ function getMarkerColor(iconType: string): string {
     return map[iconType] || 'bg-sky-500/50'
 }
 
-// ── SortableItem ─────────────────────────────────────────────────────────────
-
-interface SortableItemProps {
-    id: string
-    marker: Marker
-    index: number
-    hasArrowAfter: boolean
-    onMarkerClick: (markerId: string) => void
-    onRemove: (markerId: string) => void
-    isDragging?: boolean
-}
-
-function SortableItem({
-    id,
-    marker,
-    index,
-    hasArrowAfter,
-    onMarkerClick,
-    onRemove,
-    isDragging = false,
-}: SortableItemProps) {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging: isSortableDragging,
-    } = useSortable({ id })
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-    }
-
-    const icon = MARKER_ICONS[marker.content.iconType || 'location'] || MARKER_ICONS.location
-
-    return (
-        <div ref={setNodeRef} style={style} className={cn(isSortableDragging && 'opacity-40')}>
-            <div className="border border-gray-200 rounded-xl bg-white overflow-hidden">
-                {marker.content.headerImage && (
-                    <div className="w-full h-20 bg-gray-100">
-                        <img
-                            src={marker.content.headerImage}
-                            alt={marker.content.title || ''}
-                            className="w-full h-full object-cover"
-                            onError={e => { e.currentTarget.style.display = 'none' }}
-                        />
-                    </div>
-                )}
-                <div className="flex items-center gap-2">
-                    {/* Drag handle */}
-                    <button
-                        {...attributes}
-                        {...listeners}
-                        className="pl-2 py-2.5 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
-                        aria-label="拖拽排序"
-                    >
-                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M7 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm6-8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0z" />
-                        </svg>
-                    </button>
-
-                    <div className="flex items-center gap-2 py-2.5 flex-1 min-w-0">
-                        <span className="text-xs font-bold text-gray-400 w-4 flex-shrink-0">{index + 1}</span>
-                        <div className={cn('w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0', getMarkerColor(marker.content.iconType || 'location'))}>
-                            <span className="text-xs text-white">{icon.emoji}</span>
-                        </div>
-                        <button
-                            className="flex-1 text-left min-w-0"
-                            onClick={() => onMarkerClick(marker.id)}
-                        >
-                            <div className="text-sm font-medium text-gray-800 truncate">{marker.content.title || '未命名标记'}</div>
-                            {marker.content.address && (
-                                <div className="text-xs text-gray-400 truncate mt-0.5">{marker.content.address}</div>
-                            )}
-                        </button>
-                    </div>
-                    <button
-                        onClick={() => onRemove(marker.id)}
-                        className="px-3 py-2.5 text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 border-l border-gray-100"
-                        title="从当天移除"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            {hasArrowAfter && (
-                <div className="flex justify-center py-0.5">
-                    <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                </div>
-            )}
-        </div>
-    )
-}
-
 // Ghost item rendered in DragOverlay
 function DragGhostItem({ marker, index }: { marker: Marker; index: number }) {
     const icon = MARKER_ICONS[marker.content.iconType || 'location'] || MARKER_ICONS.location
@@ -176,36 +76,136 @@ function DragGhostItem({ marker, index }: { marker: Marker; index: number }) {
     )
 }
 
-// Droppable container for isolated items
-function IsolatedDropZone({ children, isEmpty }: { children: React.ReactNode; isEmpty: boolean }) {
-    const { setNodeRef, isOver } = useDroppable({ id: 'isolated' })
+// ── ChainItem: node inside a chain (edit mode) ───────────────────────────────
+
+interface ChainItemProps {
+    id: string          // dnd-kit id, format: chain-${chainIdx}::${markerId}
+    marker: Marker
+    index: number
+    hasArrowAfter: boolean
+    onRemove: () => void
+}
+
+function ChainItem({ id, marker, index, hasArrowAfter, onRemove }: ChainItemProps) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging: isSortableDragging,
+    } = useSortable({ id })
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    }
+
+    const icon = MARKER_ICONS[marker.content.iconType || 'location'] || MARKER_ICONS.location
+
     return (
-        <div
-            ref={setNodeRef}
-            className={cn(
-                'min-h-[40px] rounded-xl transition-colors',
-                isOver && 'bg-amber-50 ring-2 ring-amber-300 ring-dashed',
-                isEmpty && isOver && 'p-2'
-            )}
-        >
-            {children}
-            {isEmpty && isOver && (
-                <div className="text-xs text-amber-500 text-center py-1">拖放至此变为孤立地点</div>
+        <div ref={setNodeRef} style={style} className={cn(isSortableDragging && 'opacity-40')}>
+            <div className="border border-gray-200 rounded-xl bg-white overflow-hidden flex items-center gap-2">
+                <button
+                    {...attributes}
+                    {...listeners}
+                    className="pl-2 py-2.5 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+                    aria-label="拖拽排序"
+                >
+                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M7 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm6-8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0z" />
+                    </svg>
+                </button>
+                <span className="text-xs font-bold text-gray-400 w-4 flex-shrink-0">{index + 1}</span>
+                <div className={cn('w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0', getMarkerColor(marker.content.iconType || 'location'))}>
+                    <span className="text-xs text-white">{icon.emoji}</span>
+                </div>
+                <div className="flex-1 min-w-0 py-2.5">
+                    <div className="text-sm font-medium text-gray-800 truncate">{marker.content.title || '未命名标记'}</div>
+                    {marker.content.address && (
+                        <div className="text-xs text-gray-400 truncate mt-0.5">{marker.content.address}</div>
+                    )}
+                </div>
+                <button
+                    onClick={onRemove}
+                    className="px-3 py-2.5 text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 border-l border-gray-100"
+                    title="从该路线移除"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            {hasArrowAfter && (
+                <div className="flex justify-center py-0.5">
+                    <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
             )}
         </div>
     )
 }
 
-// ── Data types ────────────────────────────────────────────────────────────────
+// ── PaletteItem: draggable node in palette (edit mode) ───────────────────────
 
-interface OrderedItem {
+interface PaletteItemProps {
     marker: Marker
-    hasArrowAfter: boolean
 }
 
-interface ChainGroup {
-    id: string       // e.g. "chain-0", "chain-1"
-    items: OrderedItem[]
+function PaletteItem({ marker }: PaletteItemProps) {
+    const paletteId = `palette::${marker.id}`
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: paletteId })
+
+    const icon = MARKER_ICONS[marker.content.iconType || 'location'] || MARKER_ICONS.location
+
+    return (
+        <div
+            ref={setNodeRef}
+            className={cn(
+                'border border-gray-200 rounded-xl bg-white overflow-hidden flex items-center gap-2 cursor-grab active:cursor-grabbing',
+                isDragging && 'opacity-40 border-blue-300'
+            )}
+            {...attributes}
+            {...listeners}
+        >
+            <div className="p-2.5 flex items-center gap-2 flex-1 min-w-0">
+                <div className={cn('w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0', getMarkerColor(marker.content.iconType || 'location'))}>
+                    <span className="text-xs text-white">{icon.emoji}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-800 truncate">{marker.content.title || '未命名标记'}</div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ── ChainDropContainer: droppable wrapper for a chain ─────────────────────────
+
+function ChainDropContainer({ chainIdx, children, isEmpty }: {
+    chainIdx: number
+    children: React.ReactNode
+    isEmpty: boolean
+}) {
+    const { setNodeRef, isOver } = useDroppable({ id: `chain-drop-${chainIdx}` })
+    return (
+        <div
+            ref={setNodeRef}
+            className={cn(
+                'flex flex-col gap-0 min-h-[48px] rounded-lg transition-colors',
+                isOver && 'bg-blue-50 ring-2 ring-blue-200 ring-inset',
+                isEmpty && 'border border-dashed border-blue-200'
+            )}
+        >
+            {isEmpty && (
+                <div className="flex items-center justify-center h-12 text-xs text-blue-300 select-none">
+                    拖入节点到此路线
+                </div>
+            )}
+            {children}
+        </div>
+    )
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -217,12 +217,14 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         selectMarker, openSidebar,
         setActiveView, deleteTrip, updateTrip,
         removeMarkerFromDay,
-        updateMarkerContent,
+        updateDayChains,
     } = useMapStore()
 
     const [showCreateTrip, setShowCreateTrip] = useState(false)
     const [confirmDeleteTripId, setConfirmDeleteTripId] = useState<string | null>(null)
     const confirmDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    // Edit mode: number of pending (empty) chain slots user has clicked "create"
+    const [pendingEmptyChains, setPendingEmptyChains] = useState(0)
 
     const startConfirmDelete = (tripId: string) => {
         setConfirmDeleteTripId(tripId)
@@ -235,8 +237,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         setConfirmDeleteTripId(null)
     }
     const [activeDragId, setActiveDragId] = useState<string | null>(null)
-    const [activeOverContainer, setActiveOverContainer] = useState<string | null>(null)
-    const [linkingMarkerId, setLinkingMarkerId] = useState<string | null>(null)
+
     const [editingTripName, setEditingTripName] = useState(false)
     const [tripNameDraft, setTripNameDraft] = useState('')
     const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -318,88 +319,54 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
             .filter(Boolean) as typeof markers
     }, [currentDay, markers])
 
-    // Build chain groups + isolated items from the current day's markers
-    const { chainGroups, isolatedItems } = useMemo(() => {
-        if (!currentDay || currentDayMarkers.length === 0) {
-            return { chainGroups: [] as ChainGroup[], isolatedItems: [] as OrderedItem[] }
-        }
+    // Split currentDayMarkers into chain groups + isolated nodes
+    // 单节点链视为孤立节点（不构成连线）
+    const { chainedGroups, isolatedMarkers } = useMemo(() => {
+        if (!currentDay) return { chainedGroups: [], isolatedMarkers: [] }
+        const chains = currentDay.chains ?? []
+        const markerMap = new Map(currentDayMarkers.map(m => [m.id, m]))
 
-        const dayIdSet = new Set(currentDay.markerIds)
+        const validGroups = chains
+            .map(chain => chain.map(id => markerMap.get(id)).filter(Boolean) as Marker[])
+            .filter(g => g.length >= 2)  // 单节点链降级为孤立节点
 
-        // Build in-day next map and in-degree map
-        const dayNextMap = new Map<string, string[]>()
-        const inDegree = new Map<string, number>()
-        for (const m of currentDayMarkers) inDegree.set(m.id, 0)
-        for (const m of currentDayMarkers) {
-            const dayNext = (m.content.next || []).filter(id => dayIdSet.has(id))
-            dayNextMap.set(m.id, dayNext)
-            for (const nid of dayNext) inDegree.set(nid, (inDegree.get(nid) || 0) + 1)
-        }
-
-        const visited = new Set<string>()
-        const chains: ChainGroup[] = []
-
-        // Walk chains starting from nodes with in-degree 0 and out-degree > 0
-        const starters = currentDayMarkers.filter(
-            m => inDegree.get(m.id) === 0 && (dayNextMap.get(m.id) || []).length > 0
-        )
-        for (let gi = 0; gi < starters.length; gi++) {
-            const starter = starters[gi]
-            const chainItems: OrderedItem[] = []
-            let cur: Marker | undefined = starter
-            while (cur && !visited.has(cur.id)) {
-                visited.add(cur.id)
-                const nextId: string | undefined = (dayNextMap.get(cur.id) || []).find(id => !visited.has(id))
-                const nextMarker: Marker | undefined = nextId ? currentDayMarkers.find(m => m.id === nextId) : undefined
-                chainItems.push({ marker: cur, hasArrowAfter: !!nextMarker })
-                cur = nextMarker
-            }
-            if (chainItems.length > 0) {
-                chains.push({ id: `chain-${gi}`, items: chainItems })
-            }
-        }
-
-        // Isolated: not visited, in-degree 0, out-degree 0
-        const isolated: OrderedItem[] = []
-        for (const m of currentDayMarkers) {
-            if (!visited.has(m.id)) {
-                isolated.push({ marker: m, hasArrowAfter: false })
-            }
-        }
-
-        return { chainGroups: chains, isolatedItems: isolated }
+        const inValidChainSet = new Set(validGroups.flat().map(m => m.id))
+        const isolatedMarkers = currentDayMarkers.filter(m => !inValidChainSet.has(m.id))
+        return { chainedGroups: validGroups, isolatedMarkers }
     }, [currentDay, currentDayMarkers])
 
-    // Flat ordered list for display indices
-    const allItems = useMemo(() => {
-        const result: OrderedItem[] = []
-        for (const group of chainGroups) result.push(...group.items)
-        result.push(...isolatedItems)
-        return result
-    }, [chainGroups, isolatedItems])
+    // Edit mode chain groups: include single-node chains (not yet valid but in-progress)
+    // chainedGroupsEdit has all chains (including single-node), for rendering in edit mode
+    const chainedGroupsEdit = useMemo(() => {
+        if (!currentDay) return []
+        const chains = currentDay.chains ?? []
+        const markerMap = new Map(currentDayMarkers.map(m => [m.id, m]))
+        return chains
+            .map(chain => chain.map(id => markerMap.get(id)).filter(Boolean) as Marker[])
+    }, [currentDay, currentDayMarkers])
+
+    // 自动清理 DB 里的单节点链（避免脏数据残留）
+    // Only runs when the day changes, not on every currentDay mutation
+    const prevCleanupDayRef = useRef<string | null>(null)
+    useEffect(() => {
+        if (!currentDay || !activeView.tripId || !activeView.dayId) return
+        if (prevCleanupDayRef.current === activeView.dayId) return
+        prevCleanupDayRef.current = activeView.dayId
+        // Reset pending empty chains when switching days
+        setPendingEmptyChains(0)
+        // Clean degenerate chains from previous day state (may have been left over)
+        const chains = currentDay.chains ?? []
+        const hasDegenerate = chains.some(c => c.length < 2)
+        if (!hasDegenerate) return
+        const cleaned = chains.filter(c => c.length >= 2)
+        updateDayChains(activeView.tripId, activeView.dayId, cleaned)
+    }, [activeView.dayId, activeView.tripId, currentDay, updateDayChains])
 
     // Unassigned markers: those not appearing in any TripDay's markerIds
     const unassignedMarkers = useMemo(() => {
         const assignedIds = new Set(tripDays.flatMap(d => d.markerIds))
         return markers.filter(m => !assignedIds.has(m.id))
     }, [markers, tripDays])
-
-    // ── next-link helpers ─────────────────────────────────────────────────────
-
-    // Update a marker's next array and persist to Dataset
-    const updateNext = useCallback((markerId: string, newNext: string[]) => {
-        const marker = markers.find(m => m.id === markerId)
-        if (!marker) return
-        updateMarkerContent(markerId, {
-            title: marker.content.title,
-            headerImage: marker.content.headerImage,
-            markdownContent: marker.content.markdownContent,
-            next: newNext,
-        })
-    }, [markers, updateMarkerContent])
-
-    // Find who points to targetId in the current day (unused but kept for future use)
-    // const findPrev = useCallback((targetId: string): string | null => { ... })
 
     // ── Drag and drop ─────────────────────────────────────────────────────────
 
@@ -412,200 +379,157 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         setActiveDragId(event.active.id as string)
     }, [])
 
-    const handleDragOver = useCallback((event: DragOverEvent) => {
-        const overId = event.over?.id as string | undefined
-        if (!overId) {
-            setActiveOverContainer(null)
-            return
-        }
-        // Determine which container we're over
-        if (overId === 'isolated') {
-            setActiveOverContainer('isolated')
-            return
-        }
-        // Check if over a chain container
-        for (const group of chainGroups) {
-            if (overId === group.id || group.items.some(i => i.marker.id === overId)) {
-                setActiveOverContainer(group.id)
-                return
-            }
-        }
-        // Check if over an isolated item
-        if (isolatedItems.some(i => i.marker.id === overId)) {
-            setActiveOverContainer('isolated')
-            return
-        }
-        setActiveOverContainer(null)
-    }, [chainGroups, isolatedItems])
-
     const handleDragEnd = useCallback((event: DragEndEvent) => {
         const { active, over } = event
         setActiveDragId(null)
-        setActiveOverContainer(null)
 
         if (!over || active.id === over.id) return
+        if (!currentDay || !activeView.tripId || !activeView.dayId) return
 
         const dragId = active.id as string
         const overId = over.id as string
 
-        // Find source container
-        let sourceContainer: string | null = null
-        let sourceChainGroup: ChainGroup | null = null
-        for (const group of chainGroups) {
-            if (group.items.some(i => i.marker.id === dragId)) {
-                sourceContainer = group.id
-                sourceChainGroup = group
-                break
+        // ── 编辑模式新版：链 + 调色板 ─────────────────────────────────────────
+        if (addMarkerEnabled) {
+            // Parse IDs
+            const parseId = (id: string) => {
+                if (id.startsWith('chain-drop-')) return { type: 'chain-drop' as const, chainIdx: parseInt(id.slice(11)) }
+                if (id.startsWith('chain-') && id.includes('::')) {
+                    const sepIdx = id.indexOf('::')
+                    const chainIdx = parseInt(id.slice(6, sepIdx))
+                    const markerId = id.slice(sepIdx + 2)
+                    return { type: 'chain-item' as const, chainIdx, markerId }
+                }
+                if (id.startsWith('palette::')) return { type: 'palette' as const, markerId: id.slice(9) }
+                return { type: 'unknown' as const }
             }
-        }
-        if (!sourceContainer && isolatedItems.some(i => i.marker.id === dragId)) {
-            sourceContainer = 'isolated'
-        }
 
-        // Find target container
-        let targetContainer: string | null = null
-        let targetChainGroup: ChainGroup | null = null
-        if (overId === 'isolated') {
-            targetContainer = 'isolated'
-        } else {
-            for (const group of chainGroups) {
-                if (overId === group.id || group.items.some(i => i.marker.id === overId)) {
-                    targetContainer = group.id
-                    targetChainGroup = group
-                    break
+            const drag = parseId(dragId)
+            const drop = parseId(overId)
+
+            const chains = currentDay.chains ?? []
+            let newChains: string[][] = chains.map(c => [...c])
+
+            if (drag.type === 'chain-item' && drop.type === 'chain-item' && drag.chainIdx === drop.chainIdx) {
+                // Case A: reorder within same chain
+                const chain = newChains[drag.chainIdx]
+                const fromIdx = chain.indexOf(drag.markerId)
+                const toIdx = chain.indexOf(drop.markerId)
+                if (fromIdx === -1 || toIdx === -1) return
+                newChains[drag.chainIdx] = arrayMove(chain, fromIdx, toIdx)
+            } else if (drag.type === 'chain-item' && drop.type === 'chain-item' && drag.chainIdx !== drop.chainIdx) {
+                // Case B: move chain node to a different chain
+                newChains[drag.chainIdx] = newChains[drag.chainIdx].filter(id => id !== drag.markerId)
+                const targetChain = newChains[drop.chainIdx]
+                const insertAt = targetChain.indexOf(drop.markerId)
+                const safeInsert = insertAt === -1 ? targetChain.length : insertAt
+                newChains[drop.chainIdx] = [
+                    ...targetChain.slice(0, safeInsert),
+                    drag.markerId,
+                    ...targetChain.slice(safeInsert),
+                ]
+                newChains = newChains.filter(c => c.length >= 1)
+            } else if (drag.type === 'palette' && drop.type === 'chain-drop') {
+                // Case C: palette node → chain drop zone (append to end)
+                const chainIdx = drop.chainIdx
+                if (chainIdx < newChains.length) {
+                    if (!newChains[chainIdx].includes(drag.markerId)) {
+                        newChains[chainIdx] = [...newChains[chainIdx], drag.markerId]
+                    }
+                } else {
+                    // Pending chain slot: create new chain with this marker
+                    newChains = [...newChains, [drag.markerId]]
+                    setPendingEmptyChains(prev => Math.max(0, prev - 1))
+                }
+            } else if (drag.type === 'palette' && drop.type === 'chain-item') {
+                // Case D: palette node → onto a chain item (insert before that item)
+                const chainIdx = drop.chainIdx
+                if (!newChains[chainIdx].includes(drag.markerId)) {
+                    const targetChain = newChains[chainIdx]
+                    const insertAt = targetChain.indexOf(drop.markerId)
+                    const safeInsert = insertAt === -1 ? targetChain.length : insertAt
+                    newChains[chainIdx] = [
+                        ...targetChain.slice(0, safeInsert),
+                        drag.markerId,
+                        ...targetChain.slice(safeInsert),
+                    ]
                 }
             }
-            if (!targetContainer && isolatedItems.some(i => i.marker.id === overId)) {
-                targetContainer = 'isolated'
+            // Palette → palette: ignore (no sorting in palette)
+            // Chain item → palette: not supported (use × button)
+            else {
+                return
             }
+
+            updateDayChains(activeView.tripId, activeView.dayId, newChains)
+            return
         }
 
-        if (!sourceContainer || !targetContainer) return
+        const chains = currentDay.chains ?? []
+        const isolatedIds = new Set(isolatedMarkers.map(m => m.id))
 
-        // ── Case 1: Chain-internal reorder ──────────────────────────────────
-        if (sourceContainer === targetContainer && sourceContainer.startsWith('chain-') && sourceChainGroup) {
-            const chainIds = sourceChainGroup.items.map(i => i.marker.id)
-            const fromIdx = chainIds.indexOf(dragId)
-            const toIdx = overId === sourceChainGroup.id ? 0 : chainIds.indexOf(overId)
-            if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return
+        // Find which chain contains dragId (-1 = isolated)
+        const dragChainIdx = chains.findIndex(c => c.includes(dragId))
+        const isDragIsolated = isolatedIds.has(dragId)
 
-            // Build new order
-            const newOrder = [...chainIds]
-            newOrder.splice(fromIdx, 1)
-            newOrder.splice(toIdx, 0, dragId)
-
-            // Rebuild next links: each node points to next in newOrder
-            for (let i = 0; i < newOrder.length; i++) {
-                const id = newOrder[i]
-                const marker = currentDayMarkers.find(m => m.id === id)
-                if (!marker) continue
-                // Keep non-day next links, rebuild day-internal next
-                const externalNext = (marker.content.next || []).filter(nid => !currentDay?.markerIds.includes(nid))
-                const newNext = i < newOrder.length - 1
-                    ? [...externalNext, newOrder[i + 1]]
-                    : externalNext
-                updateNext(id, newNext)
-            }
+        // Resolve over container: overId may be a marker id or a chain/isolated container id
+        // Determine if overId is a chain container marker id, or a droppable container
+        // Container ids: 'chain-0', 'chain-1', ..., 'isolated'
+        let overChainIdx = chains.findIndex(c => c.includes(overId))
+        const isOverIsolated = isolatedIds.has(overId) || overId === 'isolated'
+        // overId could be "chain-N" (dropped on the container itself)
+        if (overChainIdx === -1 && overId.startsWith('chain-')) {
+            overChainIdx = parseInt(overId.slice(6), 10)
         }
 
-        // ── Case 2: Isolated → Chain ─────────────────────────────────────────
-        else if (sourceContainer === 'isolated' && targetContainer.startsWith('chain-') && targetChainGroup) {
-            const chainIds = targetChainGroup.items.map(i => i.marker.id)
-            let insertIdx = overId === targetChainGroup.id ? chainIds.length : chainIds.indexOf(overId)
-            if (insertIdx === -1) insertIdx = chainIds.length
+        // Build new chains (clone)
+        let newChains: string[][] = chains.map(c => [...c])
 
-            // New chain order after insertion
-            const newOrder = [...chainIds]
-            newOrder.splice(insertIdx, 0, dragId)
-
-            // Rebuild next links for the whole chain
-            for (let i = 0; i < newOrder.length; i++) {
-                const id = newOrder[i]
-                const marker = currentDayMarkers.find(m => m.id === id)
-                if (!marker) continue
-                const externalNext = (marker.content.next || []).filter(nid => !currentDay?.markerIds.includes(nid))
-                const newNext = i < newOrder.length - 1
-                    ? [...externalNext, newOrder[i + 1]]
-                    : externalNext
-                updateNext(id, newNext)
-            }
+        if (dragChainIdx !== -1 && overChainIdx !== -1 && dragChainIdx === overChainIdx) {
+            // Case 1: reorder within same chain
+            const chain = newChains[dragChainIdx]
+            const fromIdx = chain.indexOf(dragId)
+            const toIdx = chain.indexOf(overId)
+            if (fromIdx === -1 || toIdx === -1) return
+            newChains[dragChainIdx] = arrayMove(chain, fromIdx, toIdx)
+        } else if (isDragIsolated && overChainIdx !== -1) {
+            // Case 2: isolated → chain
+            // Insert dragId at the position of overId in target chain
+            const targetChain = newChains[overChainIdx]
+            const insertAt = overId.startsWith('chain-') ? targetChain.length : targetChain.indexOf(overId)
+            const safeInsert = insertAt === -1 ? targetChain.length : insertAt
+            newChains[overChainIdx] = [
+                ...targetChain.slice(0, safeInsert),
+                dragId,
+                ...targetChain.slice(safeInsert),
+            ]
+        } else if (dragChainIdx !== -1 && isOverIsolated) {
+            // Case 3: chain → isolated (remove from chain)
+            newChains[dragChainIdx] = newChains[dragChainIdx].filter(id => id !== dragId)
+            // Remove chains with 0 or 1 node (single node needs no line)
+            newChains = newChains.filter(c => c.length >= 2)
+        } else if (dragChainIdx !== -1 && overChainIdx !== -1 && dragChainIdx !== overChainIdx) {
+            // Case 4: move from one chain to another
+            newChains[dragChainIdx] = newChains[dragChainIdx].filter(id => id !== dragId)
+            const targetChain = newChains[overChainIdx]
+            const insertAt = targetChain.indexOf(overId)
+            const safeInsert = insertAt === -1 ? targetChain.length : insertAt
+            newChains[overChainIdx] = [
+                ...targetChain.slice(0, safeInsert),
+                dragId,
+                ...targetChain.slice(safeInsert),
+            ]
+            // Clean up empty/single-node chains from source
+            newChains = newChains.filter(c => c.length >= 2)
+        } else if (isDragIsolated && isOverIsolated && overId !== 'isolated') {
+            // Case 5: isolated → isolated (merge into new chain)
+            newChains = [...newChains, [dragId, overId]]
+        } else {
+            return
         }
 
-        // ── Case 3: Chain → Isolated ─────────────────────────────────────────
-        else if (sourceContainer.startsWith('chain-') && targetContainer === 'isolated' && sourceChainGroup) {
-            const chainIds = sourceChainGroup.items.map(i => i.marker.id)
-            const removeIdx = chainIds.indexOf(dragId)
-            if (removeIdx === -1) return
-
-            // Rebuild remaining chain without dragId
-            const newOrder = chainIds.filter(id => id !== dragId)
-
-            for (let i = 0; i < newOrder.length; i++) {
-                const id = newOrder[i]
-                const marker = currentDayMarkers.find(m => m.id === id)
-                if (!marker) continue
-                const externalNext = (marker.content.next || []).filter(nid => !currentDay?.markerIds.includes(nid))
-                const newNext = i < newOrder.length - 1
-                    ? [...externalNext, newOrder[i + 1]]
-                    : externalNext
-                updateNext(id, newNext)
-            }
-
-            // Clear the dragged node's day-internal next links
-            const dragMarker = currentDayMarkers.find(m => m.id === dragId)
-            if (dragMarker) {
-                const externalNext = (dragMarker.content.next || []).filter(nid => !currentDay?.markerIds.includes(nid))
-                updateNext(dragId, externalNext)
-            }
-        }
-
-        // ── Case 4: Isolated → Isolated — 拖到另一个孤立标记上时新建行程链 ──────
-        else if (sourceContainer === 'isolated' && targetContainer === 'isolated') {
-            // 拖到空 drop zone（overId === 'isolated'）时只是视觉排序，不创建链
-            if (overId === 'isolated' || dragId === overId) return
-
-            // 拖到另一个孤立标记上：创建新链 [dragId → overId]
-            const dragMarker = currentDayMarkers.find(m => m.id === dragId)
-            if (!dragMarker) return
-            const externalNext = (dragMarker.content.next || []).filter(nid => !currentDay?.markerIds.includes(nid))
-            updateNext(dragId, [...externalNext, overId])
-        }
-
-        // ── Case 5: Chain → different Chain ─────────────────────────────────
-        else if (sourceContainer.startsWith('chain-') && targetContainer.startsWith('chain-') && sourceChainGroup && targetChainGroup && sourceChainGroup.id !== targetChainGroup.id) {
-            // Remove from source chain
-            const srcIds = sourceChainGroup.items.map(i => i.marker.id).filter(id => id !== dragId)
-            for (let i = 0; i < srcIds.length; i++) {
-                const id = srcIds[i]
-                const marker = currentDayMarkers.find(m => m.id === id)
-                if (!marker) continue
-                const externalNext = (marker.content.next || []).filter(nid => !currentDay?.markerIds.includes(nid))
-                const newNext = i < srcIds.length - 1 ? [...externalNext, srcIds[i + 1]] : externalNext
-                updateNext(id, newNext)
-            }
-            // Clear source node's day links
-            const dragMarker = currentDayMarkers.find(m => m.id === dragId)
-            if (dragMarker) {
-                const externalNext = (dragMarker.content.next || []).filter(nid => !currentDay?.markerIds.includes(nid))
-                updateNext(dragId, externalNext)
-            }
-
-            // Insert into target chain
-            const tgtIds = targetChainGroup.items.map(i => i.marker.id)
-            let insertIdx = overId === targetChainGroup.id ? tgtIds.length : tgtIds.indexOf(overId)
-            if (insertIdx === -1) insertIdx = tgtIds.length
-            const newTgtOrder = [...tgtIds]
-            newTgtOrder.splice(insertIdx, 0, dragId)
-            for (let i = 0; i < newTgtOrder.length; i++) {
-                const id = newTgtOrder[i]
-                const marker = currentDayMarkers.find(m => m.id === id)
-                if (!marker) continue
-                const externalNext = (marker.content.next || []).filter(nid => !currentDay?.markerIds.includes(nid))
-                const newNext = i < newTgtOrder.length - 1 ? [...externalNext, newTgtOrder[i + 1]] : externalNext
-                updateNext(id, newNext)
-            }
-        }
-    }, [chainGroups, isolatedItems, currentDayMarkers, currentDay, updateNext])
+        updateDayChains(activeView.tripId, activeView.dayId, newChains)
+    }, [currentDay, activeView, isolatedMarkers, addMarkerEnabled, updateDayChains])
 
     // ── Handlers ────────────────────────────────────────────────────────────
 
@@ -621,29 +545,6 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         selectMarker(markerId)
         openSidebar()
     }
-
-    // 点选合并：Day 视图孤立标记的点击处理
-    const handleIsolatedItemClick = useCallback((markerId: string) => {
-        if (!addMarkerEnabled) {
-            // 非编辑模式：打开详情
-            handleMarkerClick(markerId)
-            return
-        }
-        // 编辑模式：点选合并行程链
-        if (!linkingMarkerId) {
-            setLinkingMarkerId(markerId)
-        } else if (linkingMarkerId === markerId) {
-            setLinkingMarkerId(null)
-        } else {
-            const srcMarker = currentDayMarkers.find(m => m.id === linkingMarkerId)
-            if (srcMarker) {
-                const dayIds = new Set(currentDay?.markerIds || [])
-                const externalNext = (srcMarker.content.next || []).filter(nid => !dayIds.has(nid))
-                updateNext(linkingMarkerId, [...externalNext, markerId])
-            }
-            setLinkingMarkerId(null)
-        }
-    }, [addMarkerEnabled, linkingMarkerId, currentDayMarkers, currentDay, updateNext, handleMarkerClick])
 
     const handleDeleteTrip = async (tripId: string) => {
         try {
@@ -665,11 +566,34 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         }
     }
 
+    // 从某条链中移除指定节点（链缩短后 < 2 节点则删除整条链）
+    const handleRemoveFromChain = useCallback((markerId: string, chainIdx: number) => {
+        if (!currentDay || !activeView.tripId || !activeView.dayId) return
+        const newChains = (currentDay.chains ?? [])
+            .map((c, i) => i === chainIdx ? c.filter(id => id !== markerId) : c)
+            .filter(c => c.length >= 2)
+        updateDayChains(activeView.tripId, activeView.dayId, newChains)
+    }, [currentDay, activeView, updateDayChains])
+
     // 移动端关闭时不渲染；桌面端始终保持渲染
 
     // Active drag marker info
-    const activeDragMarker = activeDragId ? currentDayMarkers.find(m => m.id === activeDragId) : null
-    const activeDragIndex = activeDragId ? allItems.findIndex(i => i.marker.id === activeDragId) : -1
+    // activeDragId may be: markerId (plain), palette::markerId, chain-N::markerId
+    const activeDragMarkerId = useMemo(() => {
+        if (!activeDragId) return null
+        if (activeDragId.startsWith('palette::')) return activeDragId.slice(9)
+        if (activeDragId.includes('::')) return activeDragId.split('::')[1]
+        return activeDragId
+    }, [activeDragId])
+    const activeDragMarker = activeDragMarkerId ? currentDayMarkers.find(m => m.id === activeDragMarkerId) : null
+    const activeDragIndex = activeDragMarkerId ? currentDayMarkers.findIndex(m => m.id === activeDragMarkerId) : -1
+
+    // Reset pending empty chains when editing mode is turned off or day changes
+    useEffect(() => {
+        if (!addMarkerEnabled) {
+            setPendingEmptyChains(0)
+        }
+    }, [addMarkerEnabled])
 
     // ── Render helpers ───────────────────────────────────────────────────────
 
@@ -1058,9 +982,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
 
     // ── Day view ──────────────────────────────────────────────────────────────
     const renderDayView = () => {
-        const hasAnyItems = chainGroups.length > 0 || isolatedItems.length > 0
-
-        if (!hasAnyItems) {
+        if (currentDayMarkers.length === 0) {
             return (
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                     <div className="p-3">
@@ -1074,108 +996,87 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
             )
         }
 
-        // Accumulate display index across all items
-        let displayIdx = 0
+        // ── 编辑模式开：上方管理链，下方当天节点 ──────────────────────────────
+        if (addMarkerEnabled) {
+            // All chain item ids for SortableContext (per chain)
+            const getChainItemIds = (chainIdx: number) =>
+                (currentDay?.chains?.[chainIdx] ?? []).map(id => `chain-${chainIdx}::${id}`)
 
-        return (
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className="p-3">
+            const totalChains = chainedGroupsEdit.length + pendingEmptyChains
+
+            return (
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
                     <DndContext
+                        sensors={sensors}
                         collisionDetection={closestCenter}
                         onDragStart={handleDragStart}
-                        onDragOver={handleDragOver}
                         onDragEnd={handleDragEnd}
                     >
-                        <div className="flex flex-col gap-3">
-                            {/* Chain containers */}
-                            {chainGroups.map((group) => {
-                                const chainItemIds = group.items.map(i => i.marker.id)
-                                const isOverThisChain = activeOverContainer === group.id
+                        <div className="p-3 flex flex-col gap-3">
+                            {/* ── 上半区：路线卡片 ── */}
+                            {Array.from({ length: totalChains }).map((_, slotIdx) => {
+                                const isPending = slotIdx >= chainedGroupsEdit.length
+                                const chainGroup = isPending ? [] : chainedGroupsEdit[slotIdx]
+                                const chainIdx = slotIdx
+                                const chainItemIds = getChainItemIds(chainIdx)
+
                                 return (
-                                    <div
-                                        key={group.id}
-                                        className={cn(
-                                            'rounded-xl border-2 p-2 transition-colors',
-                                            isOverThisChain
-                                                ? 'border-blue-400 bg-blue-50'
-                                                : 'border-gray-200 bg-gray-50'
-                                        )}
-                                    >
-                                        <div className="text-[10px] text-gray-400 font-medium mb-1.5 px-1">行程链</div>
+                                    <div key={`chain-slot-${slotIdx}`} className="rounded-xl border border-blue-100 bg-blue-50/30 p-2">
+                                        <div className="flex items-center gap-1.5 px-1 pb-1.5">
+                                            <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                            </svg>
+                                            <span className="text-[10px] text-blue-400 font-medium">路线 {slotIdx + 1}</span>
+                                        </div>
                                         <SortableContext
-                                            items={chainItemIds}
+                                            id={`chain-sort-${chainIdx}`}
+                                            items={isPending ? [] : chainItemIds}
                                             strategy={verticalListSortingStrategy}
                                         >
-                                            {group.items.map((item) => {
-                                                const idx = displayIdx++
-                                                return (
-                                                    <SortableItem
-                                                        key={item.marker.id}
-                                                        id={item.marker.id}
-                                                        marker={item.marker}
+                                            <ChainDropContainer chainIdx={chainIdx} isEmpty={chainGroup.length === 0}>
+                                                {chainGroup.map((marker, idx) => (
+                                                    <ChainItem
+                                                        key={`chain-${chainIdx}::${marker.id}`}
+                                                        id={`chain-${chainIdx}::${marker.id}`}
+                                                        marker={marker}
                                                         index={idx}
-                                                        hasArrowAfter={item.hasArrowAfter}
-                                                        onMarkerClick={handleMarkerClick}
-                                                        onRemove={handleRemoveMarkerFromDay}
+                                                        hasArrowAfter={idx < chainGroup.length - 1}
+                                                        onRemove={() => handleRemoveFromChain(marker.id, chainIdx)}
                                                     />
-                                                )
-                                            })}
+                                                ))}
+                                            </ChainDropContainer>
                                         </SortableContext>
                                     </div>
                                 )
                             })}
 
-                            {/* Isolated items */}
-                            {isolatedItems.length > 0 && (
-                                <div>
-                                    {chainGroups.length > 0 && (
-                                        <div className="flex items-center gap-2 mb-2 px-1">
-                                            <div className="flex-1 border-t border-dashed border-gray-200" />
-                                            <span className="text-[10px] text-gray-300 flex-shrink-0">孤立地点</span>
-                                            <div className="flex-1 border-t border-dashed border-gray-200" />
-                                        </div>
-                                    )}
-                                    {/* 点选合并提示（仅编辑模式） */}
-                                    {linkingMarkerId && addMarkerEnabled && (
-                                        <div className="mb-2 px-2 py-1.5 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
-                                            <span className="text-xs text-blue-600">再点一个地点完成连接</span>
-                                            <button onClick={() => setLinkingMarkerId(null)} className="text-xs text-blue-400 hover:text-blue-600">取消</button>
-                                        </div>
-                                    )}
-                                    <SortableContext
-                                        items={isolatedItems.map(i => i.marker.id)}
-                                        strategy={verticalListSortingStrategy}
-                                    >
-                                        <IsolatedDropZone isEmpty={isolatedItems.length === 0}>
-                                            <div className="flex flex-col gap-2">
-                                                {isolatedItems.map((item) => {
-                                                    const idx = displayIdx++
-                                                    const isLinking = item.marker.id === linkingMarkerId
-                                                    return (
-                                                        <div key={item.marker.id} className={cn(isLinking && 'ring-2 ring-blue-400 rounded-xl')}>
-                                                            <SortableItem
-                                                                id={item.marker.id}
-                                                                marker={item.marker}
-                                                                index={idx}
-                                                                hasArrowAfter={false}
-                                                                onMarkerClick={handleIsolatedItemClick}
-                                                                onRemove={handleRemoveMarkerFromDay}
-                                                            />
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        </IsolatedDropZone>
-                                    </SortableContext>
-                                </div>
-                            )}
+                            {/* ＋ 创建行程链按钮 */}
+                            <button
+                                onClick={() => setPendingEmptyChains(prev => prev + 1)}
+                                className="w-full flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-blue-200 rounded-xl text-blue-400 hover:border-blue-400 hover:bg-blue-50 transition-colors text-xs"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                创建行程链
+                            </button>
 
-                            {/* Drop zone for isolated (when no isolated items yet) */}
-                            {isolatedItems.length === 0 && (
-                                <IsolatedDropZone isEmpty={true}>
-                                    <div />
-                                </IsolatedDropZone>
-                            )}
+                            {/* ── 分割线 ── */}
+                            <div className="flex items-center gap-2">
+                                <div className="flex-1 border-t border-gray-200" />
+                                <span className="text-[10px] text-gray-400 flex-shrink-0">当天节点</span>
+                                <div className="flex-1 border-t border-gray-200" />
+                            </div>
+
+                            {/* ── 下半区：当天节点（按类型排序，一行两个）── */}
+                            <div className="grid grid-cols-2 gap-2">
+                                {currentDayMarkers
+                                    .slice()
+                                    .sort((a, b) => (a.content.iconType || 'location').localeCompare(b.content.iconType || 'location'))
+                                    .map(marker => (
+                                        <PaletteItem key={marker.id} marker={marker} />
+                                    ))}
+                            </div>
                         </div>
 
                         <DragOverlay>
@@ -1187,6 +1088,95 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                             )}
                         </DragOverlay>
                     </DndContext>
+                </div>
+            )
+        }
+
+        // ── 编辑模式关：显示路线分组 + 孤立节点（只读，可点击跳转）────────────
+        return (
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="p-3 flex flex-col gap-3">
+                    {/* 路线分组 */}
+                    {chainedGroups.map((group, chainIdx) => (
+                        <div key={`chain-${chainIdx}`} className="rounded-xl border border-blue-100 bg-blue-50/30 p-2">
+                            <div className="flex items-center gap-1.5 px-1 pb-1.5">
+                                <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                </svg>
+                                <span className="text-[10px] text-blue-400 font-medium">路线 {chainIdx + 1}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                {group.map((marker, idx) => {
+                                    const icon = MARKER_ICONS[marker.content.iconType || 'location'] || MARKER_ICONS.location
+                                    return (
+                                        <div key={marker.id}>
+                                            <div className="border border-gray-200 rounded-xl bg-white overflow-hidden">
+                                                <button
+                                                    className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-blue-50 transition-colors text-left"
+                                                    onClick={() => handleMarkerClick(marker.id)}
+                                                >
+                                                    <span className="text-xs font-bold text-gray-400 w-4 flex-shrink-0">{idx + 1}</span>
+                                                    <div className={cn('w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0', getMarkerColor(marker.content.iconType || 'location'))}>
+                                                        <span className="text-xs text-white">{icon.emoji}</span>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-sm font-medium text-gray-800 truncate">{marker.content.title || '未命名标记'}</div>
+                                                        {marker.content.address && (
+                                                            <div className="text-xs text-gray-400 truncate mt-0.5">{marker.content.address}</div>
+                                                        )}
+                                                    </div>
+                                                </button>
+                                            </div>
+                                            {idx < group.length - 1 && (
+                                                <div className="flex justify-center py-0.5">
+                                                    <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* 孤立节点 */}
+                    {isolatedMarkers.length > 0 && (
+                        <div>
+                            {chainedGroups.length > 0 && (
+                                <div className="flex items-center gap-2 px-1 pb-1.5">
+                                    <div className="flex-1 border-t border-gray-200" />
+                                    <span className="text-[10px] text-gray-400 flex-shrink-0">未安排</span>
+                                    <div className="flex-1 border-t border-gray-200" />
+                                </div>
+                            )}
+                            <div className="flex flex-col gap-2">
+                                {isolatedMarkers.map((marker, idx) => {
+                                    const icon = MARKER_ICONS[marker.content.iconType || 'location'] || MARKER_ICONS.location
+                                    return (
+                                        <div key={marker.id} className="border border-gray-200 rounded-xl bg-white overflow-hidden">
+                                            <button
+                                                className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-blue-50 transition-colors text-left"
+                                                onClick={() => handleMarkerClick(marker.id)}
+                                            >
+                                                <span className="text-xs font-bold text-gray-400 w-4 flex-shrink-0">{idx + 1}</span>
+                                                <div className={cn('w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0', getMarkerColor(marker.content.iconType || 'location'))}>
+                                                    <span className="text-xs text-white">{icon.emoji}</span>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm font-medium text-gray-800 truncate">{marker.content.title || '未命名标记'}</div>
+                                                    {marker.content.address && (
+                                                        <div className="text-xs text-gray-400 truncate mt-0.5">{marker.content.address}</div>
+                                                    )}
+                                                </div>
+                                            </button>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         )
@@ -1238,7 +1228,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                             'relative w-11 h-6 rounded-full transition-colors duration-200 cursor-pointer flex-shrink-0',
                             addMarkerEnabled ? 'bg-blue-500' : 'bg-gray-300'
                         )}
-                        onClick={() => { setLinkingMarkerId(null); onToggleAddMarker() }}
+                        onClick={() => onToggleAddMarker()}
                     >
                         <div className={cn(
                             'absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200',
