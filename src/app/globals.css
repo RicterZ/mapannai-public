@@ -13,6 +13,7 @@ body {
     height: 100%;
     height: 100vh;
     height: 100dvh; /* 动态视口高度，Safari 支持 */
+    background-color: #e8e0d8; /* OSM 地图底色，防止 Safari 顶部 safe area 露白 */
 }
 
 /* Safari 特定修复 */
