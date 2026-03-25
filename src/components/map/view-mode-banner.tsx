@@ -39,7 +39,7 @@ export const ViewModeBanner = () => {
                 'flex items-center gap-1 px-3 py-1.5 text-sm max-w-[90vw]',
                 'animate-scale-in'
             )}
-            style={{ top: 'calc(var(--sat) + 12px)' }}
+            style={{ top: 'calc(env(safe-area-inset-top) + env(safe-area-inset-top) + 12px)' }}
         >
             {/* Breadcrumb */}
             <button

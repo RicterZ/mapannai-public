@@ -742,7 +742,7 @@ export const AbstractMap = () => {
             )}
 
             {/* 左上角：标记列表按钮 */}
-            <div className="absolute left-4 z-50" style={{ top: 'calc(var(--sat) + 12px)' }}>
+            <div className="absolute left-4 z-50" style={{ top: 'calc(env(safe-area-inset-top) + env(safe-area-inset-top) + 12px)' }}>
                 <button
                     onClick={toggleLeftSidebar}
                     className={cn(
