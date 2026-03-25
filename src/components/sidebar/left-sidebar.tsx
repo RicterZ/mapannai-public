@@ -897,7 +897,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
 
         return (
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <div className="p-3 space-y-2">
+            <div className="p-3">
                 {currentTripDays.length === 0 ? (
                     <div className="text-center py-8 text-gray-400">
                         <div className="text-3xl mb-2">📅</div>
@@ -948,7 +948,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                 )}
 
                 {/* 增减天数 + 删除旅行 */}
-                <div className="flex gap-2 pt-1">
+                <div className="flex gap-2 mt-2">
                     <button
                         onClick={handleRemoveDay}
                         disabled={currentTripDays.length <= 1}
