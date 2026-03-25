@@ -63,19 +63,25 @@ export const MapPopup = ({
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [onClose])
 
-    // 该标记所属的行程列表（通过 tripDays 查找，SQLite 为权威来源）
-    const markerTrips = selectedMarkerId
-        ? Array.from(new Set(
-            tripDays
-                .filter(d => d.markerIds.includes(selectedMarkerId))
-                .map(d => d.tripId)
-          ))
-            .map(tripId => trips.find(t => t.id === tripId))
-            .filter((t): t is NonNullable<typeof t> => !!t)
+    // 该标记所属的行程+天列表（通过 tripDays 查找，SQLite 为权威来源）
+    // 每条记录：{ trip, day, dayIndex }
+    const markerTripDays = selectedMarkerId
+        ? tripDays
+            .filter(d => d.markerIds.includes(selectedMarkerId))
+            .map(d => {
+                const trip = trips.find(t => t.id === d.tripId)
+                if (!trip) return null
+                const sortedDays = tripDays
+                    .filter(td => td.tripId === d.tripId)
+                    .sort((a, b) => a.date.localeCompare(b.date))
+                const dayIndex = sortedDays.findIndex(td => td.id === d.id)
+                return { trip, day: d, dayIndex }
+            })
+            .filter((x): x is NonNullable<typeof x> => !!x)
         : []
 
-    const handleGoToTrip = (tripId: string) => {
-        setActiveView('trip', tripId, null)
+    const handleGoToDay = (tripId: string, dayId: string) => {
+        setActiveView('day', tripId, dayId)
         openLeftSidebar()
     }
 
@@ -156,18 +162,19 @@ export const MapPopup = ({
                                     删除
                                 </button>
                             </div>
-                            {markerTrips.length > 0 && (
+                            {markerTripDays.length > 0 && (
                                 <div className="space-y-1">
-                                    {markerTrips.map(trip => (
+                                    {markerTripDays.map(({ trip, day, dayIndex }) => (
                                         <button
-                                            key={trip.id}
-                                            onClick={() => handleGoToTrip(trip.id)}
-                                            className="w-full px-2 py-1.5 text-xs font-medium rounded-lg bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors flex items-center gap-1.5 truncate"
+                                            key={day.id}
+                                            onClick={() => handleGoToDay(trip.id, day.id)}
+                                            className="w-full px-2 py-1.5 text-xs font-medium rounded-lg bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors flex items-center gap-1.5"
                                         >
                                             <svg className="w-3 h-3 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                                             </svg>
                                             <span className="truncate">{trip.name}</span>
+                                            <span className="flex-shrink-0 text-gray-400">· 第{dayIndex + 1}天</span>
                                         </button>
                                     ))}
                                 </div>
