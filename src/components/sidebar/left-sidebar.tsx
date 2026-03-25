@@ -354,11 +354,11 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         prevCleanupDayRef.current = activeView.dayId
         // Reset pending empty chains when switching days
         setPendingEmptyChains(0)
-        // Clean degenerate chains from previous day state (may have been left over)
+        // Clean empty chains from previous day state (may have been left over)
         const chains = currentDay.chains ?? []
-        const hasDegenerate = chains.some(c => c.length < 2)
-        if (!hasDegenerate) return
-        const cleaned = chains.filter(c => c.length >= 2)
+        const hasEmpty = chains.some(c => c.length === 0)
+        if (!hasEmpty) return
+        const cleaned = chains.filter(c => c.length >= 1)
         updateDayChains(activeView.tripId, activeView.dayId, cleaned)
     }, [activeView.dayId, activeView.tripId, currentDay, updateDayChains])
 
@@ -506,8 +506,8 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         } else if (dragChainIdx !== -1 && isOverIsolated) {
             // Case 3: chain → isolated (remove from chain)
             newChains[dragChainIdx] = newChains[dragChainIdx].filter(id => id !== dragId)
-            // Remove chains with 0 or 1 node (single node needs no line)
-            newChains = newChains.filter(c => c.length >= 2)
+            // Only remove empty chains (single-node chains are allowed)
+            newChains = newChains.filter(c => c.length >= 1)
         } else if (dragChainIdx !== -1 && overChainIdx !== -1 && dragChainIdx !== overChainIdx) {
             // Case 4: move from one chain to another
             newChains[dragChainIdx] = newChains[dragChainIdx].filter(id => id !== dragId)
@@ -519,8 +519,8 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                 dragId,
                 ...targetChain.slice(safeInsert),
             ]
-            // Clean up empty/single-node chains from source
-            newChains = newChains.filter(c => c.length >= 2)
+            // Only remove empty chains from source (single-node chains are allowed)
+            newChains = newChains.filter(c => c.length >= 1)
         } else if (isDragIsolated && isOverIsolated && overId !== 'isolated') {
             // Case 5: isolated → isolated (merge into new chain)
             newChains = [...newChains, [dragId, overId]]
@@ -566,12 +566,12 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         }
     }
 
-    // 从某条链中移除指定节点（链缩短后 < 2 节点则删除整条链）
+    // 从某条链中移除指定节点（保留单节点链，只清理空链）
     const handleRemoveFromChain = useCallback((markerId: string, chainIdx: number) => {
         if (!currentDay || !activeView.tripId || !activeView.dayId) return
         const newChains = (currentDay.chains ?? [])
             .map((c, i) => i === chainIdx ? c.filter(id => id !== markerId) : c)
-            .filter(c => c.length >= 2)
+            .filter(c => c.length >= 1)
         updateDayChains(activeView.tripId, activeView.dayId, newChains)
     }, [currentDay, activeView, updateDayChains])
 
