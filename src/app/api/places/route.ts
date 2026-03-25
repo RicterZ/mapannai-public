@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { config } from '@/lib/config'
+import { wgs84ToGcj02 } from '@/lib/coord-transform'
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { latitude, longitude } = body
+        const { latitude, longitude, isChina } = body
 
         if (!latitude || !longitude) {
             return NextResponse.json(
@@ -26,10 +27,15 @@ export async function POST(request: NextRequest) {
             )
         }
 
+        // 中国境内需将 WGS-84 转为 GCJ-02 再查，否则地点名会偏移
+        const queryCoords = isChina
+            ? wgs84ToGcj02(longitude, latitude)
+            : { longitude, latitude }
+
         // 第一步：使用 Reverse Geocoding API 获取地点信息
         const reverseGeocodeUrl = `${config.map.google.baseUrl}/maps/api/geocode/json`
         const reverseGeocodeParams = new URLSearchParams({
-            latlng: `${latitude},${longitude}`,
+            latlng: `${queryCoords.latitude},${queryCoords.longitude}`,
             key: apiKey,
             language: 'zh-CN'
         })

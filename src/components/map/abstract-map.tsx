@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 
 import { MapCoordinates, MapViewState } from '@/types/map-provider'
 import { config } from '@/lib/config'
+import { isInChina } from '@/lib/coord-transform'
 import { installZoomThresholdBackdoor } from '@/lib/zoom-threshold'
 import { searchService } from '@/lib/api/search-service'
 // 移除 Google Places 相关导入
@@ -458,7 +459,8 @@ export const AbstractMap = () => {
                 },
                 body: JSON.stringify({
                     latitude: coordinates.latitude,
-                    longitude: coordinates.longitude
+                    longitude: coordinates.longitude,
+                    isChina: isInChina(coordinates.longitude, coordinates.latitude),
                 })
             })
             
