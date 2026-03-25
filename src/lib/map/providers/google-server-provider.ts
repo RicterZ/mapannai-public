@@ -1,5 +1,6 @@
 import { MapProvider, MapProviderConfig, MapSearchResult, MapCoordinates } from '@/types/map-provider'
 import { config } from '@/lib/config'
+import { gcj02ToWgs84 } from '@/lib/coord-transform'
 
 /**
  * Google 服务器端地图提供者
@@ -77,7 +78,7 @@ export class GoogleServerProvider implements MapProvider {
                 query,
                 key: apiKey,
                 language: 'zh-CN',
-                region: country || 'JP'
+                region: country || 'CN'
             })
             
             const response = await fetch(`${baseUrl}?${params}`)
@@ -92,18 +93,24 @@ export class GoogleServerProvider implements MapProvider {
                 throw new Error(`Google Places API 错误: ${data.status} - ${data.error_message || 'Unknown error'}`)
             }
             
-            // 转换结果格式
-            return (data.results || []).map((place: any) => ({
-                name: place.name,
-                coordinates: {
-                    latitude: place.geometry.location.lat,
-                    longitude: place.geometry.location.lng
-                },
-                address: place.formatted_address,
-                placeId: place.place_id,
-                rating: place.rating,
-                types: place.types
-            }))
+            // 转换结果格式，中国境内坐标从 GCJ-02 转为 WGS-84
+            const isChina = country === 'CN'
+            return (data.results || []).map((place: any) => {
+                const gcjLng = place.geometry.location.lng
+                const gcjLat = place.geometry.location.lat
+                const coords = isChina ? gcj02ToWgs84(gcjLng, gcjLat) : { longitude: gcjLng, latitude: gcjLat }
+                return {
+                    name: place.name,
+                    coordinates: {
+                        latitude: coords.latitude,
+                        longitude: coords.longitude,
+                    },
+                    address: place.formatted_address,
+                    placeId: place.place_id,
+                    rating: place.rating,
+                    types: place.types,
+                }
+            })
         } catch (error) {
             console.error('Google Places 搜索失败:', error)
             throw error
