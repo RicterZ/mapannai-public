@@ -308,6 +308,27 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         return () => { clearTimeout(t) }
     }, [activeView.mode, activeView.tripId, activeView.dayId])
 
+    // 从 URL hash 恢复 activeView（trips/tripDays 加载完后执行一次）
+    const hashRestoredRef = useRef(false)
+    useEffect(() => {
+        if (hashRestoredRef.current) return
+        if (trips.length === 0) return  // 数据还没加载完
+        hashRestoredRef.current = true
+
+        const hash = window.location.hash.slice(1)  // 去掉 #
+        if (!hash) return
+
+        const parts = hash.split('/')
+        if (parts[0] === 'trip' && parts[1]) {
+            const trip = trips.find(t => t.id === parts[1])
+            if (trip) setActiveView('trip', parts[1], null)
+        } else if (parts[0] === 'day' && parts[1] && parts[2]) {
+            const trip = trips.find(t => t.id === parts[1])
+            const day = tripDays.find(d => d.id === parts[2])
+            if (trip && day) setActiveView('day', parts[1], parts[2])
+        }
+    }, [trips, tripDays, setActiveView])
+
     const TRIP_EMOJIS = ['✈️', '🚞', '🚢', '🚗', '🏍️', '🏕️', '🏖️', '🗻', '🏯', '🎒', '🇨🇳', '🇯🇵', '🇰🇷', '🇸🇬', '🇹🇭', '🇺🇸', '🇫🇷', '🇬🇧', '🇮🇹', '🇩🇪', '🍜', '🍣', '🍲', '🍛', '🍖']
 
     useEffect(() => {

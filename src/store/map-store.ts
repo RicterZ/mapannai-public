@@ -735,6 +735,17 @@ export const useMapStore = create<MapStore>()(
             setActiveView: (mode, tripId = null, dayId = null) => {
                 set({ activeView: { mode, tripId, dayId } }, false, 'setActiveView')
 
+                // 同步写 URL hash
+                if (typeof window !== 'undefined') {
+                    if (mode === 'overview') {
+                        window.location.hash = ''
+                    } else if (mode === 'trip' && tripId) {
+                        window.location.hash = `trip/${tripId}`
+                    } else if (mode === 'day' && tripId && dayId) {
+                        window.location.hash = `day/${tripId}/${dayId}`
+                    }
+                }
+
                 // 进入 day 视图时高亮当天连线
                 set(state => ({
                     interactionState: {
