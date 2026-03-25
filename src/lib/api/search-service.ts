@@ -30,7 +30,7 @@ export class MapSearchService implements SearchService {
                 q: query,
                 limit: limit.toString(),
                 language: language,
-                country: country || 'JP'
+                country: country || 'CN'
             })
             
             const url = `/api/search?${params}`

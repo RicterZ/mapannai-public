@@ -304,7 +304,7 @@ export const AbstractMap = () => {
             try {
                 setIsSearching(true)
                 setFabQueryError('')
-                const results = await searchService.searchPlaces(trimmedQuery, 10, 'zh-CN')
+                const results = await searchService.searchPlaces(trimmedQuery, 10, 'zh-CN', 'CN')
                 setFabResults(results)
             } catch (e) {
                 setFabQueryError('搜索失败，请稍后再试')

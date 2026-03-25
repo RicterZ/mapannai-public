@@ -13,11 +13,11 @@ export function registerSearchTools(server: McpServer) {
   // search_places
   server.tool(
     'search_places',
-    '使用 Google Places API 搜索地点，返回坐标、地址、评分等基础信息。适合在创建 marker 前先确认地点是否存在。',
+    '使用 Google Places API 搜索地点，返回坐标、地址、评分等基础信息。【重要】搜索词必须带上城市名以提高精度，例如「东京 浅草寺」「京都 金阁寺」，而非只写「浅草寺」。必须传入 country 参数以限定搜索范围，避免返回错误国家的同名地点。',
     {
-      query: z.string().describe('搜索关键词，例如「浅草寺」「新宿御苑」'),
+      query: z.string().describe('搜索关键词，必须包含城市名，例如「东京 浅草寺」「大阪 道顿堀」「北京 故宫」'),
       limit: z.number().int().min(1).max(10).optional().default(5).describe('返回结果数量（默认 5）'),
-      country: z.string().optional().describe('限定搜索国家代码，例如 JP（日本）、CN（中国）'),
+      country: z.string().optional().default('CN').describe('限定搜索国家代码，默认 CN（中国）。规划其他国家时必须修改，例如 JP（日本）、KR（韩国）、US（美国）。填错会导致同名地点定位到错误国家。'),
     },
     async ({ query, limit, country }) => {
       const googleProvider = mapProviderFactory.createGoogleServerProvider()

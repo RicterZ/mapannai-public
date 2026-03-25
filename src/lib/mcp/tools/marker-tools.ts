@@ -17,12 +17,12 @@ import {
     generateCoordinateHash,
 } from '@/lib/db/marker-service'
 
-async function searchPlaceCoordinates(name: string): Promise<{ latitude: number; longitude: number }> {
+async function searchPlaceCoordinates(name: string, country: string = 'CN'): Promise<{ latitude: number; longitude: number }> {
   const googleProvider = mapProviderFactory.createGoogleServerProvider()
   const mapConfig = { accessToken: config.map.google.accessToken, style: 'custom' }
   const t = Date.now()
-  const results = await googleProvider.searchPlaces(name, mapConfig, 'JP')
-  console.log(`[MCP] searchPlaces "${name}"  +${Date.now() - t}ms  hits=${results?.length ?? 0}`)
+  const results = await googleProvider.searchPlaces(name, mapConfig, country)
+  console.log(`[MCP] searchPlaces "${name}"  country=${country}  +${Date.now() - t}ms  hits=${results?.length ?? 0}`)
   if (!results || results.length === 0) {
     throw new Error(`找不到地点: ${name}`)
   }
@@ -67,23 +67,24 @@ export function registerMarkerTools(server: McpServer) {
   // create_marker
   server.tool(
     'create_marker',
-    '按地点名称搜索坐标并在地图上创建一个新的 marker。支持批量创建。',
+    '按地点名称搜索坐标并在地图上创建一个新的 marker。支持批量创建。【重要】地点名称必须包含城市名（如「东京 浅草寺」），避免定位到错误地区。批量创建同一天行程的地点时，创建完成后必须校验所有地点坐标：若任意两点之间直线距离超过 100 公里，需立即警告用户并说明哪些地点疑似定位错误，不应默默继续。',
     {
       places: z.array(z.object({
-        name: z.string().describe('地点名称（用于搜索坐标）'),
+        name: z.string().describe('地点名称，必须包含城市名（用于搜索坐标），例如「大阪 道顿堀」「上海 外滩」'),
         iconType: z.enum(['activity', 'location', 'hotel', 'shopping', 'food', 'landmark', 'park', 'natural', 'culture', 'transit'])
           .describe('图标类型'),
         content: z.string().optional().describe('Markdown 格式的描述内容'),
       })).min(1).describe('要创建的地点列表（支持批量）'),
+      country: z.string().optional().default('CN').describe('限定搜索国家代码，默认 CN（中国）。规划其他国家时必须修改，例如 JP（日本）、KR（韩国）、US（美国）。填错会导致同名地点定位到错误国家。'),
     },
-    async ({ places }) => {
+    async ({ places, country }) => {
       const t0 = Date.now()
-      console.log(`[MCP] create_marker  count=${places.length}  names=${places.map(p => p.name).join(', ')}`)
+      console.log(`[MCP] create_marker  count=${places.length}  country=${country ?? 'unset'}  names=${places.map(p => p.name).join(', ')}`)
 
       const results = []
       for (const place of places) {
         try {
-          const coordinates = await searchPlaceCoordinates(place.name)
+          const coordinates = await searchPlaceCoordinates(place.name, country)
           const coordinateHash = generateCoordinateHash(coordinates.longitude, coordinates.latitude)
           const featureId = `coord_${coordinateHash}`
 
