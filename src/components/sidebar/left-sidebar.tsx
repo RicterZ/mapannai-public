@@ -268,6 +268,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
 
     // 视图切换动画：向左滑出，从右滑入
     const [slideState, setSlideState] = useState<'idle' | 'exit' | 'enter'>('idle')
+    const [blockClicks, setBlockClicks] = useState(false)  // 防幽灵 click
     const [displayMode, setDisplayMode] = useState(activeView.mode)
     const [displayTripId, setDisplayTripId] = useState(activeView.tripId)
     const [displayDayId, setDisplayDayId] = useState(activeView.dayId)
@@ -287,6 +288,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
 
         // 1. 当前内容滑出（250ms）
         setSlideState('exit')
+        setBlockClicks(true)
         cancelConfirmDelete()
 
         // 2. 内容切换 + 新内容从对面出发位置就位（不可见，立即切换）
@@ -299,6 +301,8 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => setSlideState('idle'))
             })
+            // 4. 超过 iOS 幽灵 click 300ms 窗口后解除屏蔽
+            setTimeout(() => setBlockClicks(false), 400)
         }, 250)
 
         return () => { clearTimeout(t) }
@@ -1247,6 +1251,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                         'transition-transform duration-300',
                         slideState === 'exit' && '-translate-x-full pointer-events-none',
                         slideState === 'enter' && 'translate-x-full pointer-events-none',
+                        blockClicks && 'pointer-events-none',
                     )}
                 >
                     {displayMode === 'overview' && renderOverview()}
