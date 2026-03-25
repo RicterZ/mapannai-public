@@ -22,23 +22,19 @@ body {
         height: 100vh;
         height: -webkit-fill-available;
     }
-    
+
     .h-screen {
         height: 100vh;
         height: -webkit-fill-available;
     }
-    
+
     /* 确保主容器占满屏幕 */
     main {
         height: 100vh;
         height: -webkit-fill-available;
     }
-    
-    /* 地图容器 Safari 修复 */
-    .map-container {
-        height: 100vh;
-        height: -webkit-fill-available;
-    }
+
+    /* 注意：.map-container 不在此覆盖，由下方 safe-area 规则统一处理 */
 }
 
 /* 通用高度修复 */
@@ -63,12 +59,12 @@ body {
 }
 
 /* iOS Safari / PWA：让地图容器延伸到物理屏幕顶端，消除状态栏白边
-   top 往上移 safe-area-inset-top，同时用 padding-top 把内容推回来，
-   这样地图瓦片覆盖了状态栏区域，而 UI 控件仍在 safe area 以内 */
+   top 往上移 safe-area-inset-top，同时增加 height 补偿，
+   这样地图瓦片覆盖了状态栏区域 */
 @supports (top: env(safe-area-inset-top)) {
     .map-container {
         top: calc(-1 * env(safe-area-inset-top)) !important;
-        height: calc(100% + env(safe-area-inset-top)) !important;
+        height: calc(100dvh + env(safe-area-inset-top)) !important;
     }
 }
 
