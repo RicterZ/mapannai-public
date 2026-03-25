@@ -1220,8 +1220,8 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                     className={cn(
                         'flex-1 flex flex-col overflow-hidden',
                         'transition-transform duration-300',
-                        slideState === 'exit' && '-translate-x-full',
-                        slideState === 'enter' && 'translate-x-full',
+                        slideState === 'exit' && '-translate-x-full pointer-events-none',
+                        slideState === 'enter' && 'translate-x-full pointer-events-none',
                     )}
                 >
                     {displayMode === 'overview' && renderOverview()}
