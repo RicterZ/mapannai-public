@@ -5,7 +5,7 @@
 /* Global styles */
 html,
 body {
-    background-color: #e8e0d8; /* OSM 地图底色，确保 Safari 状态栏区域不露白 */
+    background-color: #000000; /* 黑色背景，避免 iOS PWA 底部 Home Indicator 区域露出米色 */
     padding: 0;
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,

@@ -4,8 +4,8 @@
   "description": "交互式地图 AI 编辑器",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "orientation": "any",
   "icons": [
     {
