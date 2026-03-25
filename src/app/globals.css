@@ -64,9 +64,9 @@ body {
     top: calc(-1 * env(safe-area-inset-top, 0px)) !important;
     left: calc(-1 * env(safe-area-inset-left, 0px)) !important;
     right: calc(-1 * env(safe-area-inset-right, 0px)) !important;
-    bottom: calc(-1 * env(safe-area-inset-bottom, 0px)) !important;
+    bottom: 0 !important;
     width: auto !important;
-    height: auto !important;
+    height: calc(100% + env(safe-area-inset-top, 0px)) !important;
 }
 
 * {
