@@ -11,7 +11,6 @@ export interface StoredMarker {
         headerImage?: string
         iconType?: MarkerIconType
         markdownContent: string
-        next: string[]
         createdAt: string
         updatedAt: string
     }
@@ -55,7 +54,6 @@ export class MapDataService {
                 headerImage: marker.content.headerImage,
                 iconType: marker.content.iconType,
                 markdownContent: marker.content.markdownContent,
-                next: marker.content.next,
                 createdAt: marker.content.createdAt.toISOString(),
                 updatedAt: marker.content.updatedAt.toISOString()
             },
@@ -75,7 +73,6 @@ export class MapDataService {
                 headerImage: stored.content.headerImage,
                 iconType: stored.content.iconType,
                 markdownContent: stored.content.markdownContent,
-                next: stored.content.next,
                 createdAt: new Date(stored.content.createdAt),
                 updatedAt: new Date(stored.content.updatedAt)
             }
@@ -329,7 +326,6 @@ export class MapDataService {
                 headerImage: feature.properties.headerImage,
                 iconType: feature.properties.iconType || 'location',
                 markdownContent: feature.properties.markdownContent || '',
-                next: feature.properties.next || [],
                 createdAt: new Date(),
                 updatedAt: new Date()
             }

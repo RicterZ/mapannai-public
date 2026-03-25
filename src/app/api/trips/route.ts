@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
                 tripId,
                 date: cursor.toISOString().slice(0, 10),
                 markerIds: [],
+                chains: [],
             }
             days.push(day)
             cursor.setDate(cursor.getDate() + 1)

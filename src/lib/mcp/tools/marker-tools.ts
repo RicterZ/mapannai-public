@@ -52,7 +52,6 @@ export function registerMarkerTools(server: McpServer) {
             title: meta.title || '未命名标记',
             iconType: props.iconType || 'location',
             markdownContent: props.markdownContent || '',
-            next: props.next || [],
             createdAt: meta.createdAt,
             updatedAt: meta.updatedAt,
           }
@@ -109,7 +108,6 @@ export function registerMarkerTools(server: McpServer) {
             markdownContent: place.content || '',
             headerImage: null,
             iconType: place.iconType as MarkerIconType,
-            next: [],
             metadata: {
               id: featureId,
               title: place.name,

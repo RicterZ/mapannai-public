@@ -38,7 +38,6 @@ export interface MarkerContent {
     headerImage?: string // 首图URL
     iconType?: MarkerIconType // 图标类型
     markdownContent: string // Markdown内容
-    next: string[] // 下一个标记的ID列表，默认为空数组
     createdAt: Date
     updatedAt: Date
     // 临时标记相关字段
@@ -78,7 +77,7 @@ export interface MapInteractionState {
     isSidebarOpen: boolean
     popupCoordinates: MarkerCoordinates | null
     placeName: string | null // 地点名称
-    highlightedChainIds: string[][] // 高亮的标记链列表，每个元素是一条链的 marker id 集合
+    highlightedDayId: string | null // 高亮显示连线的 day ID
 }
 
 export type MarkerAction =
