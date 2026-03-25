@@ -263,6 +263,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
 
         // 1. 当前内容滑出（250ms）
         setSlideState('exit')
+        cancelConfirmDelete()
 
         // 2. 内容切换 + 新内容从对面出发位置就位（不可见，立即切换）
         const t = setTimeout(() => {
