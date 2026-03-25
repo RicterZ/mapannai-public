@@ -58,13 +58,13 @@ body {
     height: 100% !important;
 }
 
-/* iOS Safari / PWA：让地图容器延伸到物理屏幕顶端，消除状态栏白边
-   top 往上移 safe-area-inset-top，同时增加 height 补偿，
-   这样地图瓦片覆盖了状态栏区域 */
-@supports (top: env(safe-area-inset-top)) {
+/* iOS PWA standalone：让地图容器延伸到物理屏幕顶端，消除状态栏白边。
+   只在 PWA 独立模式下生效（black-translucent 使状态栏透明，内容可延伸至其下方）。
+   普通 Safari 浏览器的状态栏是 iOS 原生 UI，网页无法控制其背景色。 */
+@media (display-mode: standalone) {
     .map-container {
-        top: calc(-1 * env(safe-area-inset-top)) !important;
-        height: calc(100dvh + env(safe-area-inset-top)) !important;
+        top: calc(-1 * env(safe-area-inset-top, 0px)) !important;
+        height: calc(100dvh + env(safe-area-inset-top, 0px)) !important;
     }
 }
 
