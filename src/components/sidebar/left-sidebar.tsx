@@ -909,8 +909,8 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                             .map(id => markers.find(m => m.id === id))
                             .filter(Boolean) as typeof markers
                         return (
+                            <React.Fragment key={day.id}>
                             <button
-                                key={day.id}
                                 onClick={() => setActiveView('day', activeView.tripId, day.id)}
                                 className="w-full flex items-center gap-3 px-3 py-3 border border-gray-200 rounded-xl bg-white hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
                             >
@@ -923,17 +923,8 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                         <span className="ml-1.5 text-xs text-gray-400 font-normal">{formatDate(day.date)}</span>
                                     </div>
                                     {dayMarkers.length > 0 ? (
-                                        <div className="flex items-center gap-0.5 mt-0.5 overflow-hidden">
-                                            {dayMarkers.map((m, i) => (
-                                                <React.Fragment key={m.id}>
-                                                    <span className="text-xs text-gray-500 truncate shrink min-w-0">{m.content.title || '未命名'}</span>
-                                                    {i < dayMarkers.length - 1 && (
-                                                        <svg className="w-3 h-3 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                        </svg>
-                                                    )}
-                                                </React.Fragment>
-                                            ))}
+                                        <div className="text-xs text-gray-500 truncate mt-0.5">
+                                            {dayMarkers.map(m => m.content.title || '未命名').join(' · ')}
                                         </div>
                                     ) : (
                                         <div className="text-xs text-gray-400 mt-0.5">暂无地点</div>
@@ -944,6 +935,14 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                 </svg>
                             </button>
+                            {idx < currentTripDays.length - 1 && (
+                                <div className="flex justify-center py-0.5">
+                                    <svg className="w-4 h-4 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </div>
+                            )}
+                            </React.Fragment>
                         )
                     })
                 )}
