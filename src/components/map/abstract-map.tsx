@@ -3,8 +3,7 @@
 import React, { useCallback, useRef, useEffect, useState, useMemo } from 'react'
 import { toast } from 'sonner'
 
-import { MapProvider, MapCoordinates, MapViewState, MapProviderConfig } from '@/types/map-provider'
-import { mapProviderFactory } from '@/lib/map/providers'
+import { MapCoordinates, MapViewState } from '@/types/map-provider'
 import { config } from '@/lib/config'
 import { installZoomThresholdBackdoor } from '@/lib/zoom-threshold'
 import { searchService } from '@/lib/api/search-service'
@@ -44,15 +43,6 @@ export const AbstractMap = () => {
     
     // 地点反查结果缓存
     const placeCacheRef = useRef<Record<string, { name: string; address?: string }>>({})
-    
-    // 移除 Google popup 引用
-    
-    // 获取当前地图提供者 - 只支持 Mapbox
-    const mapProvider = useMemo(() => mapProviderFactory.createProvider('mapbox'), [])
-    const mapConfig: MapProviderConfig = useMemo(() => ({
-        accessToken: config.map.mapbox.accessToken,
-        style: config.map.mapbox.style,
-    }), [config.map.mapbox.accessToken, config.map.mapbox.style])
     
     // 从localStorage恢复上次的坐标，如果没有则使用默认坐标
     const getInitialViewState = (): ViewState => {
@@ -206,31 +196,20 @@ export const AbstractMap = () => {
                 // 延迟执行，确保侧边栏已经关闭
                 setTimeout(() => {
                     if (mapRef.current) {
-                        mapProvider.flyTo(mapRef.current, {
-                            longitude: marker.coordinates.longitude,
-                            latitude: marker.coordinates.latitude,
-                        }, 15)
+                        mapRef.current.flyTo({
+                            center: [marker.coordinates.longitude, marker.coordinates.latitude],
+                            zoom: 15,
+                        })
                     }
                 }, 300)
             }
         }
-    }, [closeSidebar, selectedMarkerId, markers, mapProvider])
+    }, [closeSidebar, selectedMarkerId, markers])
 
     // 地图初始化成功后设置状态
     const handleMapLoad = useCallback(() => {
         setMapInitialized(true)
-        setError(null) // 清除可能的错误
-        
-        // 应用Mapbox POI过滤
-        try {
-            // 动态导入MapboxProvider并应用POI过滤
-            import('@/lib/map/providers/mapbox-provider').then(({ MapboxProvider }) => {
-                const mapboxProvider = new MapboxProvider()
-                mapboxProvider.applyPOIFilter()
-            })
-        } catch (error) {
-            console.warn('无法应用Mapbox POI过滤:', error)
-        }
+        setError(null)
     }, [])
 
     // 监听跳转到中心的事件
@@ -238,7 +217,7 @@ export const AbstractMap = () => {
         const handleJumpToCenter = (event: CustomEvent) => {
             const { coordinates, zoom } = event.detail
             if (mapRef.current) {
-                mapProvider.flyTo(mapRef.current, coordinates, zoom)
+                mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], zoom })
             }
         }
 
@@ -246,15 +225,13 @@ export const AbstractMap = () => {
         return () => {
             window.removeEventListener('jumpToCenter', handleJumpToCenter as EventListener)
         }
-    }, [mapProvider])
+    }, [])
 
     // 移除 Google popup 处理函数
-
     // 移除 Google 地图缩放监听
-
     // 移除 Google popup 添加标记处理
 
-    // 地图flyTo功能 - 只支持 Mapbox
+    // 地图flyTo功能
     const handleFlyTo = useCallback((coordinates: { longitude: number; latitude: number }, zoom?: number) => {
         if (mapRef.current) {
             // 在移动端有标记详情时，调整跳转位置
@@ -265,19 +242,19 @@ export const AbstractMap = () => {
                     longitude: coordinates.longitude,
                     latitude: coordinates.latitude + offset,
                 }
-                
+
                 // 延迟执行，确保标记详情已经打开
                 setTimeout(() => {
                     if (mapRef.current) {
-                        mapProvider.flyTo(mapRef.current, adjustedCoordinates, zoom)
+                        mapRef.current.flyTo({ center: [adjustedCoordinates.longitude, adjustedCoordinates.latitude], zoom })
                     }
                 }, 100)
             } else {
                 // 正常跳转
-                mapProvider.flyTo(mapRef.current, coordinates, zoom)
+                mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], zoom })
             }
         }
-    }, [isSidebarOpen, mapProvider])
+    }, [isSidebarOpen])
 
     // 右下角搜索：防抖自动搜索（输入≥2字）
     useEffect(() => {
@@ -792,8 +769,8 @@ export const AbstractMap = () => {
             {/* 右侧详情栏 */}
             <Sidebar />
 
-            {/* 只渲染 Mapbox 地图组件 */}
-                <MapboxMapComponent
+            {/* 地图组件 */}
+                <MapLibreComponent
                     ref={mapRef}
                     viewState={viewState}
                     onMove={(evt) => {
@@ -810,7 +787,7 @@ export const AbstractMap = () => {
                     onLoad={handleMapLoad}
                     onClick={handleMapClick}
                     mapboxAccessToken=""
-                    mapStyle={mapProvider.getMapStyle(mapConfig)}
+                    mapStyle="/amap-style.json"
                     reuseMaps
                     attributionControl={false}
                     logoPosition="bottom-left"
@@ -870,7 +847,7 @@ export const AbstractMap = () => {
                         }}
                     />
                 )}
-                </MapboxMapComponent>
+                </MapLibreComponent>
 
             {/* 右下角：搜索栏 */}
             <div className="fixed bottom-6 right-4 left-4 lg:left-auto lg:w-72 z-30 flex flex-col items-stretch lg:items-end gap-2">
@@ -962,8 +939,8 @@ export const AbstractMap = () => {
 }
 
 
-// Mapbox组件包装器
-interface MapboxMapComponentProps {
+// MapLibre 地图组件包装器
+interface MapLibreComponentProps {
     ref: React.Ref<MapRef>
     viewState: ViewState
     onMove: (evt: any) => void
@@ -980,7 +957,7 @@ interface MapboxMapComponentProps {
     children: React.ReactNode
 }
 
-const MapboxMapComponent = React.forwardRef<MapRef, MapboxMapComponentProps>((props, ref) => {
+const MapLibreComponent = React.forwardRef<MapRef, MapLibreComponentProps>((props, ref) => {
     const { viewState, ...restProps } = props
     return (
         <ReactMapProvider>
@@ -993,4 +970,4 @@ const MapboxMapComponent = React.forwardRef<MapRef, MapboxMapComponentProps>((pr
     )
 })
 
-MapboxMapComponent.displayName = 'MapboxMapComponent'
+MapLibreComponent.displayName = 'MapLibreComponent'

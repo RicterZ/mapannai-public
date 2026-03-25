@@ -83,7 +83,7 @@ export interface MapProvider {
 }
 
 // 地图提供者类型
-export type MapProviderType = 'mapbox' | 'google' | 'google-server'
+export type MapProviderType = 'google' | 'google-server'
 
 // 地图提供者工厂接口
 export interface MapProviderFactory {

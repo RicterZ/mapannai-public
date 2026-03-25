@@ -53,12 +53,9 @@ body {
     height: -webkit-fill-available;
 }
 
-/* MapLibre / Mapbox 容器确保占满 fixed 容器 */
-.mapboxgl-map,
+/* MapLibre 容器确保占满 fixed 容器 */
 .maplibregl-map,
-.mapboxgl-canvas-container,
 .maplibregl-canvas-container,
-.mapboxgl-canvas,
 .maplibregl-canvas {
     width: 100% !important;
     height: 100% !important;
@@ -68,13 +65,11 @@ body {
     box-sizing: border-box;
 }
 
-/* MapLibre / Mapbox popup overrides */
-.mapboxgl-popup,
+/* MapLibre popup overrides */
 .maplibregl-popup {
     z-index: 50;
 }
 
-.mapboxgl-popup .mapboxgl-popup-content,
 .maplibregl-popup .maplibregl-popup-content {
     padding: 0;
     background: transparent;
@@ -84,12 +79,10 @@ body {
     transform-origin: top center;
 }
 
-.mapboxgl-popup-close-button,
 .maplibregl-popup-close-button {
     display: none;
 }
 
-.mapboxgl-popup-tip,
 .maplibregl-popup-tip {
     border-top-color: white;
     animation: fadeIn 0.15s ease-out;

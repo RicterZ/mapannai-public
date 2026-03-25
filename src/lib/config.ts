@@ -2,11 +2,6 @@
 export const config = {
     // 地图提供者配置
     map: {
-        provider: 'mapbox' as 'mapbox',
-        mapbox: {
-            accessToken: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '',
-            style: process.env.NEXT_PUBLIC_MAPBOX_STYLE || '/amap-style.json',
-        },
         google: {
             accessToken: process.env.GOOGLE_API_KEY || '',
             // Google API 基础 URL - 使用反向代理
