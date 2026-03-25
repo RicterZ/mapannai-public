@@ -1,4 +1,11 @@
 /** @type {import('next').NextConfig} */
+const withPWA = require('next-pwa')({
+    dest: 'public',
+    disable: process.env.NODE_ENV === 'development',
+    register: true,
+    skipWaiting: true,
+})
+
 const nextConfig = {
     // 启用 standalone 输出模式，用于 Docker 优化
     output: 'standalone',
@@ -17,4 +24,4 @@ const nextConfig = {
     },
 }
 
-module.exports = nextConfig 
+module.exports = withPWA(nextConfig)
