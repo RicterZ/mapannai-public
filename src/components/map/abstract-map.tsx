@@ -388,18 +388,8 @@ export const AbstractMap = () => {
         loadData()
     }, [loadMarkersFromDataset, silentRetryLoad, dataLoaded])
 
-    // 定时轮询：数据加载完成后每 30s 静默同步一次，tab 隐藏时暂停
-    useEffect(() => {
-        if (!dataLoaded) return
-
-        const sync = () => {
-            if (document.visibilityState === 'hidden') return
-            loadMarkersFromDataset().catch(() => {/* 静默失败 */})
-        }
-
-        const timer = setInterval(sync, 30_000)
-        return () => clearInterval(timer)
-    }, [dataLoaded, loadMarkersFromDataset])
+    // 定时轮询已禁用（会在编辑器打开时覆盖正在编辑的内容，且单用户场景收益低）
+    // TODO: 改为 MCP 写操作后推送增量事件，替代全量轮询
 
     // 监听严重错误（只有地图本身无法加载才显示错误页面）
     useEffect(() => {
