@@ -41,21 +41,6 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
         setConfirmingDelete(false)
 
         closeSidebar()
-
-        // 在移动端关闭标记详情时，跳转到正中间（修复之前的偏移）
-        if (window.innerWidth < 1024 && selectedMarkerId) {
-            const marker = markers.find(m => m.id === selectedMarkerId)
-            if (marker) {
-                // 立即执行跳转
-                const event = new CustomEvent('jumpToCenter', {
-                    detail: {
-                        coordinates: marker.coordinates,
-                        zoom: 15
-                    }
-                })
-                window.dispatchEvent(event)
-            }
-        }
     }, [closeSidebar, interactionState.selectedMarkerId, markers])
 
     // 处理标记链中的标记点击
