@@ -534,11 +534,8 @@ export const AbstractMap = () => {
                 return
             }
 
-            // 开关关闭时，空白处点击清除连线高亮，不弹 popup
-            if (!addMarkerEnabled) {
-                useMapStore.getState().setHighlightedDay(null)
-                return
-            }
+            // 开关关闭时，空白处点击不做任何事
+            if (!addMarkerEnabled) return
 
             // 无 popup、无 sidebar：在点击位置打开新标记 popup
             selectMarker(null)
