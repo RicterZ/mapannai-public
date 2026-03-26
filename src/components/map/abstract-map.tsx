@@ -534,8 +534,11 @@ export const AbstractMap = () => {
                 return
             }
 
-            // 开关关闭时，空白处点击不弹 popup
-            if (!addMarkerEnabled) return
+            // 开关关闭时，空白处点击清除连线高亮，不弹 popup
+            if (!addMarkerEnabled) {
+                useMapStore.getState().setHighlightedDay(null)
+                return
+            }
 
             // 无 popup、无 sidebar：在点击位置打开新标记 popup
             selectMarker(null)
@@ -576,6 +579,12 @@ export const AbstractMap = () => {
                 // 选中标记 + 弹出 popup（携带标记坐标，显示操作按钮）
                 selectMarker(markerId)
                 openPopup(marker.coordinates)
+                // 激活该标记所属的 day 连线
+                const { tripDays, setHighlightedDay, activeView } = useMapStore.getState()
+                if (activeView.mode !== 'day') {
+                    const day = tripDays.find(d => d.markerIds.includes(markerId))
+                    setHighlightedDay(day?.id ?? null)
+                }
             }, 0)
         } catch (err) {
             console.error('Marker click error:', err)

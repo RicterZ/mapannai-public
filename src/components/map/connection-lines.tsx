@@ -95,40 +95,41 @@ export const ConnectionLines = ({ zoom = 11 }: ConnectionLinesProps) => {
     const rafRef = useRef<number | null>(null)
     const tRef = useRef(0)
 
-    // hover 线段时高亮对应 day
+    // hover/click 线段时激活对应 day
     useEffect(() => {
         const mapInstance = map?.getMap()
         if (!mapInstance) return
 
         const LINE_LAYERS = ['connection-lines-layer', 'connection-lines-casing']
 
-        const onMouseEnter = (e: any) => {
+        const onMouseEnter = () => {
+            mapInstance.getCanvas().style.cursor = 'pointer'
+        }
+
+        const onMouseLeave = () => {
+            mapInstance.getCanvas().style.cursor = ''
+        }
+
+        const onClick = (e: any) => {
             const dayId = e.features?.[0]?.properties?.dayId
             if (!dayId) return
             const { activeView, setHighlightedDay } = useMapStore.getState()
             if (activeView.mode !== 'day') {
                 setHighlightedDay(dayId)
             }
-            mapInstance.getCanvas().style.cursor = 'pointer'
-        }
-
-        const onMouseLeave = () => {
-            const { activeView, setHighlightedDay } = useMapStore.getState()
-            if (activeView.mode !== 'day') {
-                setHighlightedDay(null)
-            }
-            mapInstance.getCanvas().style.cursor = ''
         }
 
         LINE_LAYERS.forEach(layer => {
             mapInstance.on('mouseenter', layer, onMouseEnter)
             mapInstance.on('mouseleave', layer, onMouseLeave)
+            mapInstance.on('click', layer, onClick)
         })
 
         return () => {
             LINE_LAYERS.forEach(layer => {
                 mapInstance.off('mouseenter', layer, onMouseEnter)
                 mapInstance.off('mouseleave', layer, onMouseLeave)
+                mapInstance.off('click', layer, onClick)
             })
         }
     }, [map])

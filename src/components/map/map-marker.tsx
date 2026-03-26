@@ -34,22 +34,10 @@ export const MapMarker = React.memo(function MapMarker({
 
     const handleMouseEnter = useCallback(() => {
         setIsHovered(true)
-        // 仅在非 day 视图时 hover 触发 day 高亮
-        const { tripDays, setHighlightedDay, activeView } = useMapStore.getState()
-        if (activeView.mode !== 'day') {
-            const day = tripDays.find(d => d.markerIds.includes(marker.id))
-            if (day) {
-                setHighlightedDay(day.id)
-            }
-        }
-    }, [marker.id])
+    }, [])
 
     const handleMouseLeave = useCallback(() => {
         setIsHovered(false)
-        const { activeView, setHighlightedDay } = useMapStore.getState()
-        if (activeView.mode !== 'day') {
-            setHighlightedDay(null)
-        }
     }, [])
     
     // 安全获取图标配置，如果不存在则使用默认的 location 配置
