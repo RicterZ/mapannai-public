@@ -127,7 +127,7 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
             {/* 内容区域 - PC端居中显示，移动端全屏 */}
             <div className="relative w-full h-full lg:w-[800px] lg:h-[600px] lg:max-w-4xl bg-white flex flex-col animate-slide-in-bottom lg:animate-fade-in lg:rounded-xl lg:shadow-2xl">
                 {/* 顶部标题栏 */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-blue-50 flex-shrink-0">
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-blue-50 flex-shrink-0 edit-marker-header">
                     <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
