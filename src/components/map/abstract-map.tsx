@@ -35,6 +35,26 @@ export const AbstractMap = () => {
     const [mapInitialized, setMapInitialized] = useState(false)
     const [loadingRetryCount, setLoadingRetryCount] = useState(0)
     const [dataLoaded, setDataLoaded] = useState(false)
+
+    // 动态构造地图样式：tile URL 使用当前域名，无需硬编码，反代时自动跟着走
+    const mapStyle = useMemo(() => {
+        const origin = typeof window !== 'undefined' ? window.location.origin : ''
+        return {
+            version: 8,
+            name: 'OSM',
+            sources: {
+                'osm-tiles': {
+                    type: 'raster',
+                    tiles: [`${origin}/osm-tiles/{z}/{x}/{y}.png`],
+                    tileSize: 256,
+                    attribution: '© OpenStreetMap contributors',
+                    minzoom: 0,
+                    maxzoom: 19,
+                },
+            },
+            layers: [{ id: 'osm-layer', type: 'raster', source: 'osm-tiles' }],
+        }
+    }, [])
     // 移除 Google Map 相关状态
     
     // 存储地点名称，用于更新 popup title
@@ -804,8 +824,7 @@ export const AbstractMap = () => {
                     onLoad={handleMapLoad}
                     onClick={handleMapClick}
                     mapboxAccessToken=""
-                    mapStyle="/amap-style.json"
-                    reuseMaps
+                    mapStyle={mapStyle as any}                    reuseMaps
                     attributionControl={false}
                     logoPosition="bottom-left"
                     doubleClickZoom={false}
