@@ -782,12 +782,12 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                 {/* Create trip button */}
                 <button
                     onClick={() => setShowCreateTrip(true)}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 border-2 border-dashed border-blue-300 rounded-xl text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm font-medium"
+                    className="w-full flex flex-col items-center justify-center gap-2 py-7 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-500 transition-colors group"
                 >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    <svg className="w-8 h-8 text-gray-300 group-hover:text-gray-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                     </svg>
-                    新建旅行
+                    <span className="text-xs text-gray-300 group-hover:text-gray-400 transition-colors tracking-wide">旅の目的地は、まだ見ぬ地平線の向こうに</span>
                 </button>
 
                 {/* Trip list */}
