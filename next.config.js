@@ -4,6 +4,23 @@ const withPWA = require('next-pwa')({
     disable: process.env.NODE_ENV === 'development',
     register: true,
     skipWaiting: true,
+    runtimeCaching: [
+        // OSM 地图瓦片：NetworkFirst，只缓存成功响应，失败直接穿透
+        {
+            urlPattern: /^https:\/\/tile\.openstreetmap\.org\/.+/,
+            handler: 'NetworkFirst',
+            options: {
+                cacheName: 'osm-tiles',
+                expiration: {
+                    maxEntries: 256,
+                    maxAgeSeconds: 7 * 24 * 60 * 60, // 7 天
+                },
+                cacheableResponse: {
+                    statuses: [200], // 只缓存 200，绝不缓存失败响应
+                },
+            },
+        },
+    ],
 })
 
 const nextConfig = {
