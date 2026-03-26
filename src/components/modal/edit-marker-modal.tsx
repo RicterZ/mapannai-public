@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { Marker, MarkerIconType } from '@/types/marker'
 import { uploadFileToS3 } from '@/lib/upload/direct-upload'
@@ -27,14 +27,20 @@ export const EditMarkerModal = ({ marker, isOpen, onClose, onSave }: EditMarkerM
     const [iconType, setIconType] = useState<MarkerIconType>('location')
     const [isUploading, setIsUploading] = useState(false)
 
+    // 仅在 modal 打开瞬间初始化一次，避免后台数据刷新时覆盖编辑中的内容
+    const initializedRef = useRef<string | null>(null)
     useEffect(() => {
-        if (marker && isOpen) {
+        if (marker && isOpen && initializedRef.current !== marker.id) {
+            initializedRef.current = marker.id
             setTitle(marker.content.title || '')
             setHeaderImage(marker.content.headerImage || '')
             setIconType((marker.content.iconType as MarkerIconType) || 'location')
             setHtmlContent(marker.content.markdownContent || '')
         }
-    }, [marker, isOpen])
+        if (!isOpen) {
+            initializedRef.current = null
+        }
+    }, [marker?.id, isOpen])
 
     if (!isOpen || !marker) return null
 
