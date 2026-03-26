@@ -203,31 +203,14 @@ export const AbstractMap = () => {
         return () => window.removeEventListener('syncMarkerFailed', handleSyncFailed)
     }, [])
 
-    // 自定义关闭标记详情函数，在移动端关闭时跳转到正中间
+    // 自定义关闭标记详情函数
     const handleCloseSidebar = useCallback(() => {
         // 发送事件通知侧边栏重置添加模式
         const resetAddModeEvent = new CustomEvent('resetAddMode')
         window.dispatchEvent(resetAddModeEvent)
-        
+
         closeSidebar()
-        
-        // 在移动端关闭标记详情时，跳转到正中间（修复之前的偏移）
-        if (window.innerWidth < 1024 && selectedMarkerId) {
-            const marker = markers.find(m => m.id === selectedMarkerId)
-            if (marker && mapRef.current) {
-                // 延迟执行，确保侧边栏已经关闭
-                setTimeout(() => {
-                    if (mapRef.current) {
-                        mapRef.current.flyTo({
-                            center: [marker.coordinates.longitude, marker.coordinates.latitude],
-                            zoom: 15,
-                            duration: 4000,
-                        })
-                    }
-                }, 300)
-            }
-        }
-    }, [closeSidebar, selectedMarkerId, markers])
+    }, [closeSidebar])
 
     // 地图初始化成功后设置状态
     const handleMapLoad = useCallback(() => {
@@ -253,27 +236,10 @@ export const AbstractMap = () => {
     // 地图flyTo功能
     const handleFlyTo = useCallback((coordinates: { longitude: number; latitude: number }, zoom?: number) => {
         if (mapRef.current) {
-            // 在移动端有标记详情时，调整跳转位置
-            if (window.innerWidth < 1024 && isSidebarOpen) {
-                // 计算偏移量：在zoom 15时，需要合适的偏移量让目标位置出现在上半屏中间
-                const offset = -0.0035 // 纬度偏移量，向下偏移约0.4km
-                const adjustedCoordinates = {
-                    longitude: coordinates.longitude,
-                    latitude: coordinates.latitude + offset,
-                }
-
-                // 延迟执行，确保标记详情已经打开
-                setTimeout(() => {
-                    if (mapRef.current) {
-                        mapRef.current.flyTo({ center: [adjustedCoordinates.longitude, adjustedCoordinates.latitude], zoom, duration: 4000 })
-                    }
-                }, 100)
-            } else {
-                // popup 显示在标记上方，向下偏移让 popup 视觉居中
-                mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], offset: [0, 80], zoom, duration: 4000 })
-            }
+            // popup 显示在标记下方，标记上移让 popup 视觉居中（offset 负 y = 目标点在视口中心上方）
+            mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], offset: [0, -80], zoom, duration: 4000 })
         }
-    }, [isSidebarOpen])
+    }, [])
 
     // 右下角搜索：防抖自动搜索（输入≥2字）
     useEffect(() => {
