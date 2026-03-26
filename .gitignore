@@ -127,6 +127,7 @@ dist/
 *.tsbuildinfo.mcp.json
 
 # PWA / Workbox generated files
+public/sw.js
 public/workbox-*.js
 
 # SQLite database files
