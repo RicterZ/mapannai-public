@@ -41,17 +41,6 @@ export const ViewModeBanner = () => {
             )}
             style={{ top: 'calc(env(safe-area-inset-top) + env(safe-area-inset-top) + 36px)' }}
         >
-            {/* Breadcrumb */}
-            <button
-                onClick={() => setActiveView('overview', null, null)}
-                className="text-gray-400 hover:text-gray-600 transition-colors text-xs px-1 flex-shrink-0"
-                title="返回全览"
-            >
-                全览
-            </button>
-
-            <span className="text-gray-300 flex-shrink-0">›</span>
-
             {/* Trip name */}
             <button
                 onClick={() => setActiveView('trip', activeView.tripId, null)}
