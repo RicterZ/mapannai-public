@@ -16,6 +16,12 @@ export function middleware(request: NextRequest) {
   // 未配置 token 时跳过认证
   if (!apiToken) return NextResponse.next()
 
+  // MCP SSE POST 消息只带 sessionId，不带 token（token 已在 GET 建连时验证过）
+  // sessionId 本身即为访问凭证，此处跳过二次校验
+  if (request.nextUrl.pathname === '/api/mcp' && request.method === 'POST') {
+    return NextResponse.next()
+  }
+
   const authHeader = request.headers.get('authorization')
   const xApiToken = request.headers.get('x-api-token')
   const queryToken = request.nextUrl.searchParams.get('token')
