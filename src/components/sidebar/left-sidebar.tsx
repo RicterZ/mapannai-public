@@ -286,24 +286,22 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         prevTripRef.current = activeView.tripId
         prevDayRef.current = activeView.dayId
 
-        // 1. 当前内容滑出（120ms）
+        // 1. 当前内容淡出（150ms）
         setSlideState('exit')
         setBlockClicks(true)
         cancelConfirmDelete()
 
-        // 2. 内容切换 + 新内容从对面出发位置就位（不可见，立即切换）
+        // 2. 内容切换 + 新内容淡入
         const t = setTimeout(() => {
             setDisplayMode(activeView.mode)
             setDisplayTripId(activeView.tripId)
             setDisplayDayId(activeView.dayId)
             setSlideState('enter')
-            // 3. 下一帧触发 transition 滑入到 idle(0)
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => setSlideState('idle'))
             })
-            // 4. 超过 iOS 幽灵 click 300ms 窗口后解除屏蔽
             setTimeout(() => setBlockClicks(false), 300)
-        }, 120)
+        }, 150)
 
         return () => { clearTimeout(t) }
     }, [activeView.mode, activeView.tripId, activeView.dayId])
@@ -1261,13 +1259,14 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
             >
                 {renderHeader()}
 
-                {/* 内容区域：向左滑出，从右滑入 */}
+                {/* 内容区域：淡入淡出切换 */}
                 <div
                     className={cn(
                         'flex-1 flex flex-col overflow-hidden',
-                        'transition-transform duration-150 ease-out',
-                        slideState === 'exit' && '-translate-x-full pointer-events-none',
-                        slideState === 'enter' && 'translate-x-full pointer-events-none',
+                        'transition-[opacity,transform] duration-200 ease-in-out',
+                        slideState === 'exit' && 'opacity-0 scale-[0.98] pointer-events-none',
+                        slideState === 'enter' && 'opacity-0 scale-[0.98] pointer-events-none',
+                        slideState === 'idle' && 'opacity-100 scale-100',
                         blockClicks && 'pointer-events-none',
                     )}
                 >
