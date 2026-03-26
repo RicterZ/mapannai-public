@@ -62,6 +62,13 @@ body {
     }
 }
 
+/* PWA standalone 模式下，Sonner toast 避让顶部安全区域 */
+@media (display-mode: standalone) {
+    [data-sonner-toaster] {
+        top: calc(env(safe-area-inset-top) + 20px) !important;
+    }
+}
+
 /* PWA/black-translucent 模式下，地图容器延伸到物理屏幕四边，消除 safe area 露边 */
 /* 只有地图容器向外延伸；所有 UI 元素通过 env(safe-area-inset-*) 保持安全距离 */
 .map-container {

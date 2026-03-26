@@ -587,13 +587,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         const marker = markers.find(m => m.id === markerId)
         if (!marker) return
         onFlyTo(marker.coordinates, 15)
-        if (addMarkerEnabled) {
-            // 编辑模式：只飞到标记，不打开右侧 sidebar；移动端关闭左侧 sidebar
-            if (window.innerWidth < 1024) closeLeftSidebar()
-            return
-        }
-        selectMarker(markerId)
-        openSidebar()
+        if (window.innerWidth < 1024) closeLeftSidebar()
     }
 
     const handleDeleteTrip = async (tripId: string) => {

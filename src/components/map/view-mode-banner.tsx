@@ -34,12 +34,12 @@ export const ViewModeBanner = () => {
     return (
         <div
             className={cn(
-                'fixed left-1/2 -translate-x-1/2 z-40',
+                'fixed left-1/2 -translate-x-1/2 -translate-y-1/2 z-40',
                 'bg-white/95 backdrop-blur border border-gray-200 shadow-lg rounded-full',
                 'flex items-center gap-1 px-3 py-1.5 text-sm max-w-[90vw]',
                 'animate-scale-in'
             )}
-            style={{ top: 'calc(env(safe-area-inset-top) + 12px)' }}
+            style={{ top: 'calc(env(safe-area-inset-top) + env(safe-area-inset-top) + 36px)' }}
         >
             {/* Breadcrumb */}
             <button
