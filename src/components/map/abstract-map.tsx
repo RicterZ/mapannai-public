@@ -269,8 +269,8 @@ export const AbstractMap = () => {
                     }
                 }, 100)
             } else {
-                // 正常跳转
-                mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], zoom, duration: 4000 })
+                // popup 显示在标记上方，向下偏移让 popup 视觉居中
+                mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], offset: [0, 80], zoom, duration: 4000 })
             }
         }
     }, [isSidebarOpen])
