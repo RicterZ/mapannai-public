@@ -1,5 +1,6 @@
 'use client'
 
+import { useRef, useState, useEffect } from 'react'
 import { useMapStore } from '@/store/map-store'
 import { cn } from '@/utils/cn'
 
@@ -20,16 +21,44 @@ function getDayNumber(tripId: string, dayId: string, tripDays: ReturnType<typeof
 }
 
 export const ViewModeBanner = () => {
-    const { activeView, trips, tripDays, setActiveView } = useMapStore()
+    const { activeView, trips, tripDays, setActiveView, openLeftSidebar } = useMapStore()
+    const [dayDropdownOpen, setDayDropdownOpen] = useState(false)
+    const dropdownRef = useRef<HTMLDivElement>(null)
+
+    // 点击外部关闭下拉
+    useEffect(() => {
+        if (!dayDropdownOpen) return
+        const handleClick = (e: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setDayDropdownOpen(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClick)
+        return () => document.removeEventListener('mousedown', handleClick)
+    }, [dayDropdownOpen])
 
     if (activeView.mode === 'overview') return null
 
     const trip = trips.find(t => t.id === activeView.tripId)
     const day = tripDays.find(d => d.id === activeView.dayId)
-    const totalDays = tripDays.filter(d => d.tripId === activeView.tripId).length
+    const sortedDays = tripDays
+        .filter(d => d.tripId === activeView.tripId)
+        .sort((a, b) => a.date.localeCompare(b.date))
+    const totalDays = sortedDays.length
     const dayNum = activeView.dayId && activeView.tripId
         ? getDayNumber(activeView.tripId, activeView.dayId, tripDays)
         : null
+
+    const handleTripClick = () => {
+        setActiveView('trip', activeView.tripId, null)
+        openLeftSidebar()
+    }
+
+    const handleDaySelect = (dayId: string) => {
+        setDayDropdownOpen(false)
+        setActiveView('day', activeView.tripId, dayId)
+        openLeftSidebar()
+    }
 
     return (
         <div
@@ -41,9 +70,9 @@ export const ViewModeBanner = () => {
             )}
             style={{ top: 'calc(env(safe-area-inset-top) + env(safe-area-inset-top) + 36px)' }}
         >
-            {/* Trip name */}
+            {/* Trip name — 点击打开侧边栏旅途详情 */}
             <button
-                onClick={() => setActiveView('trip', activeView.tripId, null)}
+                onClick={handleTripClick}
                 className={cn(
                     'font-medium transition-colors truncate max-w-[120px]',
                     activeView.mode === 'trip' ? 'text-blue-600' : 'text-gray-600 hover:text-blue-500'
@@ -53,22 +82,76 @@ export const ViewModeBanner = () => {
                 {trip?.name ?? '旅行'}
             </button>
 
-            {/* Day breadcrumb (only in day mode) */}
+            {/* Day breadcrumb (only in day mode) — 点击弹出天选择 */}
             {activeView.mode === 'day' && day && (
                 <>
                     <span className="text-gray-300 flex-shrink-0">›</span>
-                    <span className="font-medium text-blue-600 truncate max-w-[140px]" title={day.date}>
-                        {day.title || `第${dayNum}天`}
-                        <span className="ml-1 text-xs text-gray-400 font-normal hidden sm:inline">
-                            · {formatDate(day.date)}
-                        </span>
-                    </span>
+                    <div ref={dropdownRef} className="relative">
+                        <button
+                            onClick={() => setDayDropdownOpen(v => !v)}
+                            className="font-medium text-blue-600 truncate max-w-[140px] flex items-center gap-0.5"
+                            title={day.date}
+                        >
+                            {day.title || `第${dayNum}天`}
+                            <span className="ml-1 text-xs text-gray-400 font-normal hidden sm:inline">
+                                · {formatDate(day.date)}
+                            </span>
+                            <svg className={cn('w-3 h-3 text-gray-400 flex-shrink-0 transition-transform', dayDropdownOpen && 'rotate-180')} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+
+                        {dayDropdownOpen && (
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden min-w-[160px] z-50">
+                                {sortedDays.map((d, idx) => (
+                                    <button
+                                        key={d.id}
+                                        onClick={() => handleDaySelect(d.id)}
+                                        className={cn(
+                                            'w-full text-left px-4 py-2.5 text-sm transition-colors',
+                                            d.id === activeView.dayId
+                                                ? 'bg-blue-50 text-blue-600 font-medium'
+                                                : 'text-gray-700 hover:bg-gray-50'
+                                        )}
+                                    >
+                                        <div className="font-medium">{d.title || `第${idx + 1}天`}</div>
+                                        <div className="text-xs text-gray-400 mt-0.5">{formatDate(d.date)}</div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </>
             )}
 
-            {/* Progress (trip mode: Day X/Y) */}
+            {/* Progress (trip mode) — 点击弹出天选择 */}
             {activeView.mode === 'trip' && totalDays > 0 && (
-                <span className="text-xs text-gray-400 ml-1 flex-shrink-0">{totalDays}天</span>
+                <div ref={dropdownRef} className="relative">
+                    <button
+                        onClick={() => setDayDropdownOpen(v => !v)}
+                        className="text-xs text-gray-400 ml-1 flex-shrink-0 flex items-center gap-0.5 hover:text-gray-600 transition-colors"
+                    >
+                        {totalDays}天
+                        <svg className={cn('w-3 h-3 transition-transform', dayDropdownOpen && 'rotate-180')} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+
+                    {dayDropdownOpen && (
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden min-w-[160px] z-50">
+                            {sortedDays.map((d, idx) => (
+                                <button
+                                    key={d.id}
+                                    onClick={() => handleDaySelect(d.id)}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                >
+                                    <div className="font-medium">{d.title || `第${idx + 1}天`}</div>
+                                    <div className="text-xs text-gray-400 mt-0.5">{formatDate(d.date)}</div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
             )}
 
             {/* Exit button */}
