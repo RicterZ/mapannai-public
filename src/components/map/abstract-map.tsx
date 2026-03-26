@@ -223,7 +223,7 @@ export const AbstractMap = () => {
         const handleJumpToCenter = (event: CustomEvent) => {
             const { coordinates, zoom } = event.detail
             if (mapRef.current) {
-                mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], zoom, duration: 4000 })
+                mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], zoom, duration: 2000 })
             }
         }
 
@@ -237,7 +237,7 @@ export const AbstractMap = () => {
     const handleFlyTo = useCallback((coordinates: { longitude: number; latitude: number }, zoom?: number) => {
         if (mapRef.current) {
             // popup 显示在标记下方，标记上移让 popup 视觉居中（offset 负 y = 目标点在视口中心上方）
-            mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], offset: [0, -80], zoom, duration: 4000 })
+            mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], offset: [0, -80], zoom, duration: 2000 })
         }
     }, [])
 
