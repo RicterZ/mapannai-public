@@ -101,8 +101,21 @@ By default the app proxies OSM tiles through the same origin (`/osm-tiles/…`).
 ```nginx
 location /osm-tiles/ {
     proxy_pass https://tile.openstreetmap.org/;
+
+    proxy_ssl_server_name on;
+    proxy_ssl_name tile.openstreetmap.org;
+
     proxy_set_header Host tile.openstreetmap.org;
-    proxy_cache_valid 200 7d;
+    proxy_set_header User-Agent "MapAnNai/1.0 (your@email.com)";
+
+    proxy_cache osm;
+    proxy_cache_valid 200 30d;
+    proxy_cache_use_stale error timeout updating;
+
+    add_header X-Cache-Status $upstream_cache_status;
+    add_header Access-Control-Allow-Origin *;
+
+    expires 30d;
 }
 ```
 
