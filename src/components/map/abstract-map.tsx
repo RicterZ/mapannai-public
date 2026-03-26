@@ -161,6 +161,46 @@ export const AbstractMap = () => {
     const [fabQueryError, setFabQueryError] = useState('')
     const [isSearching, setIsSearching] = useState(false)
 
+    // 用户定位状态
+    type GeoState = 'idle' | 'loading' | 'active'
+    const [geoState, setGeoState] = useState<GeoState>('idle')
+    const geoWatchRef = useRef<number | null>(null)
+    const [userLocation, setUserLocation] = useState<{ lng: number; lat: number } | null>(null)
+    const hasGeolocation = typeof navigator !== 'undefined' && 'geolocation' in navigator
+
+    const handleGeoClick = useCallback(() => {
+        if (!hasGeolocation) return
+        if (geoState === 'loading') return
+
+        if (geoState === 'active' && userLocation) {
+            // 已定位，重新飞到当前位置
+            mapRef.current?.flyTo({ center: [userLocation.lng, userLocation.lat], zoom: 15, duration: 800 })
+            return
+        }
+
+        setGeoState('loading')
+        if (geoWatchRef.current !== null) {
+            navigator.geolocation.clearWatch(geoWatchRef.current)
+        }
+        geoWatchRef.current = navigator.geolocation.watchPosition(
+            (pos) => {
+                const loc = { lng: pos.coords.longitude, lat: pos.coords.latitude }
+                setUserLocation(loc)
+                setGeoState(prev => {
+                    if (prev === 'loading') {
+                        mapRef.current?.flyTo({ center: [loc.lng, loc.lat], zoom: 15, duration: 800 })
+                    }
+                    return 'active'
+                })
+            },
+            () => {
+                setGeoState('idle')
+                toast.error('无法获取位置，请检查定位权限')
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        )
+    }, [geoState, userLocation, hasGeolocation])
+
     const {
         markers,
         interactionState,
@@ -749,15 +789,16 @@ export const AbstractMap = () => {
                     className={cn(
                         'w-12 h-12 rounded-full shadow-lg border border-gray-200 bg-white',
                         'flex items-center justify-center',
-                        'hover:bg-blue-50 hover:border-blue-300 transition-all duration-200',
+                        'hover:bg-gray-50 transition-colors duration-150',
                         'focus:outline-none touch-manipulation'
                     )}
                     aria-label="打开标记列表"
                     title="打开标记列表"
                 >
-                    <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <svg className="w-[18px] h-[18px] text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2,7 L8,8.5 L8,19.5 L2,18 Z" />
+                        <path d="M8,8.5 L16,6 L16,17 L8,19.5 Z" />
+                        <path d="M16,6 L22,8 L22,19 L16,17 Z" />
                     </svg>
                 </button>
             </div>
@@ -848,6 +889,14 @@ export const AbstractMap = () => {
                         }}
                     />
                 )}
+                {/* 用户当前位置蓝点 */}
+                {userLocation && (
+                    <MapboxMarker longitude={userLocation.lng} latitude={userLocation.lat} anchor="center">
+                        <div className="relative flex items-center justify-center">
+                            <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-md" />
+                        </div>
+                    </MapboxMarker>
+                )}
                 </MapLibreComponent>
 
             {/* 右下角：搜索栏 */}
@@ -878,44 +927,73 @@ export const AbstractMap = () => {
                     </div>
                 )}
 
-                {/* 搜索输入框 */}
-                <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                        {isSearching ? (
-                            <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
+                {/* 搜索输入框 + 定位按钮 同一排 */}
+                <div className="flex items-center gap-2">
+                    <div className="relative flex-1 lg:w-72 lg:flex-none">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                            {isSearching ? (
+                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            )}
+                        </div>
+                        <input
+                            type="text"
+                            value={fabQuery}
+                            onChange={e => {
+                                setFabQuery(e.target.value)
+                                if (fabQueryError) setFabQueryError('')
+                                if (!e.target.value.trim()) setFabResults([])
+                            }}
+                            onKeyDown={e => {
+                                if (e.key === 'Escape') { setFabQuery(''); setFabResults([]) }
+                                if (e.key === 'Enter' && fabResults.length > 0) handleFabResultClick(fabResults[0])
+                            }}
+                            placeholder="搜索地点…"
+                            className="w-full lg:w-72 h-12 pl-9 pr-8 bg-white rounded-[14px] shadow-lg border border-gray-200 text-sm placeholder-gray-400 focus:outline-none transition-all"
+                        />
+                        {fabQuery && !isSearching && (
+                            <button
+                                onClick={() => { setFabQuery(''); setFabResults([]) }}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
                         )}
                     </div>
-                    <input
-                        type="text"
-                        value={fabQuery}
-                        onChange={e => {
-                            setFabQuery(e.target.value)
-                            if (fabQueryError) setFabQueryError('')
-                            if (!e.target.value.trim()) setFabResults([])
-                        }}
-                        onKeyDown={e => {
-                            if (e.key === 'Escape') { setFabQuery(''); setFabResults([]) }
-                            if (e.key === 'Enter' && fabResults.length > 0) handleFabResultClick(fabResults[0])
-                        }}
-                        placeholder="搜索地点…"
-                        className="w-full lg:w-72 h-11 pl-9 pr-8 bg-white rounded-2xl shadow-lg border border-gray-200 text-sm placeholder-gray-400 focus:outline-none transition-all"
-                    />
-                    {fabQuery && !isSearching && (
+
+                    {/* 定位按钮 — PWA only */}
+                    {hasGeolocation && (
                         <button
-                            onClick={() => { setFabQuery(''); setFabResults([]) }}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
+                            onClick={handleGeoClick}
+                            className="w-12 h-12 rounded-full shadow-lg border flex-shrink-0 flex items-center justify-center bg-white border-gray-200 text-gray-500 hover:bg-gray-50 focus:outline-none touch-manipulation transition-colors duration-150"
+                            aria-label="定位到当前位置"
+                            title="定位到当前位置"
                         >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            {geoState === 'loading' ? (
+                                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                    {/* 外圆 */}
+                                    <circle cx="12" cy="12" r="6" />
+                                    {/* 中心点 */}
+                                    <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+                                    {/* 十字臂 */}
+                                    <line x1="12" y1="2"  x2="12" y2="6" />
+                                    <line x1="12" y1="18" x2="12" y2="22" />
+                                    <line x1="2"  y1="12" x2="6"  y2="12" />
+                                    <line x1="18" y1="12" x2="22" y2="12" />
+                                </svg>
+                            )}
                         </button>
                     )}
                 </div>
             </div>
+
             {/* 新增标记弹窗 */}
             <AddMarkerModal
                 coordinates={addMarkerModal.coordinates || { latitude: 0, longitude: 0 }}

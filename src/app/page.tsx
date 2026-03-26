@@ -17,7 +17,7 @@ const InteractiveMap = dynamic(() => import('@/components/map/abstract-map').the
 
 export default function HomePage() {
     return (
-        <main className="fixed inset-0 overflow-hidden">
+        <main className="fixed inset-0">
             <InteractiveMap />
         </main>
     )
