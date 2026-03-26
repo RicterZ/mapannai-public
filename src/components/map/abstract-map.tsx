@@ -514,10 +514,11 @@ export const AbstractMap = () => {
                 return
             }
 
-            // If popup is open, close it
+            // If popup is open, close it + 清除标记触发的连线高亮
             if (isPopupOpen) {
                 closePopup()
                 selectMarker(null)
+                useMapStore.getState().setHighlightedDay(null)
                 // 仅在开关开启时才在新位置重新打开 popup
                 if (addMarkerEnabled) {
                     setCurrentPlaceName(undefined)
@@ -534,8 +535,11 @@ export const AbstractMap = () => {
                 return
             }
 
-            // 开关关闭时，空白处点击不做任何事
-            if (!addMarkerEnabled) return
+            // 开关关闭时，空白处 click 清除线触发的持久高亮
+            if (!addMarkerEnabled) {
+                useMapStore.getState().setHighlightedDay(null)
+                return
+            }
 
             // 无 popup、无 sidebar：在点击位置打开新标记 popup
             selectMarker(null)
