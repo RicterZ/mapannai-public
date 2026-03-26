@@ -320,7 +320,7 @@ body {
 }
 
 .animate-slide-in-left {
-    animation: slideInLeft 0.3s ease-out;
+    animation: slideInLeft 0.2s ease-out;
 }
 
 .animate-slide-in-bottom {

@@ -238,7 +238,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
     const {
         markers, trips, tripDays, activeView, interactionState,
         leftSidebar, closeLeftSidebar,
-        selectMarker, openSidebar,
+        selectMarker, openSidebar, openPopup,
         setActiveView, deleteTrip, updateTrip,
         removeMarkerFromDay,
         updateDayChains,
@@ -286,7 +286,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         prevTripRef.current = activeView.tripId
         prevDayRef.current = activeView.dayId
 
-        // 1. 当前内容滑出（250ms）
+        // 1. 当前内容滑出（120ms）
         setSlideState('exit')
         setBlockClicks(true)
         cancelConfirmDelete()
@@ -302,8 +302,8 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                 requestAnimationFrame(() => setSlideState('idle'))
             })
             // 4. 超过 iOS 幽灵 click 300ms 窗口后解除屏蔽
-            setTimeout(() => setBlockClicks(false), 400)
-        }, 250)
+            setTimeout(() => setBlockClicks(false), 300)
+        }, 120)
 
         return () => { clearTimeout(t) }
     }, [activeView.mode, activeView.tripId, activeView.dayId])
@@ -587,6 +587,8 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         const marker = markers.find(m => m.id === markerId)
         if (!marker) return
         onFlyTo(marker.coordinates, 15)
+        selectMarker(markerId)
+        openPopup(marker.coordinates)
         if (window.innerWidth < 1024) closeLeftSidebar()
     }
 
@@ -1253,7 +1255,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                     // 桌面端：始终显示，无需动画
                     // 移动端：关闭时滑出（transition），打开时滑入（animation）
                     'lg:translate-x-0',
-                    !leftSidebar.isOpen ? 'max-lg:-translate-x-full max-lg:transition-transform max-lg:duration-300' : 'max-lg:animate-slide-in-left',
+                    !leftSidebar.isOpen ? 'max-lg:-translate-x-full max-lg:transition-transform max-lg:duration-200' : 'max-lg:animate-slide-in-left',
                 )}
                 style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
             >
@@ -1263,7 +1265,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                 <div
                     className={cn(
                         'flex-1 flex flex-col overflow-hidden',
-                        'transition-transform duration-300',
+                        'transition-transform duration-150 ease-out',
                         slideState === 'exit' && '-translate-x-full pointer-events-none',
                         slideState === 'enter' && 'translate-x-full pointer-events-none',
                         blockClicks && 'pointer-events-none',
