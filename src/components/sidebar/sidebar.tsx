@@ -3,7 +3,6 @@
 import { useRef, useCallback, useState, useEffect } from 'react'
 import { useMapStore } from '@/store/map-store'
 import { cn } from '@/utils/cn'
-import { marked } from 'marked'
 import { toast } from 'sonner'
 
 interface SidebarProps {
@@ -162,9 +161,9 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
 
     // 移除“点击外部关闭”监听，避免误触导致关闭
 
-    // 渲染Markdown内容的只读版本
-    const renderReadOnlyContent = (markdownContent: string) => {
-        if (!markdownContent || markdownContent.trim() === '') {
+    // 渲染富文本内容的只读版本（存储为 HTML）
+    const renderReadOnlyContent = (content: string) => {
+        if (!content || content.trim() === '' || content === '<p></p>') {
             return (
                 <div className="text-gray-500 text-center py-8">
                     <div className="text-4xl mb-2">📝</div>
@@ -175,9 +174,10 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
         }
 
         return (
-            <div className="prose prose-sm max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: marked.parse(markdownContent) as string }} />
-            </div>
+            <div
+                className="prose prose-sm max-w-none rich-content"
+                dangerouslySetInnerHTML={{ __html: content }}
+            />
         )
     }
 
