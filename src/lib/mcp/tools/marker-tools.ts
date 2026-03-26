@@ -17,14 +17,17 @@ import {
     generateCoordinateHash,
 } from '@/lib/db/marker-service'
 
-async function searchPlaceCoordinates(name: string, country: string = 'CN'): Promise<{ latitude: number; longitude: number }> {
+async function searchPlaceCoordinates(name: string, country: string = 'CN'): Promise<{ latitude: number; longitude: number; address?: string }> {
   const googleProvider = mapProviderFactory.createGoogleServerProvider()
   const mapConfig = { accessToken: config.map.google.accessToken, style: 'custom' }
   const results = await googleProvider.searchPlaces(name, mapConfig, country)
   if (!results || results.length === 0) {
     throw new Error(`找不到地点: ${name}`)
   }
-  return results[0].coordinates
+  return {
+    ...results[0].coordinates,
+    address: results[0].address,
+  }
 }
 
 export function registerMarkerTools(server: McpServer) {
@@ -101,6 +104,7 @@ export function registerMarkerTools(server: McpServer) {
           const properties = {
             markdownContent: place.content || '',
             headerImage: null,
+            address: coordinates.address || null,
             iconType: place.iconType as MarkerIconType,
             metadata: {
               id: featureId,
