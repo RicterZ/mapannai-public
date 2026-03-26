@@ -33,16 +33,21 @@ export const AbstractMap = () => {
     const [loadingRetryCount, setLoadingRetryCount] = useState(0)
     const [dataLoaded, setDataLoaded] = useState(false)
 
-    // 动态构造地图样式：tile URL 使用当前域名，无需硬编码，反代时自动跟着走
+    // 动态构造地图样式：
+    // 默认使用反向代理路径（origin/osm-tiles/），NEXT_PUBLIC_OSM_TILE_PROXY=false 时使用官方 OSM
     const mapStyle = useMemo(() => {
+        const useProxy = process.env.NEXT_PUBLIC_OSM_TILE_PROXY !== 'false'
         const origin = typeof window !== 'undefined' ? window.location.origin : ''
+        const tileUrl = useProxy
+            ? `${origin}/osm-tiles/{z}/{x}/{y}.png`
+            : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
         return {
             version: 8,
             name: 'OSM',
             sources: {
                 'osm-tiles': {
                     type: 'raster',
-                    tiles: [`${origin}/osm-tiles/{z}/{x}/{y}.png`],
+                    tiles: [tileUrl],
                     tileSize: 256,
                     attribution: '© OpenStreetMap contributors',
                     minzoom: 0,
