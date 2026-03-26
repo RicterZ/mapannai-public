@@ -233,13 +233,26 @@ export const AbstractMap = () => {
         }
     }, [])
 
+    // 根据两点距离计算 flyTo 时长：>=200km → 3500ms，<=10km → 2000ms，线性插值
+    const flyDuration = useCallback((to: { longitude: number; latitude: number }): number => {
+        const R = 6371 // 地球半径 km
+        const lat1 = viewState.latitude * Math.PI / 180
+        const lat2 = to.latitude * Math.PI / 180
+        const dLat = (to.latitude - viewState.latitude) * Math.PI / 180
+        const dLon = (to.longitude - viewState.longitude) * Math.PI / 180
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
+        const km = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        const t = Math.min(1, Math.max(0, (km - 10) / (200 - 10)))
+        return Math.round(2000 + t * 1500)
+    }, [viewState.latitude, viewState.longitude])
+
     // 地图flyTo功能
     const handleFlyTo = useCallback((coordinates: { longitude: number; latitude: number }, zoom?: number) => {
         if (mapRef.current) {
             // popup 显示在标记下方，标记上移让 popup 视觉居中（offset 负 y = 目标点在视口中心上方）
-            mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], offset: [0, -80], zoom, duration: 2000 })
+            mapRef.current.flyTo({ center: [coordinates.longitude, coordinates.latitude], offset: [0, -80], zoom, duration: flyDuration(coordinates) })
         }
-    }, [])
+    }, [flyDuration])
 
     // 右下角搜索：防抖自动搜索（输入≥2字）
     useEffect(() => {
