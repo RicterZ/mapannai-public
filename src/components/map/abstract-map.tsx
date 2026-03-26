@@ -395,6 +395,19 @@ export const AbstractMap = () => {
         loadData()
     }, [loadMarkersFromDataset, silentRetryLoad, dataLoaded])
 
+    // 定时轮询：数据加载完成后每 30s 静默同步一次，tab 隐藏时暂停
+    useEffect(() => {
+        if (!dataLoaded) return
+
+        const sync = () => {
+            if (document.visibilityState === 'hidden') return
+            loadMarkersFromDataset().catch(() => {/* 静默失败 */})
+        }
+
+        const timer = setInterval(sync, 30_000)
+        return () => clearInterval(timer)
+    }, [dataLoaded, loadMarkersFromDataset])
+
     // 监听严重错误（只有地图本身无法加载才显示错误页面）
     useEffect(() => {
         if (storeError) {
