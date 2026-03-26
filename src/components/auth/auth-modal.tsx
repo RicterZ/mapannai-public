@@ -21,9 +21,14 @@ export function AuthModal() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const openModal = useCallback(() => {
-    setValue('')
-    setError('')
-    setIsOpen(true)
+    // 若弹窗已打开，不重置输入内容（避免多个并发 401 清空正在输入的 token）
+    setIsOpen((prev) => {
+      if (!prev) {
+        setValue('')
+        setError('')
+      }
+      return true
+    })
   }, [])
 
   useEffect(() => {
