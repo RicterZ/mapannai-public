@@ -20,9 +20,7 @@ import {
 async function searchPlaceCoordinates(name: string, country: string = 'CN'): Promise<{ latitude: number; longitude: number }> {
   const googleProvider = mapProviderFactory.createGoogleServerProvider()
   const mapConfig = { accessToken: config.map.google.accessToken, style: 'custom' }
-  const t = Date.now()
   const results = await googleProvider.searchPlaces(name, mapConfig, country)
-  console.log(`[MCP] searchPlaces "${name}"  country=${country}  +${Date.now() - t}ms  hits=${results?.length ?? 0}`)
   if (!results || results.length === 0) {
     throw new Error(`找不到地点: ${name}`)
   }
@@ -36,7 +34,6 @@ export function registerMarkerTools(server: McpServer) {
     '获取地图上所有已保存的 marker（地点标记）列表，包含坐标、标题、图标类型和内容',
     {},
     async () => {
-      const t0 = Date.now()
       const featureCollection = getAllMarkers()
       const markers = featureCollection.features
         .filter(f => f.id && f.geometry?.coordinates?.length >= 2)
@@ -57,7 +54,6 @@ export function registerMarkerTools(server: McpServer) {
           }
         })
 
-      console.log(`[MCP] list_markers  total=${markers.length}  +${Date.now() - t0}ms`)
       return {
         content: [{ type: 'text', text: JSON.stringify(markers, null, 2) }],
       }
@@ -78,9 +74,6 @@ export function registerMarkerTools(server: McpServer) {
       country: z.string().optional().default('CN').describe('限定搜索国家代码，默认 CN（中国）。规划其他国家时必须修改，例如 JP（日本）、KR（韩国）、US（美国）。填错会导致同名地点定位到错误国家。'),
     },
     async ({ places, country }) => {
-      const t0 = Date.now()
-      console.log(`[MCP] create_marker  count=${places.length}  country=${country ?? 'unset'}  names=${places.map(p => p.name).join(', ')}`)
-
       const results = []
       for (const place of places) {
         try {
@@ -136,7 +129,6 @@ export function registerMarkerTools(server: McpServer) {
         }
       }
 
-      console.log(`[MCP] create_marker done  +${Date.now() - t0}ms  results=${JSON.stringify(results.map(r => ({ name: r.name, status: r.status })))}`)
       return {
         content: [{ type: 'text', text: JSON.stringify(results, null, 2) }],
       }

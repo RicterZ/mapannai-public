@@ -48,11 +48,6 @@ export const config = {
             coordinates: { longitude: 139.6917, latitude: 35.6895 },
             zoom: 10
         },
-        // nagoya: {
-        //     name: '名古屋',
-        //     coordinates: { longitude: 136.9066, latitude: 35.1815 },
-        //     zoom: 11
-        // },
     },
 } as const
 

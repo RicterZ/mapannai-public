@@ -123,7 +123,6 @@ const isServerSideAPIRoute = (): boolean => {
 const saveMarkerToDataset = async (marker: Marker) => {
     // 如果在服务器端API路由中运行，跳过保存以避免循环调用
     if (isServerSideAPIRoute()) {
-        console.log('跳过服务器端的Dataset保存，避免循环调用')
         return
     }
 
@@ -657,7 +656,6 @@ export const useMapStore = create<MapStore>()(
                                         },
                                     }
                                 } catch (error) {
-                                    console.warn('跳过无效的feature:', feature, error)
                                     return null
                                 }
                             })
@@ -665,7 +663,6 @@ export const useMapStore = create<MapStore>()(
 
                         set({ markers: loadedMarkers, error: null })
                     } else {
-                        console.warn('Dataset 返回数据格式不正确:', result)
                         // 不设置错误，让地图正常显示
                         set({ markers: [], error: null })
                     }

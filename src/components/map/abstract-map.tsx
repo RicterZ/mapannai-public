@@ -3,13 +3,10 @@
 import React, { useCallback, useRef, useEffect, useState, useMemo } from 'react'
 import { toast } from 'sonner'
 
-import { MapCoordinates, MapViewState } from '@/types/map-provider'
 import { config } from '@/lib/config'
 import { isInChina } from '@/lib/coord-transform'
 import { installZoomThresholdBackdoor } from '@/lib/zoom-threshold'
 import { searchService } from '@/lib/api/search-service'
-// 移除 Google Places 相关导入
-// 移除 Google Maps 加载函数
 import { useMapStore } from '@/store/map-store'
 import { MarkerCoordinates } from '@/types/marker'
 import { fetchWithAuth } from '@/lib/fetch-with-auth'
@@ -55,8 +52,6 @@ export const AbstractMap = () => {
             layers: [{ id: 'osm-layer', type: 'raster', source: 'osm-tiles' }],
         }
     }, [])
-    // 移除 Google Map 相关状态
-    
     // 存储地点名称，用于更新 popup title
     const [currentPlaceName, setCurrentPlaceName] = useState<string | undefined>(undefined)
     
@@ -103,7 +98,7 @@ export const AbstractMap = () => {
                 }
             }
         } catch (error) {
-            console.warn('Failed to parse saved view state:', error)
+            // ignore parse errors
         }
         
         return {
@@ -151,7 +146,7 @@ export const AbstractMap = () => {
                 pitch: viewState.pitch || 0,
             }))
         } catch (error) {
-            console.warn('Failed to save view state to localStorage:', error)
+            // ignore save errors
         }
     }, [])
 
@@ -249,10 +244,6 @@ export const AbstractMap = () => {
             window.removeEventListener('jumpToCenter', handleJumpToCenter as EventListener)
         }
     }, [])
-
-    // 移除 Google popup 处理函数
-    // 移除 Google 地图缩放监听
-    // 移除 Google popup 添加标记处理
 
     // 地图flyTo功能
     const handleFlyTo = useCallback((coordinates: { longitude: number; latitude: number }, zoom?: number) => {
@@ -380,7 +371,6 @@ export const AbstractMap = () => {
             setLoadingRetryCount(0) // 成功后重置计数
             setDataLoaded(true) // 标记数据已加载
         } catch (error) {
-            console.warn(`数据加载重试 ${loadingRetryCount + 1}/3 失败:`, error)
             setLoadingRetryCount(prev => prev + 1)
 
             // 延迟重试
@@ -406,7 +396,6 @@ export const AbstractMap = () => {
                 await loadMarkersFromDataset()
                 setDataLoaded(true)
             } catch (error) {
-                console.warn('初始数据加载失败，将进行静默重试:', error)
                 // 不设置错误状态，让地图正常显示
                 silentRetryLoad()
             }
@@ -485,8 +474,6 @@ export const AbstractMap = () => {
     // 通过后端API获取地点信息
     const getPlaceIdAsync = useCallback(async (coordinates: { latitude: number; longitude: number }) => {
         try {
-            console.log('🔍 获取地点信息:', coordinates)
-            
             const response = await fetchWithAuth('/api/places', {
                 method: 'POST',
                 headers: {
@@ -507,11 +494,8 @@ export const AbstractMap = () => {
             
             if (result.success && result.data) {
                 const placeInfo = result.data
-                console.log('📍 获取到地点信息:', placeInfo)
                 setCurrentPlaceName(placeInfo.name)
                 setCurrentPlaceAddress(placeInfo.address)
-            } else {
-                console.warn('获取地点信息失败:', result.error)
             }
         } catch (error) {
             console.error('获取地点信息时出错:', error)
@@ -553,7 +537,6 @@ export const AbstractMap = () => {
                     longitude: event.lngLat.lng,
                 }
             } else {
-                console.warn('Mapbox click event missing lngLat:', event)
                 return
             }
 
@@ -969,7 +952,6 @@ export const AbstractMap = () => {
                 onSave={handleUpdateMarker}
             />
 
-            {/* 移除 Google Map 自定义 Popup */}
         </div>
     )
 }

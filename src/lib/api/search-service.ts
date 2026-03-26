@@ -36,8 +36,7 @@ export class MapSearchService implements SearchService {
             })
             
             const url = `/api/search?${params}`
-            console.log(`🔍 调用搜索API: ${url}`)
-            
+
             const response = await fetchWithAuth(url, {
                 method: 'GET',
                 headers: {

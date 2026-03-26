@@ -111,8 +111,7 @@ function createMcpServer(): McpServer {
 | \`assign_marker_to_day\` | 将已有 marker 加入某天 |
 | \`plan_trip_day\` | 批量创建地点并加入某天（推荐主力工具） |
 | \`reorder_day_markers\` | 调整某天地点顺序 |
-| \`delete_trip\` | 删除旅行 |
-| \`plan_day_trip\` | 组合工具：批量创建地点 marker 并自动连线（Combo） |`,
+| \`delete_trip\` | 删除旅行 |`,
         },
       }],
     })
