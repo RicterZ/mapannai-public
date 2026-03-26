@@ -53,14 +53,27 @@ The MCP endpoint is at `src/app/api/mcp/route.ts` using `WebStandardStreamableHT
 
 **Image Upload** — Direct upload to Tencent COS via `src/lib/upload/direct-upload.ts` and `src/app/api/upload/route.ts`.
 
+**Authentication** — Optional static token auth via `src/middleware.ts`. Set `API_TOKEN` env var to enable; omit to skip (backwards-compatible). Token is read from three sources in priority order: `Authorization: Bearer <token>` header (frontend), `x-api-token` header (server-side internal calls), `?token=<token>` query param (MCP clients). Frontend stores the token in `localStorage` via `src/lib/auth.ts` and injects it automatically through `src/lib/fetch-with-auth.ts`. On first load or after a 401, `src/components/auth/auth-modal.tsx` prompts the user to enter the token.
+
 ### MCP Integration
 
-Claude Desktop config to connect to the local MCP server:
+Claude Desktop config (no auth):
 ```json
 {
   "mcpServers": {
     "mapannai": {
       "url": "http://localhost:3000/api/mcp"
+    }
+  }
+}
+```
+
+Claude Desktop config (with `API_TOKEN` set):
+```json
+{
+  "mcpServers": {
+    "mapannai": {
+      "url": "http://localhost:3000/api/mcp?token=YOUR_TOKEN"
     }
   }
 }
@@ -78,7 +91,7 @@ Recommended workflow: `create_trip` → `plan_trip_day` (批量创建地点并�
 - `src/lib/config.ts` — City presets, zoom levels, Google API config reading from env vars
 - `src/types/marker.ts` — Marker type definitions and 10 emoji-based icon categories (`MarkerIconType`): `activity` 🎯, `location` 📍, `hotel` 🏨, `shopping` 🛍️, `food` 🍜, `landmark` 🌆, `park` 🎡, `natural` 🗻, `culture` ⛩️, `transit` 🚉
 - `src/types/trip.ts` — `Trip`, `TripDay`, `ActiveView` type definitions
-- `env.example` — All required environment variables (Google API key, Tencent COS credentials)
+- `env.example` — All required environment variables (Google API key, Tencent COS credentials, optional `API_TOKEN`)
 - TypeScript path alias: `@/*` maps to `src/*`
 
 ### External API Integrations
