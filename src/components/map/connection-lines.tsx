@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useEffect, useRef, useSyncExternalStore } from 'react'
+import { useMemo, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Source, Layer, useMap } from 'react-map-gl/maplibre'
 import type { GeoJSONSource } from 'maplibre-gl'
 import { Marker } from '@/types/marker'
@@ -95,6 +95,19 @@ export const ConnectionLines = ({ zoom = 11 }: ConnectionLinesProps) => {
     const rafRef = useRef<number | null>(null)
     const tRef = useRef(0)
 
+    // hover 临时激活的 dayId（优先级高于 click 锁定的 highlightedDayId）
+    const [hoveredDayId, setHoveredDayId] = useState<string | null>(null)
+    const effectiveDayId = hoveredDayId ?? highlightedDayId
+
+    // 监听 marker hover 事件（临时激活）
+    useEffect(() => {
+        const handler = (e: Event) => {
+            setHoveredDayId((e as CustomEvent).detail.dayId)
+        }
+        window.addEventListener('markerDayHover', handler)
+        return () => window.removeEventListener('markerDayHover', handler)
+    }, [])
+
     // hover/click 线段时激活对应 day
     useEffect(() => {
         const mapInstance = map?.getMap()
@@ -102,11 +115,14 @@ export const ConnectionLines = ({ zoom = 11 }: ConnectionLinesProps) => {
 
         const LINE_LAYERS = ['connection-lines-layer', 'connection-lines-casing']
 
-        const onMouseEnter = () => {
+        const onMouseEnter = (e: any) => {
+            const dayId = e.features?.[0]?.properties?.dayId
+            if (dayId) setHoveredDayId(dayId)
             mapInstance.getCanvas().style.cursor = 'pointer'
         }
 
         const onMouseLeave = () => {
+            setHoveredDayId(null)
             mapInstance.getCanvas().style.cursor = ''
         }
 
@@ -173,13 +189,13 @@ export const ConnectionLines = ({ zoom = 11 }: ConnectionLinesProps) => {
         return lines
     }, [relevantDays, markers])
 
-    // 计算需要高亮的连线ID
+    // 计算需要高亮的连线ID（hover 临时覆盖 click 锁定）
     const highlightedLineIds = useMemo(() => {
-        if (!highlightedDayId) return []
+        if (!effectiveDayId) return []
         return connectionLines
-            .filter(l => l.dayId === highlightedDayId)
+            .filter(l => l.dayId === effectiveDayId)
             .map(l => l.id)
-    }, [connectionLines, highlightedDayId])
+    }, [connectionLines, effectiveDayId])
 
     // 预计算每条连线的控制点（避免动画循环中重复计算）
     const lineControlPoints = useMemo(() =>

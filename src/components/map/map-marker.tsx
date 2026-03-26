@@ -34,10 +34,16 @@ export const MapMarker = React.memo(function MapMarker({
 
     const handleMouseEnter = useCallback(() => {
         setIsHovered(true)
-    }, [])
+        const { tripDays, activeView } = useMapStore.getState()
+        if (activeView.mode !== 'day') {
+            const day = tripDays.find(d => d.markerIds.includes(marker.id))
+            window.dispatchEvent(new CustomEvent('markerDayHover', { detail: { dayId: day?.id ?? null } }))
+        }
+    }, [marker.id])
 
     const handleMouseLeave = useCallback(() => {
         setIsHovered(false)
+        window.dispatchEvent(new CustomEvent('markerDayHover', { detail: { dayId: null } }))
     }, [])
     
     // 安全获取图标配置，如果不存在则使用默认的 location 配置
