@@ -130,7 +130,9 @@ dist/
 public/sw.js
 public/workbox-*.js
 
-# SQLite database files
+# SQLite database files and backups
 data/*.db
 data/*.db-wal
 data/*.db-shm
+data/*.tar.gz
+data/*.sql
