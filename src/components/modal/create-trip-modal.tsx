@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useMapStore } from '@/store/map-store'
-import { cn } from '@/utils/cn'
 
 interface CreateTripModalProps {
     isOpen: boolean
@@ -16,16 +15,20 @@ export const CreateTripModal = ({ isOpen, onClose, onCreated }: CreateTripModalP
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
     const [startDate, setStartDate] = useState('')
-    const [endDate, setEndDate] = useState('')
+    const [duration, setDuration] = useState<string>('3')
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     if (!isOpen) return null
 
+    const durationNum = parseInt(duration) || 0
+    const endDate = startDate && durationNum >= 1
+        ? new Date(new Date(startDate).getTime() + (durationNum - 1) * 86400000).toISOString().slice(0, 10)
+        : ''
+
     const handleSave = async () => {
         if (!name.trim()) { toast.error('请输入旅行名称'); return }
         if (!startDate) { toast.error('请选择开始日期'); return }
-        if (!endDate) { toast.error('请选择结束日期'); return }
-        if (startDate > endDate) { toast.error('开始日期不能晚于结束日期'); return }
+        if (!durationNum || durationNum < 1) { toast.error('请输入行程天数'); return }
 
         setIsSubmitting(true)
         try {
@@ -42,14 +45,12 @@ export const CreateTripModal = ({ isOpen, onClose, onCreated }: CreateTripModalP
     }
 
     const handleClose = () => {
-        setName(''); setDescription(''); setStartDate(''); setEndDate('')
+        setName(''); setDescription(''); setStartDate(''); setDuration('3')
         onClose()
     }
 
-    // Calculate number of days
-    const dayCount = startDate && endDate && startDate <= endDate
-        ? Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1
-        : null
+    // Calculate end date display
+    const dayCount = durationNum
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
@@ -99,23 +100,27 @@ export const CreateTripModal = ({ isOpen, onClose, onCreated }: CreateTripModalP
                                 type="date"
                                 value={startDate}
                                 onChange={e => setStartDate(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 bg-white text-gray-900 box-border"
+                                style={{ WebkitAppearance: 'none', lineHeight: 'normal' }}
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">结束日期 *</label>
-                            <input
-                                type="date"
-                                value={endDate}
-                                min={startDate}
-                                onChange={e => setEndDate(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
-                            />
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">行程天数 *</label>
+                            <div className="relative flex items-center">
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={duration}
+                                    onChange={e => setDuration(e.target.value.replace(/[^0-9]/g, ''))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 bg-white text-gray-900"
+                                />
+                                <span className="absolute right-3 text-sm text-gray-500 pointer-events-none">天</span>
+                            </div>
                         </div>
                     </div>
-                    {dayCount !== null && (
+                    {startDate && durationNum >= 1 && (
                         <p className="text-xs text-blue-600 text-center">
-                            共 {dayCount} 天，将自动生成每日行程
+                            共 {dayCount} 天，{startDate} — {endDate}
                         </p>
                     )}
                 </div>

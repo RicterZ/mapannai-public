@@ -992,11 +992,11 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                 )}
 
                 {/* 增减天数 + 删除旅行 */}
-                <div className="flex gap-2 mt-2">
+                <div className="grid grid-cols-3 gap-2 mt-2">
                     <button
                         onClick={handleRemoveDay}
                         disabled={currentTripDays.length <= 1}
-                        className="flex-1 flex items-center justify-center py-2 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                        className="flex items-center justify-center py-2 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
@@ -1004,21 +1004,25 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                     </button>
                     <button
                         onClick={handleAddDay}
-                        className="flex-1 flex items-center justify-center py-2 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                        className="flex items-center justify-center py-2 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
                     </button>
                     {confirmDeleteTripId !== null && confirmDeleteTripId === displayTripId ? (
-                        <div className="flex-1 flex items-center gap-1">
-                            <button onClick={() => handleDeleteTrip(activeView.tripId!)} className="flex-1 py-2 bg-red-500 text-white rounded-xl text-xs font-medium">确认</button>
-                            <button onClick={() => cancelConfirmDelete()} className="flex-1 py-2 bg-gray-100 rounded-xl text-xs text-gray-600">取消</button>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button onClick={() => handleDeleteTrip(activeView.tripId!)} className="flex items-center justify-center py-2 rounded-xl border-2 border-red-300 text-red-500 hover:bg-red-50 transition-colors">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                            </button>
+                            <button onClick={() => cancelConfirmDelete()} className="flex items-center justify-center py-2 rounded-xl border-2 border-gray-200 text-gray-400 hover:bg-gray-50 transition-colors">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
                         </div>
                     ) : (
                         <button
                             onClick={() => startConfirmDelete(activeView.tripId!)}
-                            className="flex-1 flex items-center justify-center py-2 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            className="flex items-center justify-center py-2 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
                             title="删除旅行"
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
