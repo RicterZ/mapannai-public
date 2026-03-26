@@ -12,6 +12,7 @@ import { searchService } from '@/lib/api/search-service'
 // 移除 Google Maps 加载函数
 import { useMapStore } from '@/store/map-store'
 import { MarkerCoordinates } from '@/types/marker'
+import { fetchWithAuth } from '@/lib/fetch-with-auth'
 import { MapMarker } from './map-marker'
 import { MapPopup } from './map-popup'
 import { ConnectionLines } from './connection-lines'
@@ -453,7 +454,7 @@ export const AbstractMap = () => {
         try {
             console.log('🔍 获取地点信息:', coordinates)
             
-            const response = await fetch('/api/places', {
+            const response = await fetchWithAuth('/api/places', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

@@ -2,6 +2,7 @@ import './globals.css'
 import type { Metadata, Viewport } from 'next'
 import { Inter, DM_Serif_Display } from 'next/font/google'
 import { Toaster } from 'sonner'
+import { AuthModal, AuthGate } from '@/components/auth/auth-modal'
 
 const inter = Inter({ subsets: ['latin'] })
 const dmSerifDisplay = DM_Serif_Display({
@@ -50,6 +51,8 @@ export default function RootLayout({
             <body className={`${inter.className} ${dmSerifDisplay.variable}`}>
                 {children}
                 <Toaster position="top-center" richColors closeButton />
+                <AuthGate />
+                <AuthModal />
             </body>
         </html>
     )

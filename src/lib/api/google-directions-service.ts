@@ -3,6 +3,7 @@
 // 使用后端 API 调用，避免前端加载 Google Maps API
 
 import { config } from '@/lib/config'
+import { fetchWithAuth } from '@/lib/fetch-with-auth'
 
 export interface GoogleDirectionsRequest {
     origin: { lat: number; lng: number }
@@ -25,7 +26,7 @@ class GoogleDirectionsService {
     async getWalkingRoute(request: GoogleDirectionsRequest): Promise<GoogleDirectionsResponse> {
         try {
             // 使用后端 API 调用 Google Directions
-            const response = await fetch('/api/directions', {
+            const response = await fetchWithAuth('/api/directions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

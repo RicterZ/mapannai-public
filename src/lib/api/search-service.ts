@@ -1,4 +1,6 @@
 // 搜索服务 - 统一使用 /api/search 端点
+import { fetchWithAuth } from '@/lib/fetch-with-auth'
+
 export interface SearchResult {
     id: string
     name: string
@@ -36,7 +38,7 @@ export class MapSearchService implements SearchService {
             const url = `/api/search?${params}`
             console.log(`🔍 调用搜索API: ${url}`)
             
-            const response = await fetch(url, {
+            const response = await fetchWithAuth(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'

@@ -8,7 +8,11 @@ import {
 
 // 搜索地点获取坐标
 async function searchPlace(name: string): Promise<{latitude: number, longitude: number}> {
-  const searchResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/search?q=${encodeURIComponent(name)}&limit=1&language=zh-CN&country=JP`);
+  const searchResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/search?q=${encodeURIComponent(name)}&limit=1&language=zh-CN&country=JP`, {
+    headers: {
+      'x-api-token': process.env.API_TOKEN || '',
+    },
+  });
 
   if (!searchResponse.ok) {
     throw new Error(`搜索地点失败: ${searchResponse.status}`);

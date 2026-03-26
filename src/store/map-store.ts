@@ -3,6 +3,7 @@ import { devtools } from 'zustand/middleware'
 import { Marker, MarkerCoordinates, MarkerIconType, MapInteractionState } from '@/types/marker'
 import { Trip, TripDay, ActiveView } from '@/types/trip'
 import { v4 as uuidv4 } from 'uuid'
+import { fetchWithAuth } from '@/lib/fetch-with-auth'
 
 interface MapStore {
     // State
@@ -141,7 +142,7 @@ const saveMarkerToDataset = async (marker: Marker) => {
         },
     }
 
-    const response = await fetch(`/api/dataset?t=${Date.now()}`, {
+    const response = await fetchWithAuth(`/api/dataset?t=${Date.now()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -246,7 +247,7 @@ export const useMapStore = create<MapStore>()(
                     // 3. 异步调用API创建标记（不阻塞UI）
                     const syncMarker = async () => {
                         try {
-                            const response = await fetch('/api/markers', {
+                            const response = await fetchWithAuth('/api/markers', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
@@ -595,7 +596,7 @@ export const useMapStore = create<MapStore>()(
             loadMarkersFromDataset: async () => {
                 set({ isLoading: true, error: null })
                 try {
-                    const response = await fetch(`/api/dataset?t=${Date.now()}`)
+                    const response = await fetchWithAuth(`/api/dataset?t=${Date.now()}`)
 
                     if (!response.ok) {
                         // 根据状态码设置不同的错误信息
@@ -685,7 +686,7 @@ export const useMapStore = create<MapStore>()(
 
             deleteMarkerFromDataset: async (markerId: string) => {
                 try {
-                    const response = await fetch(`/api/dataset?featureId=${markerId}`, {
+                    const response = await fetchWithAuth(`/api/dataset?featureId=${markerId}`, {
                         method: 'DELETE',
                     })
 
@@ -721,7 +722,7 @@ export const useMapStore = create<MapStore>()(
 
             loadTripsFromDataset: async () => {
                 try {
-                    const response = await fetch('/api/trips')
+                    const response = await fetchWithAuth('/api/trips')
                     if (!response.ok) throw new Error('加载旅行失败')
                     const data = await response.json()
                     const trips = data.map((t: any) => ({ ...t, days: undefined }))
@@ -756,7 +757,7 @@ export const useMapStore = create<MapStore>()(
             },
 
             createTrip: async (data) => {
-                const response = await fetch('/api/trips', {
+                const response = await fetchWithAuth('/api/trips', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
@@ -773,7 +774,7 @@ export const useMapStore = create<MapStore>()(
             },
 
             updateTrip: async (tripId, data) => {
-                const response = await fetch(`/api/trips/${tripId}`, {
+                const response = await fetchWithAuth(`/api/trips/${tripId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
@@ -786,7 +787,7 @@ export const useMapStore = create<MapStore>()(
             },
 
             deleteTrip: async (tripId) => {
-                const response = await fetch(`/api/trips/${tripId}`, { method: 'DELETE' })
+                const response = await fetchWithAuth(`/api/trips/${tripId}`, { method: 'DELETE' })
                 if (!response.ok) throw new Error('删除旅行失败')
 
                 set(prevState => ({
@@ -799,7 +800,7 @@ export const useMapStore = create<MapStore>()(
             },
 
             createTripDay: async (tripId, data) => {
-                const response = await fetch(`/api/trips/${tripId}/days`, {
+                const response = await fetchWithAuth(`/api/trips/${tripId}/days`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
@@ -811,7 +812,7 @@ export const useMapStore = create<MapStore>()(
             },
 
             updateTripDay: async (tripId, dayId, data) => {
-                const response = await fetch(`/api/trips/${tripId}/days/${dayId}`, {
+                const response = await fetchWithAuth(`/api/trips/${tripId}/days/${dayId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
@@ -824,7 +825,7 @@ export const useMapStore = create<MapStore>()(
             },
 
             deleteTripDay: async (tripId, dayId) => {
-                const response = await fetch(`/api/trips/${tripId}/days/${dayId}`, { method: 'DELETE' })
+                const response = await fetchWithAuth(`/api/trips/${tripId}/days/${dayId}`, { method: 'DELETE' })
                 if (!response.ok) throw new Error('删除天失败')
                 set(state => ({
                     tripDays: state.tripDays.filter(d => d.id !== dayId),
@@ -845,7 +846,7 @@ export const useMapStore = create<MapStore>()(
                 }), false, 'addMarkerToDay-optimistic')
 
                 // 2. 异步持久化到服务端（失败时回滚）
-                fetch(`/api/trips/${tripId}/days/${dayId}/markers`, {
+                fetchWithAuth(`/api/trips/${tripId}/days/${dayId}/markers`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ markerId }),
@@ -877,7 +878,7 @@ export const useMapStore = create<MapStore>()(
                 }), false, 'removeMarkerFromDay-optimistic')
 
                 // 2. 异步持久化到服务端（失败时回滚）
-                fetch(`/api/trips/${tripId}/days/${dayId}/markers`, {
+                fetchWithAuth(`/api/trips/${tripId}/days/${dayId}/markers`, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ markerId }),
@@ -899,7 +900,7 @@ export const useMapStore = create<MapStore>()(
             },
 
             reorderDayMarkers: async (tripId, dayId, newOrder) => {
-                const response = await fetch(`/api/trips/${tripId}/days/${dayId}`, {
+                const response = await fetchWithAuth(`/api/trips/${tripId}/days/${dayId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ markerIds: newOrder }),
@@ -920,7 +921,7 @@ export const useMapStore = create<MapStore>()(
                     ),
                 }), false, 'updateDayChains-optimistic')
 
-                const response = await fetch(`/api/trips/${tripId}/days/${dayId}`, {
+                const response = await fetchWithAuth(`/api/trips/${tripId}/days/${dayId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ chains }),

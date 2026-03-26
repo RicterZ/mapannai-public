@@ -1,6 +1,7 @@
 /**
  * 客户端直传 COS 工具函数
  */
+import { fetchWithAuth } from '@/lib/fetch-with-auth'
 
 export interface S3UploadResult {
     success: boolean
@@ -14,7 +15,7 @@ export interface S3UploadResult {
 export async function uploadFileToS3(file: File): Promise<S3UploadResult> {
     try {
         // 1. 获取预签名 URL
-        const presignedResponse = await fetch(`/api/upload?t=${Date.now()}`, {
+        const presignedResponse = await fetchWithAuth(`/api/upload?t=${Date.now()}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
