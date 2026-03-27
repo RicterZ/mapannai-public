@@ -173,42 +173,6 @@ NEXT_PUBLIC_OSM_TILE_PROXY=false
 
 ---
 
-## 城市快速跳转
-
-在 `src/lib/config.ts` 的 `cities` 中添加城市：
-
-```typescript
-cities: {
-  yourCity: {
-    name: '城市名',
-    coords: [135.0, 35.0],  // [经度, 纬度]
-    zoom: 12
-  }
-}
-```
-
----
-
-## 架构
-
-```
-前端（React + Zustand） → Next.js API 路由 → 服务层 → SQLite / Google API / COS
-外部 AI → MCP 客户端  → POST /api/mcp   → MCP 服务器 → 服务层
-```
-
-| 层 | 位置 |
-|----|------|
-| 状态管理 | `src/store/map-store.ts` |
-| 地图渲染 | `src/components/map/abstract-map.tsx` |
-| MCP 服务器 | `src/lib/mcp/` |
-| 标记存储 | `src/lib/db/marker-service.ts` |
-| 行程存储 | `src/lib/db/trip-service.ts` |
-| 地点搜索 | `src/lib/api/search-service.ts` |
-| 图片上传 | `src/lib/upload/direct-upload.ts` |
-| 鉴权中间件 | `src/middleware.ts` |
-
----
-
 ## 技术栈
 
 - **框架** — Next.js 14（App Router，standalone 输出）

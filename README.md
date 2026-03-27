@@ -178,42 +178,6 @@ NEXT_PUBLIC_OSM_TILE_PROXY=false
 
 ---
 
-## City Presets
-
-Add city shortcuts in `src/lib/config.ts`:
-
-```typescript
-cities: {
-  yourCity: {
-    name: 'City Name',
-    coords: [135.0, 35.0],  // [longitude, latitude]
-    zoom: 12
-  }
-}
-```
-
----
-
-## Architecture
-
-```
-Frontend (React + Zustand) → Next.js API routes → Service layer → SQLite / Google APIs / COS
-External AI → MCP Client  → POST /api/mcp      → MCP Server   → Service layer
-```
-
-| Layer | Location |
-|-------|----------|
-| State management | `src/store/map-store.ts` |
-| Map rendering | `src/components/map/abstract-map.tsx` |
-| MCP server | `src/lib/mcp/` |
-| Marker storage | `src/lib/db/marker-service.ts` |
-| Trip storage | `src/lib/db/trip-service.ts` |
-| Place search | `src/lib/api/search-service.ts` |
-| Image upload | `src/lib/upload/direct-upload.ts` |
-| Auth middleware | `src/middleware.ts` |
-
----
-
 ## Tech Stack
 
 - **Framework** — Next.js 14 (App Router, standalone output)
