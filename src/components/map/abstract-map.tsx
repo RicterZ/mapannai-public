@@ -193,9 +193,17 @@ export const AbstractMap = () => {
                     return 'active'
                 })
             },
-            () => {
-                setGeoState('idle')
-                toast.error('无法获取位置，请检查定位权限')
+            (err) => {
+                if (err.code === err.PERMISSION_DENIED) {
+                    // 用户明确拒绝权限，才提示
+                    setGeoState('idle')
+                    toast.error('无法获取位置，请检查定位权限')
+                }
+                // POSITION_UNAVAILABLE / TIMEOUT：信号抖动，静默处理
+                // 已有位置时保持 active；否则退回 idle
+                else {
+                    setGeoState(prev => prev === 'active' ? 'active' : 'idle')
+                }
             },
             { enableHighAccuracy: true, timeout: 10000 }
         )
