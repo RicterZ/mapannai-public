@@ -176,16 +176,4 @@ To skip the proxy and fetch tiles directly from OSM:
 NEXT_PUBLIC_OSM_TILE_PROXY=false
 ```
 
----
 
-## Tech Stack
-
-- **Framework** — Next.js 14 (App Router, standalone output)
-- **Map** — MapLibre GL via `react-map-gl`, OpenStreetMap tiles
-- **Database** — SQLite via `better-sqlite3`
-- **State** — Zustand 5
-- **Data fetching** — TanStack Query 5
-- **Editor** — Tiptap (rich text / markdown)
-- **MCP** — `@modelcontextprotocol/sdk`
-- **Image storage** — Tencent Cloud COS
-- **Place data** — Google Places & Directions APIs

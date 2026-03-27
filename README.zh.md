@@ -171,16 +171,4 @@ location /osm-tiles/ {
 NEXT_PUBLIC_OSM_TILE_PROXY=false
 ```
 
----
 
-## 技术栈
-
-- **框架** — Next.js 14（App Router，standalone 输出）
-- **地图** — MapLibre GL via `react-map-gl`，OpenStreetMap 瓦片
-- **数据库** — SQLite via `better-sqlite3`
-- **状态管理** — Zustand 5
-- **数据获取** — TanStack Query 5
-- **编辑器** — Tiptap（富文本 / Markdown）
-- **MCP** — `@modelcontextprotocol/sdk`
-- **图片存储** — 腾讯云 COS
-- **地点数据** — Google Places & Directions API
