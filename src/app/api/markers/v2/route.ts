@@ -5,28 +5,22 @@ import {
     findNearbyMarker,
     generateCoordinateHash,
 } from '@/lib/db/marker-service';
+import { mapProviderFactory } from '@/lib/map/providers';
+import { config } from '@/lib/config';
 
-// 搜索地点获取坐标
+// 搜索地点获取坐标（直接调用服务层，不经过 HTTP）
 async function searchPlace(name: string): Promise<{latitude: number, longitude: number}> {
-  const searchResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/search?q=${encodeURIComponent(name)}&limit=1&language=zh-CN&country=JP`, {
-    headers: {
-      'x-api-token': process.env.API_TOKEN || '',
-    },
-  });
+  const googleProvider = mapProviderFactory.createGoogleServerProvider();
+  const mapConfig = { accessToken: config.map.google.accessToken, style: 'custom' };
+  const results = await googleProvider.searchPlaces(name, mapConfig, 'JP');
 
-  if (!searchResponse.ok) {
-    throw new Error(`搜索地点失败: ${searchResponse.status}`);
-  }
-
-  const searchResults = await searchResponse.json();
-  if (!searchResults.data || searchResults.data.length === 0) {
+  if (!results || results.length === 0) {
     throw new Error('未找到该地点');
   }
 
-  const place = searchResults.data[0];
   return {
-    latitude: place.coordinates.latitude,
-    longitude: place.coordinates.longitude
+    latitude: results[0].coordinates.latitude,
+    longitude: results[0].coordinates.longitude,
   };
 }
 

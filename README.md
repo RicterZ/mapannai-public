@@ -1,6 +1,6 @@
-# MapAnNai Plus — 交互式旅行地图编辑器
+# MapAnNai Plus — Interactive Travel Map Editor
 
-基于 Next.js + Mapbox 的旅行规划平台。在地图上创建和管理地点标记，按旅行/天组织行程，并通过 **MCP 协议**让 AI 助手（Claude Desktop、Cursor 等）直接操作地图。
+A Next.js 14 travel planning platform. Create and manage location markers on an interactive map, organize them into trips and days, and let AI assistants (Claude Desktop, Cursor, etc.) operate the map directly via the built-in **MCP server**.
 
 <img width="1481" height="918" alt="Clipboard_Screenshot_1774582478" src="https://github.com/user-attachments/assets/8cc1543e-1e5c-4f9b-93b8-66b72e73fce9" />
 
@@ -9,53 +9,70 @@
 
 
 
+> 中文文档见 [README.zh.md](README.zh.md)
+
 ---
 
-## 快速开始
+## Features
 
-### 1. 环境变量
+- **Interactive map** — Powered by MapLibre GL + OpenStreetMap tiles. Click to drop markers, edit with a rich markdown editor.
+- **Trip planning** — Organize markers into trips and days, with drag-and-drop reordering and polyline route visualization.
+- **MCP server** — Any MCP-compatible AI client can create markers, plan itineraries, and query routes directly.
+- **Place search** — Google Places integration for place search, details, and walking directions.
+- **Image uploads** — Attach images to markers via Tencent Cloud COS.
+- **PWA** — Installable as a Progressive Web App with offline tile caching.
+- **Optional auth** — Static token authentication; omit `API_TOKEN` for open access.
+
+---
+
+## Quick Start
+
+### 1. Environment Variables
 
 ```bash
 cp env.example .env
-# 编辑 .env，填入以下配置
+# Edit .env and fill in your values
 ```
 
-| 变量 | 说明 |
-|------|------|
-| `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` | Mapbox 公开 token（`pk.`开头），用于地图渲染 |
-| `MAPBOX_SECRET_ACCESS_TOKEN` | Mapbox 私密 token（`sk.`开头），**仅迁移脚本需要**，迁移完成后可删除 |
-| `MAPBOX_USERNAME` | Mapbox 用户名，**仅迁移脚本需要**，迁移完成后可删除 |
-| `MAPBOX_DATASET_ID` | Mapbox Dataset ID，**仅迁移脚本需要**，迁移完成后可删除 |
-| `GOOGLE_API_KEY` | Google Maps API Key，用于地点搜索和路径规划 |
-| `GOOGLE_API_BASE_URL` | Google API 地址，默认 `https://maps.googleapis.com`（国内可填代理） |
-| `TENCENT_COS_*` | 腾讯云 COS 配置，用于图片上传 |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GOOGLE_API_KEY` | ✅ | Google Maps API key — used for place search and routing |
+| `GOOGLE_API_BASE_URL` | | Google API base URL. Default: `https://maps.googleapis.com` (set a reverse proxy for mainland China) |
+| `TENCENT_COS_SECRET_ID` | | Tencent Cloud COS — required for image uploads |
+| `TENCENT_COS_SECRET_KEY` | | Tencent Cloud COS |
+| `TENCENT_COS_REGION` | | COS region, e.g. `ap-chongqing` |
+| `TENCENT_COS_BUCKET` | | COS bucket name |
+| `NEXT_PUBLIC_IMAGE_DOMAINS` | | Allowed image domains (your COS domain) |
+| `SQLITE_PATH` | | SQLite database path. Default: `./data/mapannai.db` |
+| `API_TOKEN` | | Static auth token. Omit to disable authentication |
+| `NEXT_PUBLIC_OSM_TILE_PROXY` | | Set `false` to fetch OSM tiles directly instead of through the self-hosted proxy |
 
-### 2. 本地开发
+### 2. Local Development
 
 ```bash
 npm install
-npm run dev       # http://localhost:3000
-npm run type-check
+npm run dev        # http://localhost:3000
+npm run type-check # TypeScript check
 ```
 
-### 3. Docker 部署
+### 3. Docker
 
 ```bash
 docker-compose up -d mapannai
 docker-compose logs -f mapannai
 ```
 
-详细部署步骤见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+The SQLite database is persisted to the `mapannai_data` Docker volume.
 
 ---
 
-## MCP 接入（AI 助手操作地图）
+## MCP Integration
 
-MapAnNai 内置 MCP Server，任何支持 MCP 协议的 AI 客户端都可以直接创建标记、规划行程。
+MapAnNai exposes an MCP server at `/api/mcp`. Any MCP-compatible AI client can connect and operate the map.
 
-### Claude Desktop 配置
+### Claude Desktop
 
-编辑 `~/Library/Application Support/Claude/claude_desktop_config.json`：
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -67,81 +84,144 @@ MapAnNai 内置 MCP Server，任何支持 MCP 协议的 AI 客户端都可以直
 }
 ```
 
-> 远程部署时将 `localhost:3000` 替换为实际域名。
+With authentication (`API_TOKEN` set):
 
-### 可用工具
-
-| 分类 | 工具 | 说明 |
-|------|------|------|
-| **旅行** | `create_trip` | 创建旅行，自动按日期生成每天行程 |
-| | `list_trips` | 列出所有旅行 |
-| | `get_trip_detail` | 获取旅行详情（含每天地点） |
-| | `add_day_to_trip` | 手动新增一天 |
-| | `delete_trip` | 删除旅行（不删标记） |
-| **行程规划** | `plan_trip_day` | ⭐ 批量创建地点并加入指定天，一步完成 |
-| | `assign_marker_to_day` | 将已有标记加入某天 |
-| | `reorder_day_markers` | 调整当天地点顺序 |
-| **标记** | `create_marker` | 按地名创建标记（支持批量） |
-| | `list_markers` | 列出地图上所有标记 |
-| | `update_marker` | 更新标记内容/图标 |
-| | `delete_marker` | 删除标记 |
-| **搜索** | `search_places` | 搜索地点（返回坐标） |
-| | `get_place_details` | 获取地点详情（电话、评分、营业时间） |
-| | `get_walking_directions` | 获取步行路线 |
-| **路线** | `create_trip_chain` | 将标记连线为路线 |
-| | `list_trip_chains` | 列出所有路线 |
-
-### 推荐 Workflow
-
-**规划一次新旅行：**
-```
-1. create_trip("东京2024春", "2024-03-01", "2024-03-05")
-   → 返回 trip.id 和 days[0..4].id
-
-2. plan_trip_day(tripId, days[0].id, [
-     { name: "新宿御苑", iconType: "park" },
-     { name: "东京塔", iconType: "landmark" },
-     { name: "筑地市场", iconType: "food" }
-   ])
-   → 一步创建标记并加入第1天
-
-3. 重复步骤2为每天规划地点
-```
-
-**继续规划已有旅行：**
-```
-list_trips() → get_trip_detail(tripId) → plan_trip_day(...)
-```
-
-连接后可调用 `workflow` prompt 让 AI 自动获取使用指南。
-
----
-
-## 标记类型
-
-| 图标 | 类型 | 说明 |
-|------|------|------|
-| 🎯 | `activity` | 活动和娱乐 |
-| 📍 | `location` | 一般地点 |
-| 🏨 | `hotel` | 住宿 |
-| 🛍️ | `shopping` | 购物 |
-| 🍜 | `food` | 美食 |
-| 🌆 | `landmark` | 地标建筑 |
-| 🎡 | `park` | 公园游乐 |
-| 🗻 | `natural` | 自然景观 |
-| ⛩️ | `culture` | 人文景观 |
-| 🚉 | `transit` | 交通枢纽 |
-
----
-
-## 城市快速跳转配置
-
-在 `src/lib/config.ts` 的 `cities` 中添加城市：
-
-```typescript
-yourCity: {
-    name: '城市名',
-    coordinates: { longitude: 135.0, latitude: 35.0 },
-    zoom: 12
+```json
+{
+  "mcpServers": {
+    "mapannai": {
+      "url": "http://localhost:3000/api/mcp?token=YOUR_TOKEN"
+    }
+  }
 }
 ```
+
+Replace `localhost:3000` with your domain for remote deployments.
+
+### Available MCP Tools
+
+| Category | Tool | Description |
+|----------|------|-------------|
+| **Trips** | `create_trip` | Create a trip with auto-generated days |
+| | `list_trips` | List all trips |
+| | `get_trip_detail` | Get trip details including all days and markers |
+| | `add_day_to_trip` | Add a day to an existing trip |
+| | `delete_trip` | Delete a trip (markers are kept) |
+| **Planning** | `plan_trip_day` | ⭐ Batch-create places and add them to a day in one step |
+| | `assign_marker_to_day` | Assign an existing marker to a day |
+| | `reorder_day_markers` | Reorder markers within a day |
+| **Markers** | `create_marker` | Create a marker by place name |
+| | `list_markers` | List all markers on the map |
+| | `update_marker` | Update marker content or icon |
+| | `delete_marker` | Delete a marker |
+| **Search** | `search_places` | Search for places (returns coordinates) |
+| | `get_place_details` | Get place details (phone, rating, hours) |
+| | `get_walking_directions` | Get walking directions between two points |
+
+### Recommended Workflow
+
+```
+1. create_trip("Tokyo Spring 2024", "2024-03-01", "2024-03-05")
+   → returns trip.id and days[0..4].id
+
+2. plan_trip_day(tripId, days[0].id, [
+     { name: "Shinjuku Gyoen", iconType: "park" },
+     { name: "Tokyo Tower",    iconType: "landmark" },
+     { name: "Tsukiji Market", iconType: "food" }
+   ])
+   → creates markers and adds them to day 1 in one call
+
+3. Repeat step 2 for each day
+```
+
+After connecting, invoke the `workflow` prompt to have the AI automatically retrieve usage guidance.
+
+---
+
+## Marker Icon Types
+
+| Icon | Type | Description |
+|------|------|-------------|
+| 🎯 | `activity` | Activities & entertainment |
+| 📍 | `location` | General locations |
+| 🏨 | `hotel` | Accommodation |
+| 🛍️ | `shopping` | Shopping |
+| 🍜 | `food` | Food & dining |
+| 🌆 | `landmark` | Landmarks & buildings |
+| 🎡 | `park` | Parks & amusement |
+| 🗻 | `natural` | Natural scenery |
+| ⛩️ | `culture` | Cultural & heritage sites |
+| 🚉 | `transit` | Transit hubs |
+
+---
+
+## OSM Tile Proxy
+
+By default, map tiles are fetched through the same origin at `/osm-tiles/{z}/{x}/{y}.png`. Configure your nginx or CDN to forward this path to `https://tile.openstreetmap.org/`:
+
+```nginx
+location /osm-tiles/ {
+    proxy_pass https://tile.openstreetmap.org/;
+    proxy_set_header Host tile.openstreetmap.org;
+    proxy_set_header User-Agent "MapAnNai/1.0 (your@email.com)";
+    proxy_cache osm;
+    proxy_cache_valid 200 30d;
+    add_header Access-Control-Allow-Origin *;
+}
+```
+
+To skip the proxy and fetch tiles directly from OSM:
+
+```env
+NEXT_PUBLIC_OSM_TILE_PROXY=false
+```
+
+---
+
+## City Presets
+
+Add city shortcuts in `src/lib/config.ts`:
+
+```typescript
+cities: {
+  yourCity: {
+    name: 'City Name',
+    coords: [135.0, 35.0],  // [longitude, latitude]
+    zoom: 12
+  }
+}
+```
+
+---
+
+## Architecture
+
+```
+Frontend (React + Zustand) → Next.js API routes → Service layer → SQLite / Google APIs / COS
+External AI → MCP Client  → POST /api/mcp      → MCP Server   → Service layer
+```
+
+| Layer | Location |
+|-------|----------|
+| State management | `src/store/map-store.ts` |
+| Map rendering | `src/components/map/abstract-map.tsx` |
+| MCP server | `src/lib/mcp/` |
+| Marker storage | `src/lib/db/marker-service.ts` |
+| Trip storage | `src/lib/db/trip-service.ts` |
+| Place search | `src/lib/api/search-service.ts` |
+| Image upload | `src/lib/upload/direct-upload.ts` |
+| Auth middleware | `src/middleware.ts` |
+
+---
+
+## Tech Stack
+
+- **Framework** — Next.js 14 (App Router, standalone output)
+- **Map** — MapLibre GL via `react-map-gl`, OpenStreetMap tiles
+- **Database** — SQLite via `better-sqlite3`
+- **State** — Zustand 5
+- **Data fetching** — TanStack Query 5
+- **Editor** — Tiptap (rich text / markdown)
+- **MCP** — `@modelcontextprotocol/sdk`
+- **Image storage** — Tencent Cloud COS
+- **Place data** — Google Places & Directions APIs
