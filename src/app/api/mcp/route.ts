@@ -53,8 +53,16 @@ export async function GET(request: NextRequest): Promise<Response> {
     writer.close().catch(() => {})
   })
 
+  // Heartbeat — keeps the SSE stream alive through proxies that close idle connections
+  const heartbeat = setInterval(() => {
+    writer.write(encoder.encode(': ping\n\n')).catch(() => {
+      clearInterval(heartbeat)
+    })
+  }, 15000)
+
   // Clean up on disconnect
   request.signal.addEventListener('abort', () => {
+    clearInterval(heartbeat)
     sessions.delete(sessionId)
     writer.close().catch(() => {})
   })
