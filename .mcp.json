@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "mapannai": {
+    "mapannai-dev": {
       "type": "sse",
       "url": "http://localhost:3000/api/mcp"
     }
