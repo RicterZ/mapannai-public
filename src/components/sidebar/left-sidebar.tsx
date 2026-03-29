@@ -1061,13 +1061,13 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
             const totalChains = chainedGroupsEdit.length + pendingEmptyChains
 
             return (
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                >
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragStart={handleDragStart}
-                        onDragEnd={handleDragEnd}
-                    >
                         <div className="p-3 flex flex-col gap-3">
                             {/* ── 上半区：路线卡片 ── */}
                             {Array.from({ length: totalChains }).map((_, slotIdx) => {
@@ -1136,16 +1136,16 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                             </div>
                         </div>
 
-                        <DragOverlay>
-                            {activeDragMarker && activeDragIndex >= 0 && (
-                                <DragGhostItem
-                                    marker={activeDragMarker}
-                                    index={activeDragIndex}
-                                />
-                            )}
-                        </DragOverlay>
-                    </DndContext>
                 </div>
+                <DragOverlay>
+                    {activeDragMarker && activeDragIndex >= 0 && (
+                        <DragGhostItem
+                            marker={activeDragMarker}
+                            index={activeDragIndex}
+                        />
+                    )}
+                </DragOverlay>
+                </DndContext>
             )
         }
 
@@ -1267,10 +1267,9 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                 <div
                     className={cn(
                         'flex-1 flex flex-col overflow-hidden',
-                        'transition-[opacity,transform] duration-200 ease-in-out',
-                        slideState === 'exit' && 'opacity-0 scale-[0.98] pointer-events-none',
-                        slideState === 'enter' && 'opacity-0 scale-[0.98] pointer-events-none',
-                        slideState === 'idle' && 'opacity-100 scale-100',
+                        'transition-opacity duration-200 ease-in-out',
+                        (slideState === 'exit' || slideState === 'enter') && 'opacity-0 pointer-events-none',
+                        slideState === 'idle' && 'opacity-100',
                         blockClicks && 'pointer-events-none',
                     )}
                 >

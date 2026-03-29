@@ -44,7 +44,7 @@ function createMcpServer(): McpServer {
 
 ## 核心概念
 
-- **Marker**：地图上的地点标记，包含坐标、标题、图标类型、富文本内容（HTML）。内容字段（`content` / `markdownContent`）存储 Tiptap 富文本编辑器输出的 HTML，支持标题（h1/h2/h3）、加粗、斜体、下划线、无序/有序列表、引用块、图片。通过 MCP 写入时请传入合法 HTML，例如：`<h2>浅草寺</h2><p>东京最古老的寺庙。</p><ul><li>开放时间：6:00–17:00</li></ul>`。
+- **Marker**：地图上的地点标记，包含坐标、标题、图标类型、富文本内容（HTML）。内容字段（\`content\` / \`markdownContent\`）存储 Tiptap 富文本编辑器输出的 HTML，支持标题（h1/h2/h3）、加粗、斜体、下划线、无序/有序列表、引用块、图片。通过 MCP 写入时请传入合法 HTML，例如：\`<h2>浅草寺</h2><p>东京最古老的寺庙。</p><ul><li>开放时间：6:00–17:00</li></ul>\`。
 - **Trip**：一次旅行，包含名称、日期范围，创建时自动按天生成 TripDay。
 - **TripDay**：旅行中的某一天，包含当天的 marker 列表和行程链（chains）。
 - **Chain**：一天内 marker 的有序连线，用于在地图上显示游览路线。
