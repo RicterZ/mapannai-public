@@ -677,7 +677,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                 {/* Back button */}
                 {displayMode === 'trip' && (
                     <button
-                        onClick={() => setActiveView('overview', null, null)}
+                        onClick={() => { setBlockClicks(true); setActiveView('overview', null, null) }}
                         className="mr-1 p-1 rounded-lg text-gray-500 hover:bg-white/80 hover:text-blue-600 transition-colors"
                         title="返回全览"
                     >
@@ -688,7 +688,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                 )}
                 {displayMode === 'day' && (
                     <button
-                        onClick={() => setActiveView('trip', activeView.tripId, null)}
+                        onClick={() => { setBlockClicks(true); setActiveView('trip', activeView.tripId, null) }}
                         className="mr-1 p-1 rounded-lg text-gray-500 hover:bg-white/80 hover:text-blue-600 transition-colors"
                         title="返回旅行"
                     >
@@ -851,7 +851,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                     return (
                                         <div key={trip.id} className="border border-gray-200 rounded-xl bg-white overflow-hidden mb-2">
                                             <button
-                                                onClick={() => setActiveView('trip', trip.id, null)}
+                                                onClick={() => { setBlockClicks(true); setActiveView('trip', trip.id, null) }}
                                                 className="w-full flex items-center gap-3 px-3 py-3 hover:bg-blue-50 transition-colors text-left"
                                             >
                                                 <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-lg flex-shrink-0">{trip.emoji ?? '✈️'}</div>
@@ -985,7 +985,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                         return (
                             <React.Fragment key={day.id}>
                             <button
-                                onClick={() => setActiveView('day', activeView.tripId, day.id)}
+                                onClick={() => { setBlockClicks(true); setActiveView('day', activeView.tripId, day.id) }}
                                 className="w-full flex items-center gap-3 px-3 py-3 border border-gray-200 rounded-xl bg-white hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
                             >
                                 <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-sm font-bold text-blue-600 flex-shrink-0">
