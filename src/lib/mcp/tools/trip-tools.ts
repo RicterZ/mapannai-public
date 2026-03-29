@@ -162,7 +162,7 @@ export function registerTripTools(server: McpServer) {
             places: z.array(z.object({
                 name: z.string().describe('地点名称，必须包含城市/区域名，例如「京都 金阁寺」「大阪 心斋桥」，避免只写地点简称'),
                 iconType: z.enum(['activity', 'location', 'hotel', 'shopping', 'food', 'landmark', 'park', 'natural', 'culture', 'transit']),
-                content: z.string().optional().describe('Markdown 备注'),
+                content: z.string().optional().describe('HTML 格式的描述内容（Tiptap 富文本编辑器输出，支持标题、加粗、斜体、下划线、列表、引用、图片等）'),
             })).min(1).describe('按访问顺序排列的地点列表。所有地点应在合理的同日游览范围内（任意两点距离不超过 100 公里）'),
         },
         async ({ tripId, dayId, country = 'CN', places }) => {

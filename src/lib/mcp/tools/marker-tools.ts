@@ -72,7 +72,7 @@ export function registerMarkerTools(server: McpServer) {
         name: z.string().describe('地点名称，必须包含城市名（用于搜索坐标），例如「大阪 道顿堀」「上海 外滩」'),
         iconType: z.enum(['activity', 'location', 'hotel', 'shopping', 'food', 'landmark', 'park', 'natural', 'culture', 'transit'])
           .describe('图标类型'),
-        content: z.string().optional().describe('Markdown 格式的描述内容'),
+        content: z.string().optional().describe('HTML 格式的描述内容（Tiptap 富文本编辑器输出，支持标题、加粗、斜体、下划线、列表、引用、图片等）'),
       })).min(1).describe('要创建的地点列表（支持批量）'),
       country: z.string().optional().default('CN').describe('限定搜索国家代码，默认 CN（中国）。规划其他国家时必须修改，例如 JP（日本）、KR（韩国）、US（美国）。填错会导致同名地点定位到错误国家。'),
     },
@@ -142,11 +142,11 @@ export function registerMarkerTools(server: McpServer) {
   // update_marker
   server.tool(
     'update_marker',
-    '更新地图上已有 marker 的标题、Markdown 内容或图标类型',
+    '更新地图上已有 marker 的标题、富文本内容或图标类型',
     {
       markerId: z.string().describe('要更新的 marker ID'),
       title: z.string().optional().describe('新的标题'),
-      markdownContent: z.string().optional().describe('新的 Markdown 内容'),
+      markdownContent: z.string().optional().describe('新的 HTML 格式内容（Tiptap 富文本编辑器输出，支持标题、加粗、斜体、下划线、列表、引用、图片等）'),
       iconType: z.enum(['activity', 'location', 'hotel', 'shopping', 'food', 'landmark', 'park', 'natural', 'culture', 'transit'])
         .optional().describe('新的图标类型'),
     },
