@@ -176,22 +176,24 @@ function PaletteItem({ marker, onFlyTo, onRemove }: PaletteItemProps) {
                 isDragging && 'opacity-40 border-blue-300'
             )}
         >
+            {/* 拖拽把手：listeners 仅挂在此处，与 onFlyTo 按钮物理隔离，避免 ghost click */}
             <div
-                className="p-2.5 flex items-center gap-2 flex-1 min-w-0 cursor-grab active:cursor-grabbing"
+                className="pl-2.5 py-2.5 cursor-grab active:cursor-grabbing touch-none flex-shrink-0 text-gray-300"
                 {...attributes}
                 {...listeners}
             >
-                <div className={cn('w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0', getMarkerColor(marker.content.iconType || 'location'))}>
+                <div className={cn('w-6 h-6 rounded-full flex items-center justify-center', getMarkerColor(marker.content.iconType || 'location'))}>
                     <span className="text-xs text-white">{icon.emoji}</span>
                 </div>
-                <button
-                    className="flex-1 min-w-0 text-left"
-                    onClick={onFlyTo}
-                    title="跳转到此位置"
-                >
-                    <div className="text-sm font-medium text-gray-800 truncate">{marker.content.title || '未命名标记'}</div>
-                </button>
             </div>
+            {/* 标题按钮：独立于拖拽区域，不会收到 ghost click */}
+            <button
+                className="flex-1 min-w-0 text-left py-2.5"
+                onClick={onFlyTo}
+                title="跳转到此位置"
+            >
+                <div className="text-sm font-medium text-gray-800 truncate">{marker.content.title || '未命名标记'}</div>
+            </button>
             <button
                 onClick={onRemove}
                 className="px-2.5 py-2.5 text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 border-l border-gray-100"
@@ -439,7 +441,11 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
     // ── Drag and drop ─────────────────────────────────────────────────────────
 
     const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(PointerSensor, {
+            // delay 模式：按住 200ms 后才激活拖拽，期间移动超过 8px 则取消（视为普通滚动/点击）
+            // 同时 dnd-kit 在 touchend 时会调用 preventDefault，阻止浏览器合成 ghost click
+            activationConstraint: { delay: 200, tolerance: 8 },
+        }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     )
 
@@ -450,6 +456,10 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
     const handleDragEnd = useCallback((event: DragEndEvent) => {
         const { active, over } = event
         setActiveDragId(null)
+
+        // 拖拽结束后短暂屏蔽点击，防止 touchend 合成的 ghost click 触发按钮
+        setBlockClicks(true)
+        setTimeout(() => setBlockClicks(false), 300)
 
         if (!over || active.id === over.id) return
         if (!currentDay || !activeView.tripId || !activeView.dayId) return
