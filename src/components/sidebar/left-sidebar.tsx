@@ -271,6 +271,11 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
     // 视图切换动画：向左滑出，从右滑入
     const [slideState, setSlideState] = useState<'idle' | 'exit' | 'enter'>('idle')
     const [blockClicks, setBlockClicks] = useState(false)  // 防幽灵 click
+    const blockClicksRef = useRef(false)  // ref 供捕获监听器同步读取（state 有闭包延迟）
+    const setBlockClicksSync = useCallback((val: boolean) => {
+        blockClicksRef.current = val
+        setBlockClicks(val)
+    }, [])
     const [displayMode, setDisplayMode] = useState(activeView.mode)
     const [displayTripId, setDisplayTripId] = useState(activeView.tripId)
     const [displayDayId, setDisplayDayId] = useState(activeView.dayId)
@@ -290,7 +295,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
 
         // 1. 当前内容淡出（150ms）
         setSlideState('exit')
-        setBlockClicks(true)
+        setBlockClicksSync(true)
         cancelConfirmDelete()
 
         // 2. 内容切换 + 新内容淡入
@@ -302,7 +307,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => setSlideState('idle'))
             })
-            setTimeout(() => setBlockClicks(false), 300)
+            setTimeout(() => setBlockClicksSync(false), 600)
         }, 150)
 
         return () => { clearTimeout(t) }
@@ -458,8 +463,8 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
         setActiveDragId(null)
 
         // 拖拽结束后短暂屏蔽点击，防止 touchend 合成的 ghost click 触发按钮
-        setBlockClicks(true)
-        setTimeout(() => setBlockClicks(false), 300)
+        setBlockClicksSync(true)
+        setTimeout(() => setBlockClicksSync(false), 300)
 
         if (!over || active.id === over.id) return
         if (!currentDay || !activeView.tripId || !activeView.dayId) return
@@ -677,7 +682,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                 {/* Back button */}
                 {displayMode === 'trip' && (
                     <button
-                        onClick={() => { setBlockClicks(true); setActiveView('overview', null, null) }}
+                        onClick={() => { setBlockClicksSync(true); setActiveView('overview', null, null) }}
                         className="mr-1 p-1 rounded-lg text-gray-500 hover:bg-white/80 hover:text-blue-600 transition-colors"
                         title="返回全览"
                     >
@@ -688,7 +693,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                 )}
                 {displayMode === 'day' && (
                     <button
-                        onClick={() => { setBlockClicks(true); setActiveView('trip', activeView.tripId, null) }}
+                        onClick={() => { setBlockClicksSync(true); setActiveView('trip', activeView.tripId, null) }}
                         className="mr-1 p-1 rounded-lg text-gray-500 hover:bg-white/80 hover:text-blue-600 transition-colors"
                         title="返回旅行"
                     >
@@ -851,7 +856,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                                     return (
                                         <div key={trip.id} className="border border-gray-200 rounded-xl bg-white overflow-hidden mb-2">
                                             <button
-                                                onClick={() => { setBlockClicks(true); setActiveView('trip', trip.id, null) }}
+                                                onClick={() => { setBlockClicksSync(true); setActiveView('trip', trip.id, null) }}
                                                 className="w-full flex items-center gap-3 px-3 py-3 hover:bg-blue-50 transition-colors text-left"
                                             >
                                                 <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-lg flex-shrink-0">{trip.emoji ?? '✈️'}</div>
@@ -985,7 +990,7 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                         return (
                             <React.Fragment key={day.id}>
                             <button
-                                onClick={() => { setBlockClicks(true); setActiveView('day', activeView.tripId, day.id) }}
+                                onClick={() => { setBlockClicksSync(true); setActiveView('day', activeView.tripId, day.id) }}
                                 className="w-full flex items-center gap-3 px-3 py-3 border border-gray-200 rounded-xl bg-white hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
                             >
                                 <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-sm font-bold text-blue-600 flex-shrink-0">
@@ -1290,6 +1295,14 @@ export const LeftSidebar = ({ onFlyTo, addMarkerEnabled, onToggleAddMarker }: Le
                     !leftSidebar.isOpen ? 'max-lg:-translate-x-full max-lg:transition-transform max-lg:duration-200' : 'max-lg:animate-slide-in-left',
                 )}
                 style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+                onClickCapture={(e) => {
+                    // 在捕获阶段拦截 ghost click：CSS pointer-events-none 无法阻止已合成的事件，
+                    // 用 ref（非 state）同步判断，stopPropagation + preventDefault 双重阻断
+                    if (blockClicksRef.current) {
+                        e.stopPropagation()
+                        e.preventDefault()
+                    }
+                }}
             >
                 {renderHeader()}
 
