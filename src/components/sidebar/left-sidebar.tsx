@@ -106,7 +106,7 @@ function ChainItem({ id, marker, index, hasArrowAfter, onRemove, onFlyTo }: Chai
 
     return (
         <div ref={setNodeRef} style={style} className={cn(isSortableDragging && 'opacity-40')}>
-            <div className="border border-gray-200 rounded-xl bg-white overflow-hidden flex items-center gap-2">
+            <div className="border border-gray-200 rounded-xl bg-white overflow-hidden flex items-center gap-2 select-none">
                 <button
                     {...attributes}
                     {...listeners}
@@ -172,16 +172,19 @@ function PaletteItem({ marker, onFlyTo, onRemove }: PaletteItemProps) {
         <div
             ref={setNodeRef}
             className={cn(
-                'border border-gray-200 rounded-xl bg-white overflow-hidden flex items-center gap-2',
+                'border border-gray-200 rounded-xl bg-white overflow-hidden flex items-center gap-2 select-none',
                 isDragging && 'opacity-40 border-blue-300'
             )}
         >
             {/* 拖拽把手：listeners 仅挂在此处，与 onFlyTo 按钮物理隔离，避免 ghost click */}
             <div
-                className="pl-2.5 py-2.5 cursor-grab active:cursor-grabbing touch-none flex-shrink-0 text-gray-300"
+                className="pl-2 py-2.5 cursor-grab active:cursor-grabbing touch-none flex-shrink-0 flex items-center gap-1.5 text-gray-300"
                 {...attributes}
                 {...listeners}
             >
+                <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M7 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm6-8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm0 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0z" />
+                </svg>
                 <div className={cn('w-6 h-6 rounded-full flex items-center justify-center', getMarkerColor(marker.content.iconType || 'location'))}>
                     <span className="text-xs text-white">{icon.emoji}</span>
                 </div>
