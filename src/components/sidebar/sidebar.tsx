@@ -4,6 +4,7 @@ import { useRef, useCallback, useState, useEffect } from 'react'
 import { useMapStore } from '@/store/map-store'
 import { cn } from '@/utils/cn'
 import { toast } from 'sonner'
+import { wgs84ToGcj02 } from '@/lib/coord-transform'
 
 interface SidebarProps {
     onClose?: () => void
@@ -285,7 +286,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
 
                         {selectedMarker && (
                             <a
-                                href={`https://maps.apple.com/?ll=${selectedMarker.coordinates.latitude},${selectedMarker.coordinates.longitude}&q=${encodeURIComponent(selectedMarker.content.title || '标记位置')}`}
+                                href={(() => { const gcj = wgs84ToGcj02(selectedMarker.coordinates.longitude, selectedMarker.coordinates.latitude); return `https://maps.apple.com/?ll=${gcj.latitude},${gcj.longitude}&q=${encodeURIComponent(selectedMarker.content.title || '标记位置')}` })()}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="p-2 rounded-lg text-gray-500 hover:text-green-600 hover:bg-green-50 transition-all duration-200 min-h-[40px] min-w-[40px] flex items-center justify-center"

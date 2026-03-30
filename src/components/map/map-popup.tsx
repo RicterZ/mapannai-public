@@ -6,6 +6,7 @@ import { Popup } from 'react-map-gl/maplibre'
 import { MarkerCoordinates } from '@/types/marker'
 import { useMapStore } from '@/store/map-store'
 import { cn } from '@/utils/cn'
+import { wgs84ToGcj02 } from '@/lib/coord-transform'
 
 interface MapPopupProps {
     coordinates: MarkerCoordinates
@@ -153,7 +154,7 @@ export const MapPopup = ({
                                     {isSidebarShowingThisMarker ? '收起' : '查看'}
                                 </button>
                                 <a
-                                    href={`https://maps.apple.com/?ll=${selectedMarker.coordinates.latitude},${selectedMarker.coordinates.longitude}&q=${encodeURIComponent(selectedMarker.content.title || '标记位置')}`}
+                                    href={(() => { const gcj = wgs84ToGcj02(selectedMarker.coordinates.longitude, selectedMarker.coordinates.latitude); return `https://maps.apple.com/?ll=${gcj.latitude},${gcj.longitude}&q=${encodeURIComponent(selectedMarker.content.title || '标记位置')}` })()}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex-1 px-2 py-1.5 text-xs font-medium rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors flex items-center justify-center gap-1"
