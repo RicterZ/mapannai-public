@@ -1,6 +1,6 @@
 # MapAnNai Plus — 交互式旅行地图编辑器
 
-| [English](README.md)
+[English](README.md) | 中文
 
 基于 Next.js 14 的旅行规划平台。在交互式地图上创建和管理地点标记，按旅行和天组织行程，并通过内置 **MCP 服务器**让 AI 助手（Claude Desktop、Cursor 等）直接操作地图。
 
