@@ -1,15 +1,13 @@
 # MapAnNai Plus — Interactive Travel Map Editor
 
+| [中文](README.zh.md)
+
 A Next.js 14 travel planning platform. Create and manage location markers on an interactive map, organize them into trips and days, and let AI assistants (Claude Desktop, Cursor, etc.) operate the map directly via the built-in **MCP server**.
 
 <img width="1481" height="918" alt="Clipboard_Screenshot_1774582478" src="https://github.com/user-attachments/assets/8cc1543e-1e5c-4f9b-93b8-66b72e73fce9" />
 
 
 <img width="1481" height="918" alt="Clipboard_Screenshot_1774582430" src="https://github.com/user-attachments/assets/5e806e0e-86ff-4758-a85e-dae49e4afc8a" />
-
-
-
-> 中文文档见 [README.zh.md](README.zh.md)
 
 ---
 
